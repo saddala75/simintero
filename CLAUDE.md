@@ -32,7 +32,8 @@
 ### Adverse-action path (CRITICAL)
 - Do NOT create any code path that calls `decision.record` with outcome `deny | partial_deny | modify`
   outside the guarded command handler in `modules/enstellar/case/commands/RecordDecision.ts`.
-- If a task seems to require it, STOP and flag a human reviewer.
+- If a task seems to require it: STOP immediately, write a `REVIEW_REQUIRED.md` at the repo root
+  describing the code path found, and halt with status BLOCKED. Do not implement it.
 
 ### Artifacts over branches
 - Behavior that varies by tenant, LOB, or state MUST be a VKAS artifact + engine call.

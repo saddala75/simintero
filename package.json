@@ -1,6 +1,10 @@
 {
   "name": "simintero",
   "private": true,
+  "packageManager": "pnpm@9",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "turbo run build",
     "verify": "turbo run lint typecheck test",
@@ -11,7 +15,8 @@
   "devDependencies": {
     "turbo": "^2",
     "typescript": "^5.5",
-    "@typescript-eslint/eslint-plugin": "^7",
+    "@typescript-eslint/eslint-plugin": "^8",
+    "@typescript-eslint/parser": "^8",
     "eslint": "^9",
     "vitest": "^2",
     "prettier": "^3"
