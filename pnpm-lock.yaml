@@ -36,11 +36,40 @@ importers:
         specifier: ^7
         version: 7.13.0(typescript@5.9.3)
 
+  platform/libs/authz-client/ts:
+    dependencies:
+      '@sim/tenant-context-ts':
+        specifier: workspace:*
+        version: link:../../tenant-context/ts
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.3)
+
+  platform/libs/outbox/ts:
+    dependencies:
+      pg:
+        specifier: '>=8'
+        version: 8.21.0
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.3)
+
   platform/libs/tenant-context/ts:
     dependencies:
       express:
         specifier: ^4.21.0
         version: 4.22.2
+      pg:
+        specifier: '>=8'
+        version: 8.21.0
     devDependencies:
       '@types/express':
         specifier: ^4.17.21
