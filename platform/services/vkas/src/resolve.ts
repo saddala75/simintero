@@ -56,8 +56,8 @@ export function resolveEffectiveVersion(
 }
 
 function compareSemver(a: string, b: string): number {
-  const [aMajor = 0, aMinor = 0, aPatch = 0] = a.split(".").map(Number);
-  const [bMajor = 0, bMinor = 0, bPatch = 0] = b.split(".").map(Number);
+  const [aMajor = 0, aMinor = 0, aPatch = 0] = a.split(".").map((s) => parseInt(s, 10));
+  const [bMajor = 0, bMinor = 0, bPatch = 0] = b.split(".").map((s) => parseInt(s, 10));
   return (
     (aMajor - bMajor) * 1_000_000 +
     (aMinor - bMinor) * 1_000 +

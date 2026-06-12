@@ -11,29 +11,19 @@ export function createVkasRouter(): Router {
     res.status(501).json({ error: "Not implemented in Phase 0 stub" });
   });
 
-  // GET /v1/artifacts:resolve — resolve effective version
-  router.get("/v1/artifacts:resolve", async (req: Request, res: Response) => {
-    const { canonical_url, as_of, lob, region } = req.query as Record<string, string>;
+  // Express route for Google custom-method pattern GET /v1/artifacts:resolve
+  // The regex ensures ':resolve' is matched literally, not as a param capture.
+  router.get(/^\/v1\/artifacts:resolve$/, async (req: Request, res: Response) => {
+    const { canonical_url } = req.query as Record<string, string>;
     if (!canonical_url) {
       res.status(400).json({ error: "canonical_url is required" });
       return;
     }
 
-    // Phase 0: stub — query resolved from DB in Phase 1
-    const candidates: ArtifactRow[] = [];
-    const result = resolveEffectiveVersion(candidates, {
-      asOf: as_of ? new Date(as_of) : new Date(),
-      ctx: {
-        ...(lob !== undefined && { lob }),
-        ...(region !== undefined && { region }),
-      },
-    });
-
-    if (!result) {
-      res.status(404).json({ error: "No effective version found" });
-      return;
-    }
-    res.json(result);
+    // Phase 0: resolution algorithm implemented; DB integration in Phase 1
+    // Return 501 until the DB layer is wired
+    res.status(501).json({ error: "Not implemented in Phase 0 stub" });
+    return;
   });
 
   // POST /v1/artifacts/:canonicalUrl/:version/submit

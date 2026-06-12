@@ -4,15 +4,15 @@ export type ArtifactStatus =
   | "approved"
   | "active"
   | "retired"
-  | "superseded";
+  | "rolled_back";
 
 const ALLOWED_TRANSITIONS: Record<ArtifactStatus, ArtifactStatus[]> = {
   draft: ["in_review"],
   in_review: ["approved", "draft"],         // can send back to draft for revision
   approved: ["active", "in_review"],        // can send back for re-review
-  active: ["retired", "superseded"],
+  active: ["retired", "rolled_back"],
   retired: [],
-  superseded: [],
+  rolled_back: [],
 };
 
 export class StatusTransitionError extends Error {
@@ -26,7 +26,7 @@ export function transitionStatus(
   from: ArtifactStatus,
   to: ArtifactStatus
 ): ArtifactStatus {
-  const allowed = ALLOWED_TRANSITIONS[from] ?? [];
+  const allowed = ALLOWED_TRANSITIONS[from];
   if (!allowed.includes(to)) {
     throw new StatusTransitionError(from, to);
   }

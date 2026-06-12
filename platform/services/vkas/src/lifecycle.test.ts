@@ -18,8 +18,20 @@ describe("transitionStatus", () => {
     expect(transitionStatus("active", "retired")).toBe("retired");
   });
 
-  it("allows active → superseded", () => {
-    expect(transitionStatus("active", "superseded")).toBe("superseded");
+  it("allows active → rolled_back", () => {
+    expect(transitionStatus("active", "rolled_back")).toBe("rolled_back");
+  });
+
+  it("throws on invalid transition (active → superseded)", () => {
+    expect(() => transitionStatus("active", "superseded" as never)).toThrow(StatusTransitionError);
+  });
+
+  it("allows in_review → draft (send back for revision)", () => {
+    expect(transitionStatus("in_review", "draft")).toBe("draft");
+  });
+
+  it("allows approved → in_review (send back for re-review)", () => {
+    expect(transitionStatus("approved", "in_review")).toBe("in_review");
   });
 
   it("throws on invalid transition (draft → active)", () => {

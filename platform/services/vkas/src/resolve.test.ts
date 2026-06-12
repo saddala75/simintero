@@ -25,7 +25,7 @@ const artifacts = [
     artifact_type: "coverage_rule",
     status: "active",
     effective_from: new Date("2024-01-01"),
-    effective_to: new Date("2024-12-31"),
+    effective_to: new Date("2025-01-01"),  // exclusive — v1.0.0 valid through Dec 31, 2024 inclusive
     applicability: { lob: ["MA"], region: ["TX"] },
     content: { rule: "v1" },
     content_hash: "xyz",
@@ -75,5 +75,21 @@ describe("resolveEffectiveVersion", () => {
       ctx: { lob: "MA", region: "CA" },
     });
     expect(result).toBeNull();
+  });
+
+  it("returns v1.0.0 on its last effective day (Dec 31, 2024)", () => {
+    const result = resolveEffectiveVersion(artifacts, {
+      asOf: new Date("2024-12-31"),
+      ctx: { lob: "MA", region: "TX" },
+    });
+    expect(result?.version).toBe("1.0.0");
+  });
+
+  it("transitions to v2.0.0 on the boundary date (Jan 1, 2025)", () => {
+    const result = resolveEffectiveVersion(artifacts, {
+      asOf: new Date("2025-01-01"),
+      ctx: { lob: "MA", region: "TX" },
+    });
+    expect(result?.version).toBe("2.0.0");
   });
 });
