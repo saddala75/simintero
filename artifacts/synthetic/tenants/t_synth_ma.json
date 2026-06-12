@@ -1,0 +1,31 @@
+{
+  "tenant_id": "t_synth_ma",
+  "display": "Synth Health MA",
+  "tier": "pooled",
+  "cell_id": "cell-pooled-us1",
+  "env_kind": "sandbox",
+  "env_group": "synth-health",
+  "compliance_baseline": "MA",
+  "baa_status": "signed",
+  "dpa_status": "signed",
+  "support_tier": "standard",
+  "retention_policy": { "years": 7 },
+  "entitlements": {
+    "module.ENS": { "enabled": true },
+    "module.DIG": { "enabled": true },
+    "module.REV": { "enabled": false },
+    "module.QUA": { "enabled": false },
+    "ai.inference": { "enabled": false },
+    "cell.dedicated": { "enabled": false }
+  },
+  "seed_roles": [
+    {
+      "user_ref": "synth-md@synth-health.example",
+      "roles": ["medical_director"]
+    },
+    {
+      "user_ref": "synth-nurse@synth-health.example",
+      "roles": ["um_nurse_reviewer"]
+    }
+  ]
+}

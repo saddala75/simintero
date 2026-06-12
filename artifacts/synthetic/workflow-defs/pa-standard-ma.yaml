@@ -1,0 +1,105 @@
+# VKAS Artifact — workflow_def
+# Canonical URL: https://artifacts.simintero.io/shared/workflow_def/pa-standard-ma
+# Version: 1.0.0
+# Effective: 2026-01-01 onward
+# Applicability: lob=MA
+
+artifact_type: workflow_def
+canonical_url: https://artifacts.simintero.io/shared/workflow_def/pa-standard-ma
+version: "1.0.0"
+tenant_id: shared
+status: active
+effective_from: "2026-01-01"
+applicability:
+  lob: [MA]
+
+workflow:
+  name: PA Standard — Medicare Advantage
+  description: Standard prior authorization workflow for MA LOB
+
+  states:
+    - id: intake
+      label: Intake Received
+      terminal: false
+    - id: completeness_check
+      label: Completeness Check
+      terminal: false
+    - id: rfi_pending
+      label: RFI Pending
+      terminal: false
+    - id: clinical_review
+      label: Clinical Review
+      terminal: false
+    - id: determined
+      label: Determined
+      terminal: true
+    - id: withdrawn
+      label: Withdrawn
+      terminal: true
+    - id: voided
+      label: Voided
+      terminal: true
+
+  initial_state: intake
+
+  transitions:
+    - from: intake
+      to: completeness_check
+      trigger: case.created
+    - from: completeness_check
+      to: rfi_pending
+      trigger: completeness.gap_found
+    - from: completeness_check
+      to: clinical_review
+      trigger: completeness.complete
+    - from: rfi_pending
+      to: clinical_review
+      trigger: rfi.satisfied
+    - from: rfi_pending
+      to: determined
+      trigger: rfi.deadline_expired
+      activity: auto_determine_rfi_expired
+    - from: clinical_review
+      to: determined
+      trigger: decision.recorded
+    - from: [intake, completeness_check, rfi_pending, clinical_review]
+      to: withdrawn
+      trigger: member.withdrawal
+    - from: [intake, completeness_check]
+      to: voided
+      trigger: case.duplicate_detected
+
+  routing_rules:
+    - name: auto_completeness
+      state: completeness_check
+      action: execute_activity
+      activity: check_completeness
+      guard: "entitlement.module.DIG.enabled == true"
+    - name: route_to_clinical
+      state: clinical_review
+      action: assign_queue
+      queue: um_clinical_review
+      priority_expression: "case.urgency == 'expedited' ? 1 : 5"
+
+  activities:
+    check_completeness:
+      description: Evaluate evidence completeness against policy criteria
+      timeout_minutes: 5
+      retry_attempts: 3
+    auto_determine_rfi_expired:
+      description: Auto-determine denial when RFI deadline expires without response
+      timeout_minutes: 2
+      retry_attempts: 1
+      # CRITICAL: This activity MUST NOT emit DeterminationRecorded{outcome: deny}
+      # It emits DeterminationRecorded{outcome: not_met, reason: rfi_expired}
+      # Human medical director must confirm before deny is recorded externally
+      adverse_action_guard: required
+
+  sla_refs:
+    standard:
+      clock_profile: https://artifacts.simintero.io/shared/clock_profile/ma-cms-0057
+      version: "1.0.0"
+    expedited:
+      clock_profile: https://artifacts.simintero.io/shared/clock_profile/ma-cms-0057
+      version: "1.0.0"
+      urgency_multiplier: 0.333

@@ -1,0 +1,27 @@
+{
+  "tenant_id": "t_synth_medicaid",
+  "display": "Synth State Medicaid",
+  "tier": "pooled",
+  "cell_id": "cell-pooled-us1",
+  "env_kind": "sandbox",
+  "env_group": "synth-medicaid",
+  "compliance_baseline": "MEDICAID",
+  "baa_status": "signed",
+  "dpa_status": "signed",
+  "support_tier": "standard",
+  "retention_policy": { "years": 10 },
+  "entitlements": {
+    "module.ENS": { "enabled": true },
+    "module.DIG": { "enabled": true },
+    "module.REV": { "enabled": false },
+    "module.QUA": { "enabled": false },
+    "ai.inference": { "enabled": false },
+    "cell.dedicated": { "enabled": false }
+  },
+  "seed_roles": [
+    {
+      "user_ref": "synth-md@synth-medicaid.example",
+      "roles": ["medical_director"]
+    }
+  ]
+}

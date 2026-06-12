@@ -1,0 +1,60 @@
+# VKAS Artifact — clock_profile
+# Canonical URL: https://artifacts.simintero.io/shared/clock_profile/ma-cms-0057
+# Version: 1.0.0
+# CMS Medicare Advantage regulatory clock (42 CFR § 422.568, ODAG CY2025)
+# Effective: 2026-01-01
+
+artifact_type: clock_profile
+canonical_url: https://artifacts.simintero.io/shared/clock_profile/ma-cms-0057
+version: "1.0.0"
+tenant_id: shared
+status: active
+effective_from: "2026-01-01"
+applicability:
+  lob: [MA]
+
+profile:
+  name: CMS MA ODAG Clock — CY2025
+  regulation: "42 CFR § 422.568"
+  source: "CMS ODAG CY2025"
+
+  clocks:
+    - id: standard_determination
+      label: Standard Pre-Service Determination
+      trigger_event: case.created
+      deadline_business_days: 14
+      calendar: business_days
+      warning_threshold_pct: 0.75
+      breach_event: sim.clock.ClockBreached
+      warning_event: sim.clock.ClockBreachWarning
+      notes: "14 calendar days under MA ODAG; modeled as business days for operational buffer"
+
+    - id: expedited_determination
+      label: Expedited Pre-Service Determination
+      trigger_event: case.created
+      urgency_filter: expedited
+      deadline_hours: 72
+      calendar: calendar_hours
+      warning_threshold_pct: 0.80
+      breach_event: sim.clock.ClockBreached
+      warning_event: sim.clock.ClockBreachWarning
+      notes: "72-hour clock for expedited requests (42 CFR § 422.568(b))"
+
+    - id: rfi_hold
+      label: RFI Hold Period
+      trigger_event: rfi.issued
+      deadline_business_days: 14
+      calendar: business_days
+      suspends_clocks: [standard_determination, expedited_determination]
+      breach_event: sim.clock.ClockBreached
+      notes: "Clock suspended during RFI period; resumes on doc receipt or RFI expiry"
+
+    - id: appeal_standard
+      label: Standard Appeal (Level 1)
+      trigger_event: appeal.filed
+      deadline_calendar_days: 60
+      calendar: calendar_days
+      warning_threshold_pct: 0.75
+      breach_event: sim.clock.ClockBreached
+      warning_event: sim.clock.ClockBreachWarning
+      notes: "60-day clock for organization determination appeals"
