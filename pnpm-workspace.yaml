@@ -1,0 +1,7 @@
+packages:
+  - "platform/libs/*"
+  - "platform/services/*"
+  - "modules/*"
+  - "apps/web/*"
+  - "integration/*"
+  - "contracts"

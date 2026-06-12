@@ -1,0 +1,19 @@
+{
+  "name": "simintero",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "verify": "turbo run lint typecheck test",
+    "rls-harness": "pnpm --filter @sim/rls-harness run check",
+    "contracts:check": "pnpm --filter @sim/contracts run check",
+    "contracts:generate": "pnpm --filter @sim/contracts run generate"
+  },
+  "devDependencies": {
+    "turbo": "^2",
+    "typescript": "^5.5",
+    "@typescript-eslint/eslint-plugin": "^7",
+    "eslint": "^9",
+    "vitest": "^2",
+    "prettier": "^3"
+  }
+}
