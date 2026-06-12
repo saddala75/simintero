@@ -1,0 +1,11 @@
+{
+  "name": "@sim/db-migrations",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "migrate": "flyway -configFiles=flyway.conf migrate",
+    "info": "flyway -configFiles=flyway.conf info",
+    "validate": "flyway -configFiles=flyway.conf validate",
+    "repair": "flyway -configFiles=flyway.conf repair"
+  }
+}

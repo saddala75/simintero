@@ -1,0 +1,9 @@
+{
+  "tables": [
+    { "schema": "shared", "table": "outbox", "tenant_column": "tenant_id" },
+    { "schema": "fabric", "table": "resource", "tenant_column": "tenant_id" },
+    { "schema": "vkas",   "table": "artifact", "tenant_column": "tenant_id" },
+    { "schema": "ens",    "table": "case", "tenant_column": "tenant_id" },
+    { "schema": "ens",    "table": "case_event", "tenant_column": "tenant_id" }
+  ]
+}

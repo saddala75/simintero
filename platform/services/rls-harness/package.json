@@ -1,0 +1,17 @@
+{
+  "name": "@sim/rls-harness",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "check": "tsx src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "tsx": "^4",
+    "@types/pg": "^8",
+    "typescript": "^5.5"
+  }
+}
