@@ -3,7 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "generate": "npx openapi-typescript openapi/c1-digicore-runtime.yaml -o ../platform/libs/generated/c1-digicore-runtime/types.ts && npx openapi-typescript openapi/c2-revital-advisory.yaml -o ../platform/libs/generated/c2-revital-advisory/types.ts && npx openapi-typescript openapi/platform-vkas.yaml -o ../platform/libs/generated/platform-vkas/types.ts && npx openapi-typescript openapi/platform-control-plane.yaml -o ../platform/libs/generated/platform-control-plane/types.ts",
+    "generate": "node -e \"const{mkdirSync}=require('fs'); ['../platform/libs/generated/c1-digicore-runtime','../platform/libs/generated/c2-revital-advisory','../platform/libs/generated/platform-vkas','../platform/libs/generated/platform-control-plane'].forEach(d=>mkdirSync(d,{recursive:true}))\" && npx openapi-typescript openapi/c1-digicore-runtime.yaml -o ../platform/libs/generated/c1-digicore-runtime/types.ts && npx openapi-typescript openapi/c2-revital-advisory.yaml -o ../platform/libs/generated/c2-revital-advisory/types.ts && npx openapi-typescript openapi/platform-vkas.yaml -o ../platform/libs/generated/platform-vkas/types.ts && npx openapi-typescript openapi/platform-control-plane.yaml -o ../platform/libs/generated/platform-control-plane/types.ts",
     "check": "node scripts/check-breaking-changes.js"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7"
   }
 }

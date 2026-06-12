@@ -27,7 +27,9 @@ paths:
                   required: [tenant_id, lob, as_of]
                   properties:
                     tenant_id: { type: string }
-                    lob:       { type: string }
+                    lob:
+                      type: string
+                      enum: [MA, MEDICAID, COMMERCIAL, PUBLIC]
                     product:   { type: string }
                     region:    { type: string }
                     as_of:     { type: string, format: date }
@@ -109,6 +111,9 @@ paths:
   /v1/runtime/evidence-requirements:
     get:
       operationId: getEvidenceRequirements
+      x-sim-authz:
+        action: runtime.read
+        resource_type: coverage_rule
       description: Returns extraction targets for Revital given a case context
       parameters:
         - in: query
@@ -142,3 +147,23 @@ paths:
                         description:    { type: string }
                         resource_types: { type: array, items: { type: string } }
                         value_sets:     { type: array, items: { type: string, format: uri } }
+        "400":
+          description: Invalid query parameters
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required: [code, detail]
+                properties:
+                  code: { type: string }
+                  detail: { type: string }
+        "404":
+          description: No applicable rules found for the given context
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required: [code, detail]
+                properties:
+                  code: { type: string }
+                  detail: { type: string }

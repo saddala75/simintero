@@ -2,59 +2,223 @@ asyncapi: "3.0.0"
 info:
   title: Simintero Event Catalog (C-3)
   version: "1.0.0"
+  description: All Kafka topics and event definitions for the Simintero platform.
+
+defaultContentType: application/json
 
 channels:
-  sim.case.lifecycle:
-    description: Case state machine events. Keyed by case_id (strict ordering).
+  caseLifecycle:
+    address: sim.case.lifecycle
+    description: Case state machine events. Keyed by case_id (strict partition ordering).
+    bindings:
+      kafka:
+        partitions: 12
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 604800000
     messages:
       CaseCreated:
+        name: CaseCreated
+        title: Case Created
+        summary: Emitted when a new PA case is created
         payload:
           $ref: "../schemas/event-envelope.schema.json"
-          examples:
-            - event_id: evt_01JXYZ
-              schema_ref: sim.case.created/v1
-              payload:
-                case_id: case_01JABC
-                channel: PAS
-                service_category: ortho
-                urgency: standard
       CaseStateChanged:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: CaseStateChanged
+        title: Case State Changed
+        summary: Emitted on every state machine transition
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
       DeterminationRecorded:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: DeterminationRecorded
+        title: Determination Recorded
+        summary: Emitted when a final determination is made on a case
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
 
-  sim.evidence:
-    description: Evidence added to a case (documents, FHIR resources, QRs)
+  evidence:
+    address: sim.evidence
+    description: Evidence added to a case (documents, FHIR resources, questionnaire responses).
+    bindings:
+      kafka:
+        partitions: 12
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 604800000
     messages:
       EvidenceAdded:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: EvidenceAdded
+        title: Evidence Added
+        summary: Emitted when evidence is attached to a case
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
 
-  sim.artifact:
-    description: VKAS publishes/rollbacks — consumed by all modules for cache invalidation
+  artifact:
+    address: sim.artifact
+    description: VKAS artifact lifecycle events — consumed by all modules for cache invalidation.
+    bindings:
+      kafka:
+        partitions: 6
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [compact, delete]
+          retention.ms: -1
     messages:
       ArtifactActivated:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: ArtifactActivated
+        title: Artifact Activated
+        summary: Emitted when a VKAS artifact transitions to active status
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
       ArtifactRolledBack:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: ArtifactRolledBack
+        title: Artifact Rolled Back
+        summary: Emitted when an active artifact is rolled back to a prior version
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
 
-  sim.ai.interaction:
-    description: Every Model Gateway call result (for audit + FinOps)
+  aiInteraction:
+    address: sim.ai.interaction
+    description: Every Model Gateway inference result for audit and FinOps attribution.
+    bindings:
+      kafka:
+        partitions: 6
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 2592000000
     messages:
       AiInteractionRecorded:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: AiInteractionRecorded
+        title: AI Interaction Recorded
+        summary: Emitted after each Model Gateway call with cost and trace metadata
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
 
-  sim.clock:
-    description: Regulatory clock warnings and breaches
+  clock:
+    address: sim.clock
+    description: Regulatory clock warnings and breach events.
+    bindings:
+      kafka:
+        partitions: 6
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 604800000
     messages:
       ClockBreachWarning:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: ClockBreachWarning
+        title: Clock Breach Warning
+        summary: Emitted when a regulatory clock has less than warning_hours remaining
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
       ClockBreached:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: ClockBreached
+        title: Clock Breached
+        summary: Emitted when a regulatory deadline is missed
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
 
-  sim.tenant.admin:
-    description: Tenant lifecycle events from control plane
+  tenantAdmin:
+    address: sim.tenant.admin
+    description: Tenant lifecycle events from the control plane.
+    bindings:
+      kafka:
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: -1
     messages:
       TenantProvisioned:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: TenantProvisioned
+        title: Tenant Provisioned
+        summary: Emitted when a tenant is fully provisioned and set to active
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
       TenantTierChanged:
-        payload: { $ref: "../schemas/event-envelope.schema.json" }
+        name: TenantTierChanged
+        title: Tenant Tier Changed
+        summary: Emitted when a tenant migrates between deployment tiers
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
+
+operations:
+  publishCaseCreated:
+    action: send
+    channel:
+      $ref: "#/channels/caseLifecycle"
+    messages:
+      - $ref: "#/channels/caseLifecycle/messages/CaseCreated"
+
+  publishCaseStateChanged:
+    action: send
+    channel:
+      $ref: "#/channels/caseLifecycle"
+    messages:
+      - $ref: "#/channels/caseLifecycle/messages/CaseStateChanged"
+
+  publishDeterminationRecorded:
+    action: send
+    channel:
+      $ref: "#/channels/caseLifecycle"
+    messages:
+      - $ref: "#/channels/caseLifecycle/messages/DeterminationRecorded"
+
+  publishEvidenceAdded:
+    action: send
+    channel:
+      $ref: "#/channels/evidence"
+    messages:
+      - $ref: "#/channels/evidence/messages/EvidenceAdded"
+
+  publishArtifactActivated:
+    action: send
+    channel:
+      $ref: "#/channels/artifact"
+    messages:
+      - $ref: "#/channels/artifact/messages/ArtifactActivated"
+
+  publishArtifactRolledBack:
+    action: send
+    channel:
+      $ref: "#/channels/artifact"
+    messages:
+      - $ref: "#/channels/artifact/messages/ArtifactRolledBack"
+
+  publishAiInteractionRecorded:
+    action: send
+    channel:
+      $ref: "#/channels/aiInteraction"
+    messages:
+      - $ref: "#/channels/aiInteraction/messages/AiInteractionRecorded"
+
+  publishClockBreachWarning:
+    action: send
+    channel:
+      $ref: "#/channels/clock"
+    messages:
+      - $ref: "#/channels/clock/messages/ClockBreachWarning"
+
+  publishClockBreached:
+    action: send
+    channel:
+      $ref: "#/channels/clock"
+    messages:
+      - $ref: "#/channels/clock/messages/ClockBreached"
+
+  publishTenantProvisioned:
+    action: send
+    channel:
+      $ref: "#/channels/tenantAdmin"
+    messages:
+      - $ref: "#/channels/tenantAdmin/messages/TenantProvisioned"
+
+  publishTenantTierChanged:
+    action: send
+    channel:
+      $ref: "#/channels/tenantAdmin"
+    messages:
+      - $ref: "#/channels/tenantAdmin/messages/TenantTierChanged"

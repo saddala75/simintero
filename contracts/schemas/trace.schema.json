@@ -71,7 +71,7 @@
         "type": "object",
         "required": ["type","id","at"],
         "properties": {
-          "type":           { "type": "string", "enum": ["service","model","human"] },
+          "type":           { "type": "string", "enum": ["service","model_agent","human"] },
           "id":             { "type": "string" },
           "action":         { "type": "string" },
           "prompt":         { "type": "string" },

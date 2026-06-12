@@ -84,60 +84,8 @@ paths:
                     enum: [queued, processing, complete]
                     description: Current status of the advisory
                   advisory:
-                    description: |
-                      Full advisory output, present only when status=complete and the request
-                      was synchronous. Structure follows advisory-output.schema.json.
-                    oneOf:
-                      - type: "null"
-                      - type: object
-                        required: [advisory_id, case_id, tenant_id, status, assertions, generated_at]
-                        properties:
-                          advisory_id:    { type: string }
-                          case_id:        { type: string }
-                          tenant_id:      { type: string }
-                          status:         { type: string, enum: [complete, partial, abstained] }
-                          generated_at:   { type: string, format: date-time }
-                          trace_ref:      { type: ["string","null"] }
-                          model_id:       { type: ["string","null"] }
-                          prompt_version: { type: ["string","null"] }
-                          assertions:
-                            type: array
-                            items:
-                              type: object
-                              required: [assertion_id, criterion_ref, satisfied, confidence, citations, summary]
-                              properties:
-                                assertion_id:   { type: string }
-                                criterion_ref:  { type: string }
-                                satisfied:      { type: boolean }
-                                confidence:     { type: number, minimum: 0, maximum: 1 }
-                                citations:
-                                  type: array
-                                  minItems: 1
-                                  items:
-                                    type: object
-                                    required: [kind, ref]
-                                    properties:
-                                      kind:         { type: string, enum: [document_span, fhir_resource] }
-                                      ref:          { type: string }
-                                      page:         { type: ["integer","null"] }
-                                      region:       { type: ["array","null"], items: { type: number }, minItems: 4, maxItems: 4 }
-                                      excerpt_hash: { type: ["string","null"] }
-                                      fhir_path:    { type: ["string","null"] }
-                                summary:            { type: string }
-                                not_evaluated_reason: { type: ["string","null"] }
-                          gaps:
-                            type: array
-                            items:
-                              type: object
-                              required: [requirement_id, description, suggested_action]
-                              properties:
-                                requirement_id:   { type: string }
-                                description:      { type: string }
-                                suggested_action: { type: string }
-                                severity:         { type: ["string","null"], enum: [blocking, informational, null] }
-                          overall_recommendation:
-                            type: ["string","null"]
-                            enum: [meets_all, partial, not_met, indeterminate, null]
+                    description: Present when status is complete (synchronous mode only)
+                    $ref: "../../schemas/advisory-output.schema.json"
                   trace_ref:
                     type: string
                     pattern: "^trc_[0-9A-Z]{26}$"
