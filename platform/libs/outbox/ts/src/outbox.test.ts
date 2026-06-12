@@ -89,7 +89,7 @@ describe("Outbox", () => {
   });
 
   it("throws on unknown schema_ref prefix", async () => {
-    const db = { transaction: (fn: any) => fn({ query: vi.fn() }) };
+    const db = { transaction: vi.fn() };
     const outbox = createOutbox(db as any);
 
     await expect(outbox.append({
@@ -103,5 +103,6 @@ describe("Outbox", () => {
       trace_ref: null,
       payload: {},
     })).rejects.toThrow("Unknown schema_ref prefix");
+    expect(db.transaction).not.toHaveBeenCalled();
   });
 });

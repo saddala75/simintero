@@ -1,3 +1,7 @@
+import type { DbClient, TenantDb } from "./types.js";
+
+export type { DbClient, TenantDb } from "./types.js";
+
 export interface EventActor {
   type: "human" | "service" | "model_agent";
   id: string;
@@ -15,19 +19,11 @@ export interface EventEnvelope {
   payload: Record<string, unknown>;
 }
 
-interface DbClient {
-  query(sql: string, params?: unknown[]): Promise<unknown>;
-}
-
-interface TenantDb {
-  transaction<T>(fn: (client: DbClient) => Promise<T>): Promise<T>;
-}
-
 export function createOutbox(db: TenantDb) {
   return {
     async append(envelope: EventEnvelope): Promise<void> {
       const topic = topicFor(envelope.schema_ref);
-      await db.transaction(async (client) => {
+      await db.transaction(async (client: DbClient) => {
         await client.query(
           `INSERT INTO shared.outbox (event_id, topic, key, envelope, tenant_id)
            VALUES ($1, $2, $3, $4, $5)
