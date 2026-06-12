@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { withTenantContext } from "@sim/tenant-context-ts";
 import { authorize } from "./index.js";
 
@@ -62,9 +62,12 @@ describe("authorize", () => {
       await authorize({ action: "case.read", resource: {} });
     });
 
-    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(mockFetch.mock.calls[0]![1]!.body as string);
     expect(body.input.principal.sim.tenant_id).toBe("t_test");
     expect(body.input.principal.sim.roles).toContain("medical_director");
     expect(body.input.principal.sim.principal_type).toBe("human");
   });
 });
+
+afterAll(() => vi.unstubAllGlobals());

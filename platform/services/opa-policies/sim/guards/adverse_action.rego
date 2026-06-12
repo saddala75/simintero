@@ -6,7 +6,9 @@ adverse_outcomes := {"deny", "partial_deny", "modify"}
 
 sign_off_roles := {"medical_director"}
 
-# Non-adverse outcomes are not guarded by this policy
+# Rule 1: Non-adverse outcomes (e.g. approve, pend) are not guarded here.
+# Service and model_agent principals may record them; human oversight is
+# enforced at the workflow layer, not this guard.
 allow if {
   input.action == "decision.record"
   not input.resource.outcome in adverse_outcomes

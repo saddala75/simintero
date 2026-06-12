@@ -10,8 +10,12 @@ interface OpaResult {
 }
 
 const OPA_URL = process.env["OPA_URL"] ?? "http://localhost:8181";
+const OPA_TIMEOUT_MS = Number(process.env["OPA_TIMEOUT_MS"] ?? "2000");
 
-export async function authorize(input: OpaInput): Promise<void> {
+export async function authorize(
+  input: OpaInput,
+  policy = "sim/guards/adverse_action/allow"
+): Promise<void> {
   const tenantCtx = ctx();
   const payload = {
     input: {
@@ -26,10 +30,11 @@ export async function authorize(input: OpaInput): Promise<void> {
     },
   };
 
-  const resp = await fetch(`${OPA_URL}/v1/data/sim/guards/adverse_action/allow`, {
+  const resp = await fetch(`${OPA_URL}/v1/data/${policy}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(OPA_TIMEOUT_MS),
   });
 
   if (!resp.ok) {
