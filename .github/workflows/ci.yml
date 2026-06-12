@@ -1,0 +1,53 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: simintero_test
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 5
+      redpanda:
+        image: redpandadata/redpanda:latest
+        ports: ["9092:9092"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - run: pnpm rls-harness
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost/simintero_test
+      - run: pnpm contracts:check
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency scan
+        uses: anchore/scan-action@v4
+        with: { path: ".", fail-build: true, severity-cutoff: high }
+      - name: Secret scan
+        uses: trufflesecurity/trufflehog@main
+        with: { path: ./,  base: ${{ github.event.pull_request.base.sha }}, head: HEAD }
+      - name: SAST
+        uses: github/codeql-action/analyze@v3
+        with: { languages: javascript, java }
+
+  import-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @sim/import-linter run check

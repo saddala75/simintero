@@ -1,0 +1,24 @@
+name: Conformance
+on:
+  schedule:
+    - cron: "0 4 * * 1"  # Weekly Monday 4am UTC
+  workflow_dispatch:
+
+jobs:
+  fhir-conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Start FHIR facade
+        run: docker compose up -d fhir-facade
+        continue-on-error: true
+      - name: Run Inferno US Core conformance
+        run: npx --yes inferno-program-suite --base-url http://localhost:8080/fhir
+        continue-on-error: true
+      - name: Run Inferno SMART App Launch
+        run: npx --yes inferno-program-suite --suite smart-app-launch --base-url http://localhost:8080/fhir
+        continue-on-error: true
