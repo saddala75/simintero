@@ -1,0 +1,60 @@
+asyncapi: "3.0.0"
+info:
+  title: Simintero Event Catalog (C-3)
+  version: "1.0.0"
+
+channels:
+  sim.case.lifecycle:
+    description: Case state machine events. Keyed by case_id (strict ordering).
+    messages:
+      CaseCreated:
+        payload:
+          $ref: "../schemas/event-envelope.schema.json"
+          examples:
+            - event_id: evt_01JXYZ
+              schema_ref: sim.case.created/v1
+              payload:
+                case_id: case_01JABC
+                channel: PAS
+                service_category: ortho
+                urgency: standard
+      CaseStateChanged:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+      DeterminationRecorded:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+
+  sim.evidence:
+    description: Evidence added to a case (documents, FHIR resources, QRs)
+    messages:
+      EvidenceAdded:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+
+  sim.artifact:
+    description: VKAS publishes/rollbacks — consumed by all modules for cache invalidation
+    messages:
+      ArtifactActivated:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+      ArtifactRolledBack:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+
+  sim.ai.interaction:
+    description: Every Model Gateway call result (for audit + FinOps)
+    messages:
+      AiInteractionRecorded:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+
+  sim.clock:
+    description: Regulatory clock warnings and breaches
+    messages:
+      ClockBreachWarning:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+      ClockBreached:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+
+  sim.tenant.admin:
+    description: Tenant lifecycle events from control plane
+    messages:
+      TenantProvisioned:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }
+      TenantTierChanged:
+        payload: { $ref: "../schemas/event-envelope.schema.json" }

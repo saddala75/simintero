@@ -1,0 +1,475 @@
+openapi: "3.1.0"
+info:
+  title: VKAS Platform API
+  version: "1.0.0"
+  description: |
+    Versioned Knowledge Artifact Store — manages the full lifecycle of all
+    normative artifacts (coverage criteria, clock profiles, workflow definitions,
+    value sets, questionnaires, supplemental guidelines).
+    Generated clients are in platform/libs/generated/platform-vkas/.
+
+components:
+  schemas:
+    ArtifactRecord:
+      type: object
+      required: [canonical_url, version, artifact_type, status, created_at]
+      additionalProperties: false
+      properties:
+        canonical_url:
+          type: string
+          format: uri
+          description: Stable canonical URI for this artifact, e.g. https://artifacts.simintero.io/criteria/ortho-knee-ma
+        version:
+          type: string
+          description: Semantic version string, e.g. 2.1.0
+        artifact_type:
+          type: string
+          enum: [coverage_criteria, clock_profile, workflow_definition, value_set, questionnaire, supplemental_guideline]
+        status:
+          type: string
+          enum: [draft, in_review, approved, active, retired, rolled_back]
+        content:
+          type: object
+          description: Artifact payload; structure varies by artifact_type
+        applicability:
+          $ref: "#/components/schemas/Applicability"
+        metadata:
+          $ref: "#/components/schemas/ArtifactMetadata"
+        gates:
+          type: array
+          items:
+            $ref: "#/components/schemas/GateDecision"
+        created_at:
+          type: string
+          format: date-time
+        activated_at:
+          type: ["string","null"]
+          format: date-time
+        retired_at:
+          type: ["string","null"]
+          format: date-time
+
+    Applicability:
+      type: object
+      additionalProperties: false
+      properties:
+        lob:
+          type: array
+          items: { type: string, enum: [MA, MEDICAID, COMMERCIAL, PUBLIC] }
+          description: Lines of business this artifact applies to. Empty means all.
+        regions:
+          type: array
+          items: { type: string }
+          description: Jurisdiction codes (ISO 3166-2). Empty means all.
+        programs:
+          type: array
+          items: { type: string }
+          description: Program identifiers. Empty means all.
+        products:
+          type: array
+          items: { type: string }
+          description: Product identifiers. Empty means all.
+        effective_date:
+          type: ["string","null"]
+          format: date
+          description: Date from which this version is effective
+        expiry_date:
+          type: ["string","null"]
+          format: date
+          description: Date after which this version is no longer effective
+
+    ArtifactMetadata:
+      type: object
+      additionalProperties: true
+      properties:
+        display_name:     { type: ["string","null"] }
+        description:      { type: ["string","null"] }
+        owner_team:       { type: ["string","null"] }
+        regulatory_refs:  { type: array, items: { type: string } }
+        tags:             { type: array, items: { type: string } }
+        supersedes:
+          type: ["string","null"]
+          description: canonical_url of the artifact this version supersedes (if any)
+
+    GateDecision:
+      type: object
+      required: [gate, decided, decided_by, decided_at]
+      additionalProperties: false
+      properties:
+        gate:
+          type: string
+          enum: [clinical, compliance, eval, impact]
+        decided:
+          type: string
+          enum: [approved, rejected]
+        rationale:
+          type: ["string","null"]
+        attestation:
+          type: ["string","null"]
+          description: Digital attestation or signature reference
+        decided_by:
+          type: string
+          description: Actor id of the approver
+        decided_at:
+          type: string
+          format: date-time
+
+    ProblemDetail:
+      type: object
+      required: [code, detail]
+      properties:
+        code:   { type: string }
+        detail: { type: string }
+        status: { type: integer }
+
+paths:
+  /v1/artifacts:
+    post:
+      operationId: createArtifact
+      summary: Create a new artifact in draft status
+      x-sim-authz:
+        action: artifact.create
+        resource_type: artifact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [canonical_url, version, artifact_type, content]
+              additionalProperties: false
+              properties:
+                canonical_url:
+                  type: string
+                  format: uri
+                version:
+                  type: string
+                artifact_type:
+                  type: string
+                  enum: [coverage_criteria, clock_profile, workflow_definition, value_set, questionnaire, supplemental_guideline]
+                content:
+                  type: object
+                  description: Artifact payload
+                applicability:
+                  $ref: "#/components/schemas/Applicability"
+                metadata:
+                  $ref: "#/components/schemas/ArtifactMetadata"
+      responses:
+        "201":
+          description: Artifact created in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactRecord"
+        "409":
+          description: An artifact with this canonical_url + version already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/artifacts/{canonical_url}/{version}/submit:
+    post:
+      operationId: submitArtifact
+      summary: Submit a draft artifact for review
+      x-sim-authz:
+        action: artifact.submit
+        resource_type: artifact
+      parameters:
+        - in: path
+          name: canonical_url
+          required: true
+          schema: { type: string }
+          description: URL-encoded canonical_url of the artifact
+        - in: path
+          name: version
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Artifact transitioned to in_review status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactRecord"
+        "404":
+          description: Artifact not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Artifact is not in draft status
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/artifacts/{canonical_url}/{version}/approve:
+    post:
+      operationId: approveArtifact
+      summary: Record a gate approval or rejection decision
+      x-sim-authz:
+        action: artifact.approve
+        resource_type: artifact
+      parameters:
+        - in: path
+          name: canonical_url
+          required: true
+          schema: { type: string }
+        - in: path
+          name: version
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gate, decided, rationale]
+              additionalProperties: false
+              properties:
+                gate:
+                  type: string
+                  enum: [clinical, compliance, eval, impact]
+                decided:
+                  type: string
+                  enum: [approved, rejected]
+                rationale:
+                  type: string
+                  description: Required justification for the gate decision
+                attestation:
+                  type: ["string","null"]
+                  description: Optional digital attestation or signature reference
+      responses:
+        "200":
+          description: Gate decision recorded. Status transitions to approved when all required gates pass.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactRecord"
+        "404":
+          description: Artifact not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Artifact is not in in_review status or gate already decided
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/artifacts/{canonical_url}/{version}/activate:
+    post:
+      operationId: activateArtifact
+      summary: Activate an approved artifact (makes it effective for resolution)
+      x-sim-authz:
+        action: artifact.activate
+        resource_type: artifact
+      parameters:
+        - in: path
+          name: canonical_url
+          required: true
+          schema: { type: string }
+        - in: path
+          name: version
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Artifact activated. Publishes ArtifactActivated event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactRecord"
+        "404":
+          description: Artifact not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Artifact is not in approved status
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/artifacts/{canonical_url}/{version}/retire:
+    post:
+      operationId: retireArtifact
+      summary: Retire an active artifact
+      x-sim-authz:
+        action: artifact.retire
+        resource_type: artifact
+      parameters:
+        - in: path
+          name: canonical_url
+          required: true
+          schema: { type: string }
+        - in: path
+          name: version
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: { type: ["string","null"], description: "Reason for retirement" }
+      responses:
+        "200":
+          description: Artifact retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactRecord"
+        "404":
+          description: Artifact not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Artifact is not in active status
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/artifacts/{canonical_url}/{version}/rollback:
+    post:
+      operationId: rollbackArtifact
+      summary: Roll back an artifact version (re-activates the prior active version)
+      description: |
+        Transitions the given version to rolled_back status and re-activates the most
+        recent previously-active version for the same canonical_url. Publishes
+        ArtifactRolledBack followed by ArtifactActivated for the restored version.
+      x-sim-authz:
+        action: artifact.rollback
+        resource_type: artifact
+      parameters:
+        - in: path
+          name: canonical_url
+          required: true
+          schema: { type: string }
+        - in: path
+          name: version
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  description: Required justification for the rollback
+                incident_ref:
+                  type: ["string","null"]
+                  description: Optional incident or ticket reference
+      responses:
+        "200":
+          description: Artifact rolled back; prior version re-activated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rolled_back, restored]
+                properties:
+                  rolled_back:
+                    $ref: "#/components/schemas/ArtifactRecord"
+                  restored:
+                    $ref: "#/components/schemas/ArtifactRecord"
+        "404":
+          description: Artifact not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Artifact is not in active status or no prior version to restore
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/artifacts:resolve:
+    get:
+      operationId: resolveArtifact
+      summary: Resolve the effective artifact version for a given context
+      description: |
+        Returns the artifact version that was active for the given canonical_url on as_of date,
+        filtered by lob, region, program, and product applicability. Used by Digicore and
+        Enstellar to determine which artifact version governs a case.
+      x-sim-authz:
+        action: artifact.resolve
+        resource_type: artifact
+      parameters:
+        - in: query
+          name: canonical_url
+          required: true
+          schema: { type: string, format: uri }
+          description: Canonical URL of the artifact to resolve
+        - in: query
+          name: as_of
+          required: true
+          schema: { type: string, format: date }
+          description: Date for which the effective version is needed
+        - in: query
+          name: lob
+          required: false
+          schema: { type: string, enum: [MA, MEDICAID, COMMERCIAL, PUBLIC] }
+        - in: query
+          name: region
+          required: false
+          schema: { type: string }
+          description: ISO 3166-2 jurisdiction code
+        - in: query
+          name: program
+          required: false
+          schema: { type: string }
+        - in: query
+          name: product
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Effective artifact version for the given context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactRecord"
+        "404":
+          description: No active artifact found for the given context
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Multiple artifacts match (applicability conflict) — must be resolved
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required: [code, candidates]
+                properties:
+                  code: { const: SIM-VKAS-APPLICABILITY-CONFLICT }
+                  candidates:
+                    type: array
+                    items:
+                      type: object
+                      required: [canonical_url, version]
+                      properties:
+                        canonical_url: { type: string }
+                        version:       { type: string }

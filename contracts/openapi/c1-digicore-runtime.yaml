@@ -1,0 +1,144 @@
+openapi: "3.1.0"
+info:
+  title: Digicore Runtime Contract (C-1)
+  version: "1.0.0"
+  description: |
+    Contract between Digicore and consumers (Enstellar, Revital).
+    Generated clients are in platform/libs/generated/c1-digicore-runtime/.
+    Breaking changes require a new major version and deprecation window.
+
+paths:
+  /v1/runtime/evaluate:
+    post:
+      operationId: evaluate
+      x-sim-authz:
+        action: runtime.evaluate
+        resource_type: coverage_rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [caseContext, request, evidence]
+              properties:
+                caseContext:
+                  type: object
+                  required: [tenant_id, lob, as_of]
+                  properties:
+                    tenant_id: { type: string }
+                    lob:       { type: string }
+                    product:   { type: string }
+                    region:    { type: string }
+                    as_of:     { type: string, format: date }
+                request:
+                  type: object
+                  required: [service_lines]
+                  properties:
+                    service_lines:
+                      type: array
+                      items:
+                        type: object
+                        required: [code, system]
+                        properties:
+                          code:             { type: string }
+                          system:           { type: string, format: uri }
+                          qty:              { type: number }
+                          place_of_service: { type: string }
+                    urgency: { type: string, enum: [standard, expedited] }
+                evidence:
+                  type: object
+                  properties:
+                    resource_refs:            { type: array, items: { type: string } }
+                    questionnaire_responses:  { type: array, items: { type: string } }
+                pins:
+                  type: object
+                  properties:
+                    artifacts:
+                      type: array
+                      items:
+                        type: object
+                        required: [canonical_url, version]
+                        properties:
+                          canonical_url: { type: string, format: uri }
+                          version:       { type: string }
+      responses:
+        "200":
+          description: Evaluation result with pinned artifact versions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recommendation, requirement_gaps, pins, trace_ref]
+                properties:
+                  recommendation:
+                    type: string
+                    enum: [meets_all, partial, not_met, indeterminate]
+                  requirement_gaps:
+                    type: array
+                    items:
+                      type: object
+                      required: [requirement_id, description]
+                      properties:
+                        requirement_id: { type: string }
+                        description:    { type: string }
+                        satisfied_by:   { type: ["string","null"] }
+                  pins:
+                    type: array
+                    items:
+                      type: object
+                      required: [canonical_url, version]
+                      properties:
+                        canonical_url: { type: string, format: uri }
+                        version:       { type: string }
+                  trace_ref:           { type: string, pattern: "^trc_" }
+                  latency_budget_class:
+                    type: string
+                    enum: [realtime, standard]
+        "409":
+          description: Applicability conflict
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required: [code, resolution_trace]
+                properties:
+                  code: { const: SIM-DIG-CONFLICT }
+                  resolution_trace: { type: object }
+
+  /v1/runtime/evidence-requirements:
+    get:
+      operationId: getEvidenceRequirements
+      description: Returns extraction targets for Revital given a case context
+      parameters:
+        - in: query
+          name: tenant_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: service_line_codes
+          required: true
+          schema: { type: string, description: "comma-separated FHIR codes" }
+        - in: query
+          name: as_of
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Evidence requirements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [requirements]
+                properties:
+                  requirements:
+                    type: array
+                    items:
+                      type: object
+                      required: [requirement_id, description, resource_types]
+                      properties:
+                        requirement_id: { type: string }
+                        description:    { type: string }
+                        resource_types: { type: array, items: { type: string } }
+                        value_sets:     { type: array, items: { type: string, format: uri } }

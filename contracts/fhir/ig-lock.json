@@ -1,0 +1,18 @@
+{
+  "igs": {
+    "us-core": "6.1.0",
+    "da-vinci-crd": "2.0.1",
+    "da-vinci-dtr": "2.0.0",
+    "da-vinci-pas": "2.0.1",
+    "da-vinci-cdex": "2.1.0",
+    "da-vinci-deqm": "4.0.0",
+    "smart-app-launch": "2.1.0",
+    "bulk-data-access": "2.0.0",
+    "sdc": "3.0.0"
+  },
+  "conformance-suites": {
+    "us-core": "inferno-program-suite",
+    "da-vinci-pas": "carin-pas-touchstone",
+    "smart-app-launch": "inferno-smart-app-launch"
+  }
+}

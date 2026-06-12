@@ -1,0 +1,366 @@
+openapi: "3.1.0"
+info:
+  title: Platform Control Plane API
+  version: "1.0.0"
+  description: |
+    Manages tenant lifecycle and entitlement configuration for the Simintero platform.
+    Used by the ops portal and automated provisioning pipelines.
+    Generated clients are in platform/libs/generated/platform-control-plane/.
+
+components:
+  schemas:
+    TenantRecord:
+      type: object
+      required: [tenant_id, display, tier, env_kind, env_group, status, created_at]
+      additionalProperties: false
+      properties:
+        tenant_id:
+          type: string
+          description: Immutable unique identifier for the tenant
+        display:
+          type: string
+          description: Human-readable tenant display name
+        tier:
+          type: string
+          enum: [trial, standard, premium, enterprise]
+          description: Subscription tier governing feature availability and SLAs
+        env_kind:
+          type: string
+          enum: [sandbox, staging, production]
+          description: Environment classification
+        env_group:
+          type: string
+          description: Logical grouping for multi-environment tenants, e.g. acme-health
+        compliance_baseline:
+          type: string
+          enum: [hipaa, hipaa_hitrust, hipaa_fedramp]
+          description: Minimum compliance baseline the tenant environment must satisfy
+        entitlements:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/EntitlementValue"
+          description: Map of entitlement key to entitlement value object
+        status:
+          type: string
+          enum: [provisioning, active, suspended, archived]
+        created_at:
+          type: string
+          format: date-time
+        suspended_at:
+          type: ["string","null"]
+          format: date-time
+        archived_at:
+          type: ["string","null"]
+          format: date-time
+
+    EntitlementValue:
+      type: object
+      required: [value, updated_at]
+      additionalProperties: false
+      properties:
+        value:
+          type: object
+          description: Entitlement configuration payload; structure varies by entitlement key
+        expires_at:
+          type: ["string","null"]
+          format: date-time
+          description: Optional expiry; null means the entitlement does not expire
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: ["string","null"]
+          description: Actor id of the operator who last updated this entitlement
+
+    ProblemDetail:
+      type: object
+      required: [code, detail]
+      properties:
+        code:   { type: string }
+        detail: { type: string }
+        status: { type: integer }
+
+paths:
+  /v1/tenants:
+    post:
+      operationId: createTenant
+      summary: Create a new tenant
+      description: |
+        Creates the tenant record and triggers async provisioning (Kafka secrets,
+        schema creation, entitlement seeding). Response status is provisioning
+        until the TenantProvisioned event is published.
+      x-sim-authz:
+        action: tenant.create
+        resource_type: tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, display, tier, env_kind, env_group]
+              additionalProperties: false
+              properties:
+                tenant_id:
+                  type: string
+                  pattern: "^[a-z0-9][a-z0-9_-]{2,62}[a-z0-9]$"
+                  description: Desired tenant identifier (lowercase alphanumeric, hyphens, underscores)
+                display:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                tier:
+                  type: string
+                  enum: [trial, standard, premium, enterprise]
+                env_kind:
+                  type: string
+                  enum: [sandbox, staging, production]
+                env_group:
+                  type: string
+                  description: Logical grouping identifier
+                compliance_baseline:
+                  type: string
+                  enum: [hipaa, hipaa_hitrust, hipaa_fedramp]
+                  default: hipaa
+                entitlements:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    description: Initial entitlement value payloads keyed by entitlement key
+                  description: Optional initial entitlements to seed on creation
+      responses:
+        "201":
+          description: Tenant created; provisioning in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantRecord"
+        "409":
+          description: A tenant with this tenant_id already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/tenants/{tenant_id}:
+    get:
+      operationId: getTenant
+      summary: Get a tenant by ID
+      x-sim-authz:
+        action: tenant.read
+        resource_type: tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tenant record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantRecord"
+        "404":
+          description: Tenant not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/tenants/{tenant_id}/suspend:
+    post:
+      operationId: suspendTenant
+      summary: Suspend a tenant (halts API access; data retained)
+      x-sim-authz:
+        action: tenant.suspend
+        resource_type: tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: ["string","null"]
+                  description: Operator reason for suspension
+      responses:
+        "200":
+          description: Tenant suspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantRecord"
+        "404":
+          description: Tenant not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Tenant is already suspended or archived
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/tenants/{tenant_id}/archive:
+    post:
+      operationId: archiveTenant
+      summary: Archive a tenant (soft-delete; data retained per retention policy)
+      x-sim-authz:
+        action: tenant.archive
+        resource_type: tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  description: Required justification for archiving
+                data_retention_days:
+                  type: ["integer","null"]
+                  minimum: 1
+                  description: Override data retention days; null uses the tier default
+      responses:
+        "200":
+          description: Tenant archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantRecord"
+        "404":
+          description: Tenant not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Tenant is already archived
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/tenants/{tenant_id}/entitlements:
+    get:
+      operationId: listEntitlements
+      summary: List all entitlements for a tenant
+      x-sim-authz:
+        action: tenant.entitlements.read
+        resource_type: tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Map of entitlement key to entitlement value
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: "#/components/schemas/EntitlementValue"
+        "404":
+          description: Tenant not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /v1/tenants/{tenant_id}/entitlements/{key}:
+    put:
+      operationId: upsertEntitlement
+      summary: Create or update a single entitlement for a tenant
+      x-sim-authz:
+        action: tenant.entitlements.write
+        resource_type: tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: key
+          required: true
+          schema: { type: string }
+          description: Entitlement key, e.g. revital.max_advisory_calls_per_day
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              additionalProperties: false
+              properties:
+                value:
+                  type: object
+                  description: Entitlement configuration payload
+                expires_at:
+                  type: ["string","null"]
+                  format: date-time
+                  description: Optional expiry timestamp; null means no expiry
+      responses:
+        "200":
+          description: Entitlement upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitlementValue"
+        "404":
+          description: Tenant not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+    delete:
+      operationId: deleteEntitlement
+      summary: Delete a single entitlement from a tenant
+      x-sim-authz:
+        action: tenant.entitlements.write
+        resource_type: tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: key
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Entitlement deleted
+        "404":
+          description: Tenant or entitlement not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"

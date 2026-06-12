@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/clock-profile/v1",
+  "title": "Regulatory Clock Profile",
+  "description": "Defines regulatory deadline clocks for a jurisdiction/LOB combination. Published as a VKAS artifact and consumed by Enstellar's clock engine.",
+  "type": "object",
+  "required": ["profile_id","jurisdiction","lob","clocks"],
+  "additionalProperties": false,
+  "properties": {
+    "profile_id": {
+      "type": "string",
+      "description": "Stable unique identifier for this clock profile, e.g. clk_ma_medicare_2024"
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Regulatory jurisdiction code. ISO 3166-2 state code or 'federal', e.g. US-CA, US-TX, federal"
+    },
+    "lob": {
+      "type": "string",
+      "enum": ["MA","MEDICAID","COMMERCIAL","PUBLIC"],
+      "description": "Line of business governed by this profile"
+    },
+    "display_name": {
+      "type": ["string","null"],
+      "description": "Human-readable label for this clock profile"
+    },
+    "regulatory_citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["citation"],
+        "properties": {
+          "citation":     { "type": "string", "description": "Regulatory citation text, e.g. 42 CFR 422.590(a)" },
+          "description":  { "type": ["string","null"] }
+        }
+      },
+      "description": "Regulatory basis for the clocks in this profile"
+    },
+    "effective_date": {
+      "type": ["string","null"],
+      "format": "date",
+      "description": "Date from which this profile is effective"
+    },
+    "supersedes": {
+      "type": ["string","null"],
+      "description": "profile_id of the clock profile this one supersedes"
+    },
+    "clocks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id","name","trigger_event","deadline_hours","calendar","breach_event"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique clock identifier within this profile, e.g. standard_pa_determination"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable clock name, e.g. Standard PA Determination Clock"
+          },
+          "description": {
+            "type": ["string","null"]
+          },
+          "trigger_event": {
+            "type": "string",
+            "description": "AsyncAPI event name that starts this clock, e.g. sim.case.lifecycle/CaseCreated"
+          },
+          "trigger_guard": {
+            "type": ["string","null"],
+            "description": "Optional CEL expression that must be true for the trigger event to start this clock"
+          },
+          "deadline_hours": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Number of hours (calendar or business) from trigger to deadline"
+          },
+          "calendar": {
+            "type": "string",
+            "enum": ["calendar","business"],
+            "description": "Whether deadline_hours counts all hours (calendar) or business hours only (business)"
+          },
+          "business_hours_ref": {
+            "type": ["string","null"],
+            "description": "Reference to a business-hours schedule definition when calendar == business"
+          },
+          "breach_event": {
+            "type": "string",
+            "description": "AsyncAPI event name published when the deadline is breached, e.g. sim.clock/ClockBreached"
+          },
+          "warning_hours": {
+            "type": ["number","null"],
+            "exclusiveMinimum": 0,
+            "description": "Optional: hours before the deadline at which a warning event is published"
+          },
+          "warning_event": {
+            "type": ["string","null"],
+            "description": "AsyncAPI event name published for the warning, e.g. sim.clock/ClockBreachWarning. Required when warning_hours is set."
+          },
+          "reset_events": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Events that reset (stop) this clock before the deadline, e.g. when determination is recorded"
+          },
+          "pause_events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["start","end"],
+              "properties": {
+                "start": { "type": "string", "description": "Event that pauses the clock" },
+                "end":   { "type": "string", "description": "Event that resumes the clock" }
+              }
+            },
+            "description": "Start/end event pairs that pause clock counting (e.g. waiting on member information)"
+          }
+        }
+      }
+    }
+  }
+}

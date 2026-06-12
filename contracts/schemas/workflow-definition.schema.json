@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/workflow-definition/v1",
+  "title": "UM Workflow Definition",
+  "description": "VKAS artifact type defining states, transitions, guards, and routing rules for a Utilization Management workflow.",
+  "type": "object",
+  "required": ["workflow_id","version","lob","states","initial_state","transitions"],
+  "additionalProperties": false,
+  "properties": {
+    "workflow_id": {
+      "type": "string",
+      "description": "Stable identifier for this workflow type, e.g. wf_ortho_standard_ma"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of this workflow definition, e.g. 1.2.0"
+    },
+    "lob": {
+      "type": "string",
+      "enum": ["MA","MEDICAID","COMMERCIAL","PUBLIC"],
+      "description": "Line of business this workflow applies to"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable name for UI and audit purposes"
+    },
+    "description": {
+      "type": ["string","null"]
+    },
+    "initial_state": {
+      "type": "string",
+      "description": "id of the state where new cases begin"
+    },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id","type"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique state identifier within this workflow"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["intake","awaiting_evidence","clinical_review","determination","closed"],
+            "description": "Semantic category of the state"
+          },
+          "display_name": {
+            "type": ["string","null"]
+          },
+          "sla_ref": {
+            "type": ["string","null"],
+            "description": "Reference to a clock-profile clock id that governs this state's deadline"
+          },
+          "terminal": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, no transitions may leave this state"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Arbitrary key-value pairs for module-specific extension"
+          }
+        }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from","to","on"],
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "State id this transition departs from"
+          },
+          "to": {
+            "type": "string",
+            "description": "State id this transition arrives at"
+          },
+          "on": {
+            "type": "string",
+            "description": "AsyncAPI channel message name (event) that triggers this transition, e.g. sim.case.lifecycle/CaseStateChanged"
+          },
+          "guard": {
+            "type": ["string","null"],
+            "description": "CEL expression evaluated against the event payload. Transition fires only when true."
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Action name to execute on successful transition, e.g. notify_reviewer, start_clock"
+            },
+            "description": "Ordered list of side-effect action names invoked after state entry"
+          },
+          "description": {
+            "type": ["string","null"]
+          }
+        }
+      }
+    },
+    "routing_rules": {
+      "type": "array",
+      "description": "Work-routing rules evaluated in order; first match wins",
+      "items": {
+        "type": "object",
+        "required": ["condition","queue"],
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "type": "string",
+            "description": "CEL expression evaluated against case context. e.g. case.urgency == 'expedited' && case.lob == 'MA'"
+          },
+          "queue": {
+            "type": "string",
+            "description": "Work-queue identifier to route the case to"
+          },
+          "skill_tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Required reviewer skill tags for queue assignment"
+          },
+          "priority_boost": {
+            "type": ["integer","null"],
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Numeric priority adjustment applied to cases matching this rule"
+          }
+        }
+      }
+    },
+    "effective_date": {
+      "type": ["string","null"],
+      "format": "date",
+      "description": "Date from which this workflow version is effective"
+    },
+    "supersedes": {
+      "type": ["string","null"],
+      "description": "Version string of the workflow definition this one supersedes"
+    }
+  }
+}

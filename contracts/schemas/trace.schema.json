@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/trace/v1",
+  "type": "object",
+  "required": ["trace_id","tenant","subject","governing_artifacts","inputs","actors","outcome"],
+  "properties": {
+    "trace_id":   { "type": "string", "pattern": "^trc_[0-9A-Z]{26}$" },
+    "tenant":     { "$ref": "event-envelope.schema.json#/properties/tenant" },
+    "subject": {
+      "type": "object",
+      "required": ["type","ref"],
+      "properties": {
+        "type": { "type": "string", "enum": ["case_decision","advisory","measure_result","completeness"] },
+        "ref":  { "type": "string" }
+      }
+    },
+    "governing_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["canonical_url","version"],
+        "properties": {
+          "canonical_url": { "type": "string", "format": "uri" },
+          "version":       { "type": "string" },
+          "source":        { "type": "string", "enum": ["internal","internal_supplement","licensed_ref","public_ref"] },
+          "supplements":   { "type": ["string","null"], "format": "uri" }
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind","ref"],
+            "properties": {
+              "kind": { "const": "fhir" },
+              "ref":  { "type": "string" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind","ref"],
+            "properties": {
+              "kind":         { "const": "document_span" },
+              "ref":          { "type": "string" },
+              "page":         { "type": "integer" },
+              "region":       { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 },
+              "excerpt_hash": { "type": "string" }
+            }
+          }
+        ]
+      }
+    },
+    "logic_path": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["step","result"],
+        "properties": {
+          "step":       { "type": "string" },
+          "result":     {},
+          "value_sets": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    "actors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type","id","at"],
+        "properties": {
+          "type":           { "type": "string", "enum": ["service","model","human"] },
+          "id":             { "type": "string" },
+          "action":         { "type": "string" },
+          "prompt":         { "type": "string" },
+          "prompt_version": { "type": "string" },
+          "confidence":     { "type": "number", "minimum": 0, "maximum": 1 },
+          "at":             { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["kind","value"],
+      "properties": {
+        "kind":  { "type": "string" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}
