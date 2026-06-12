@@ -30,9 +30,19 @@ CREATE POLICY tenant_isolation ON vkas.artifact
 -- Immutability: prevent modification of approved/active/retired/superseded artifacts
 CREATE OR REPLACE FUNCTION vkas.enforce_immutability() RETURNS TRIGGER AS $$
 BEGIN
-  IF OLD.status IN ('approved','active','retired','superseded') AND
-     NEW.status NOT IN ('retired','superseded') THEN
-    RAISE EXCEPTION 'Cannot modify artifact in status %', OLD.status;
+  IF OLD.status IN ('approved','active','retired','superseded') THEN
+    -- Block content mutations on any locked artifact
+    IF NEW.content IS DISTINCT FROM OLD.content OR
+       NEW.content_hash IS DISTINCT FROM OLD.content_hash OR
+       NEW.relations IS DISTINCT FROM OLD.relations THEN
+      RAISE EXCEPTION 'Cannot modify content of artifact in status %: canonical_url=%, version=%',
+        OLD.status, OLD.canonical_url, OLD.version;
+    END IF;
+    -- Only allow status transitions to terminal states
+    IF NEW.status NOT IN ('retired','superseded') THEN
+      RAISE EXCEPTION 'Cannot change status of artifact from % to %: only retired/superseded allowed',
+        OLD.status, NEW.status;
+    END IF;
   END IF;
   RETURN NEW;
 END;

@@ -14,9 +14,14 @@ async function runSetup(pool: Pool): Promise<void> {
   // Run setup as superuser role — bypasses RLS to insert sentinel rows
   const client = await pool.connect();
   try {
+    await client.query("BEGIN");
     await client.query("SET LOCAL role = postgres");
     await client.query(setupSql);
+    await client.query("COMMIT");
     console.log("Test setup complete: sentinel rows inserted for t_synth_a and t_synth_b");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
   } finally {
     client.release();
   }
@@ -38,7 +43,7 @@ async function runHarness(pool: Pool): Promise<void> {
       );
 
       const { rows } = await client.query(
-        `SELECT count(*)::int AS cnt FROM ${qualifiedTable} WHERE ${tenant_column} = $1`,
+        `SELECT count(*)::int AS cnt FROM ${qualifiedTable} WHERE "${tenant_column}" = $1`,
         [tenantB]
       );
 
@@ -50,7 +55,7 @@ async function runHarness(pool: Pool): Promise<void> {
         console.log(`PASS: ${qualifiedTable} — RLS blocks cross-tenant read`);
       }
     } finally {
-      await client.query("ROLLBACK");
+      try { await client.query("ROLLBACK"); } catch { /* connection broken, ignore */ }
       client.release();
     }
 
@@ -64,7 +69,7 @@ async function runHarness(pool: Pool): Promise<void> {
       );
 
       const { rows } = await ownClient.query(
-        `SELECT count(*)::int AS cnt FROM ${qualifiedTable} WHERE ${tenant_column} = $1`,
+        `SELECT count(*)::int AS cnt FROM ${qualifiedTable} WHERE "${tenant_column}" = $1`,
         [tenantA]
       );
 
@@ -74,7 +79,7 @@ async function runHarness(pool: Pool): Promise<void> {
         );
       }
     } finally {
-      await ownClient.query("ROLLBACK");
+      try { await ownClient.query("ROLLBACK"); } catch { /* connection broken, ignore */ }
       ownClient.release();
     }
   }

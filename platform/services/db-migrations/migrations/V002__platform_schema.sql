@@ -52,3 +52,7 @@ CREATE INDEX fabric_resource_member_idx ON fabric.resource (tenant_id, fhir_id)
   WHERE resource_type = 'Patient';
 CREATE INDEX fabric_resource_type_idx ON fabric.resource USING GIN (content)
   WHERE resource_type IN ('Condition','Observation','MedicationStatement','Coverage');
+
+-- Relay consumer index: find unpublished events efficiently
+CREATE INDEX outbox_relay_idx ON shared.outbox (topic, created_at)
+  WHERE published_at IS NULL;
