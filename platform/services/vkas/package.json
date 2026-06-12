@@ -1,0 +1,27 @@
+{
+  "name": "@sim/vkas",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/router.ts"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.0.0",
+    "@types/express": "^5.0.0"
+  },
+  "dependencies": {
+    "express": "^5.0.0"
+  },
+  "peerDependencies": {
+    "pg": ">=8"
+  }
+}
