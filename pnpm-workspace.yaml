@@ -1,5 +1,6 @@
 packages:
   - "platform/libs/*"
+  - "platform/libs/*/*"
   - "platform/services/*"
   - "modules/*"
   - "apps/web/*"
