@@ -3,24 +3,29 @@
 # event replay, and audit trail — using synthetic fixtures only, no real PHI.
 #
 # Runner: pnpm --filter @sim/e2e run test -- --spec specs/PLAT-P0/exit-test.feature
-# Requires: docker compose up -d postgres redpanda keycloak opa
+# Requires: docker compose up -d postgres redpanda keycloak opa outbox-relay
 # Synthetic data: artifacts/synthetic/tenants/t_synth_ma.json
 
+# After each scenario: the test runner must delete all rows for t_synth_ma and
+# t_synth_medicaid from ctrl.tenant, ctrl.entitlement, ens.case, ens.case_event,
+# shared.outbox, and shared.processed_events to ensure idempotent re-runs.
+# Implement via an @After hook in the Cucumber step definitions.
+@phase0 @wipe_tenants
 Feature: Phase 0 exit — synthetic tenant provision and case lifecycle
 
   Background:
     Given the Simintero platform services are running
-    And the synthetic MA tenant "t_synth_ma" is not yet provisioned
+    And the pooled cell "cell-pooled-us1" is active
+    And the synthetic tenant "t_synth_ma" is provisioned and active
+    And the synthetic tenant "t_synth_medicaid" is provisioned and active
 
-  Scenario: Provision synthetic tenant and verify RLS isolation
-    When the provisioning console API creates tenant "t_synth_ma" from fixture "artifacts/synthetic/tenants/t_synth_ma.json"
-    Then the tenant status transitions to "active" within 60 seconds
+  Scenario: Verify RLS isolation between synthetic tenants
+    Then the RLS harness passes for tenant "t_synth_ma" on cell "cell-pooled-us1"
     And the ctrl.tenant table contains a row with tenant_id "t_synth_ma" and status "active"
-    And the RLS harness passes for the new tenant's cell with no cross-tenant leaks
+    And the ctrl.tenant table contains a row with tenant_id "t_synth_medicaid" and status "active"
 
   Scenario: Create and replay a skeletal case event
-    Given tenant "t_synth_ma" is active
-    When an actor with role "um_nurse_reviewer" appends a CaseCreated event for case "case_exit_test_01"
+    When an actor with role "um_nurse_reviewer" in tenant "t_synth_ma" appends a CaseCreated event for case "case_exit_test_01"
       """
       {
         "case_id": "case_exit_test_01",

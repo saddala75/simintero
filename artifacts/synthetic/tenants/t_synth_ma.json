@@ -5,6 +5,7 @@
   "cell_id": "cell-pooled-us1",
   "env_kind": "sandbox",
   "env_group": "synth-health",
+  "status": "provisioning",
   "compliance_baseline": "MA",
   "baa_status": "signed",
   "dpa_status": "signed",

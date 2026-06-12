@@ -5,6 +5,7 @@
   "cell_id": "cell-pooled-us1",
   "env_kind": "sandbox",
   "env_group": "synth-medicaid",
+  "status": "provisioning",
   "compliance_baseline": "MEDICAID",
   "baa_status": "signed",
   "dpa_status": "signed",

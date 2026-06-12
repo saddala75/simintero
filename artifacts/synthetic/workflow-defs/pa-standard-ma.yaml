@@ -94,6 +94,10 @@ workflow:
       # It emits DeterminationRecorded{outcome: not_met, reason: rfi_expired}
       # Human medical director must confirm before deny is recorded externally
       adverse_action_guard: required
+      # ENFORCEMENT: The workflow runtime MUST check adverse_action_guard == "required"
+      # before allowing any DeterminationRecorded event with an adverse outcome.
+      # See platform/services/opa-policies/sim/guards/adverse_action.rego.
+      # Validation test: platform/services/vkas/src/lifecycle.test.ts (Phase 1).
 
   sla_refs:
     standard:
