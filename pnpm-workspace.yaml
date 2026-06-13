@@ -9,6 +9,7 @@ packages:
   - "modules/search/*"
   - "modules/analytics/*"
   - "modules/claims/*"
+  - "modules/automation/*"
   - "apps/web/*"
   - "integration/e2e"
   - "contracts"
