@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: sim
       POSTGRES_DB: simintero
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sim -d simintero"]
       interval: 5s

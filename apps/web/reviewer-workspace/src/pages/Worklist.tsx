@@ -20,7 +20,11 @@ const LOB_OPTIONS: Array<{ label: string; value: string }> = [
   { label: 'Medicaid', value: 'Medicaid' },
 ];
 
-export function Worklist() {
+interface WorklistProps {
+  onSelectCase?: (caseId: string) => void;
+}
+
+export function Worklist({ onSelectCase }: WorklistProps) {
   const [stateFilter, setStateFilter] = useState<CaseState | ''>('');
   const [lobFilter, setLobFilter] = useState('');
 
@@ -73,7 +77,10 @@ export function Worklist() {
       <ul className="worklist__list">
         {sorted.map((c) => (
           <li key={c.case_id}>
-            <CaseCard case={c} />
+            <CaseCard
+              case={c}
+              onClick={onSelectCase ? () => onSelectCase(c.case_id) : undefined}
+            />
           </li>
         ))}
       </ul>

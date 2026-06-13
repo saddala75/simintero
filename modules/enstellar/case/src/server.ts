@@ -18,7 +18,7 @@ import { withTenantContext } from '@sim/tenant-context-ts';
 import type { TenantContext } from '@sim/tenant-context-ts';
 import type { TenantDb } from '@sim/outbox-ts';
 
-const app = express();
+const app: ReturnType<typeof express> = express();
 app.use(express.json());
 
 // ---------------------------------------------------------------------------

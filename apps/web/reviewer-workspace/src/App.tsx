@@ -1,30 +1,41 @@
 import { useState } from 'react';
+import { SimCtxProvider, useSimCtx } from './api/context.js';
 import { Worklist } from './pages/Worklist.js';
 import { CaseReview } from './pages/CaseReview.js';
 
-// Minimal in-app routing — no router dependency needed for Phase 1
 type Route =
   | { name: 'worklist' }
   | { name: 'case-review'; caseId: string };
 
-// Demo roles — in production these come from auth context
-const DEMO_ROLES = ['medical_director'];
-
-export function App() {
+function AppShell() {
+  const ctx = useSimCtx();
   const [route, setRoute] = useState<Route>({ name: 'worklist' });
 
   if (route.name === 'case-review') {
     return (
       <main>
-        <button onClick={() => setRoute({ name: 'worklist' })}>← Back to Worklist</button>
-        <CaseReview caseId={route.caseId} roles={DEMO_ROLES} />
+        <nav style={{ padding: '8px 0', borderBottom: '1px solid #e5e7eb', marginBottom: '16px' }}>
+          <button onClick={() => setRoute({ name: 'worklist' })}>← Back to Worklist</button>
+          <span style={{ marginLeft: '16px', color: '#6b7280', fontSize: '0.875rem' }}>
+            Tenant: {ctx.tenant_id}
+          </span>
+        </nav>
+        <CaseReview caseId={route.caseId} roles={ctx.roles as string[]} />
       </main>
     );
   }
 
   return (
     <main>
-      <Worklist />
+      <Worklist onSelectCase={(caseId) => setRoute({ name: 'case-review', caseId })} />
     </main>
+  );
+}
+
+export function App() {
+  return (
+    <SimCtxProvider>
+      <AppShell />
+    </SimCtxProvider>
   );
 }

@@ -4,21 +4,30 @@ WORKDIR /repo
 
 RUN npm install -g pnpm@10
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY modules/claims/service/package.json ./modules/claims/service/
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+
+COPY modules/claims/service/package.json              ./modules/claims/service/
+COPY integration/connectors/clearinghouse/package.json ./integration/connectors/clearinghouse/
 
 RUN pnpm install --frozen-lockfile --filter @sim/claims-service...
 
-COPY modules/claims/service/ ./modules/claims/service/
+COPY modules/claims/service/                ./modules/claims/service/
+COPY integration/connectors/clearinghouse/  ./integration/connectors/clearinghouse/
+
+# Build workspace lib first
+RUN pnpm --filter @sim/connector-clearinghouse run build
+
+# Build the service
 RUN pnpm --filter @sim/claims-service run build
+
+# Self-contained production bundle
+RUN pnpm --filter @sim/claims-service deploy --legacy --prod /deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
 
-COPY --from=builder /repo/modules/claims/service/dist ./dist
-COPY --from=builder /repo/modules/claims/service/node_modules ./node_modules
-COPY --from=builder /repo/modules/claims/service/package.json ./package.json
+COPY --from=builder /deploy .
 
 ENV NODE_ENV=production
 ENV PORT=3016

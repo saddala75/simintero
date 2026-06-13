@@ -66,8 +66,6 @@ describe('RecordDecision', () => {
           caseId: 'case-uuid-001',
           outcome: 'denied',
           decidedBy: { type: 'service', id: 'auto-engine' },
-          rationaleRef: null,
-          rulesTraceRef: null,
         })
       )
     ).rejects.toMatchObject({ code: 'SIM-AUTHZ-0001', status: 403 });

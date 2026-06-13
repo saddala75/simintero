@@ -11,7 +11,7 @@ export const RECORD_DECISION_MUTATION = `
 export const ROUTE_CASE_MUTATION = `
   mutation RouteCase($input: RouteCaseInput!) {
     routeCase(input: $input) {
-      success
+      taskId
       error
     }
   }

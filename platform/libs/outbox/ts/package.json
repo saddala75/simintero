@@ -4,9 +4,16 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./relay": "./src/relay.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./relay": {
+      "types": "./src/relay.ts",
+      "default": "./dist/relay.js"
+    }
   },
+  "files": ["src", "dist"],
   "scripts": {
     "build": "tsc --build",
     "typecheck": "tsc --noEmit",

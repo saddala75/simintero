@@ -37,7 +37,7 @@ export function buildClaimsRouter(pool: Pool): express.Router {
        RETURNING case_id::text AS case_id`,
       [tenantId],
     );
-    const caseId = caseRows[0].case_id;
+    const caseId = caseRows[0]!.case_id;
 
     // Insert claims.claim
     const claimId = ulid();

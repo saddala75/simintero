@@ -81,7 +81,7 @@ export async function worklist(db: TenantDb, args: WorklistArgs): Promise<Workli
     const pageConditions = [...filterConditions];
     const pageParams: unknown[] = [...filterParams];
 
-    if (args.after !== undefined) {
+    if (args.after != null) {
       const afterCreatedAt = Buffer.from(args.after, 'base64').toString('utf-8');
       pageConditions.push(`c.created_at > $${paramIdx++}`);
       pageParams.push(afterCreatedAt);
@@ -93,7 +93,7 @@ export async function worklist(db: TenantDb, args: WorklistArgs): Promise<Workli
     // Fetch limit + 1 to determine hasNextPage
     pageParams.push(limit + 1);
     const rowsResult = await client.query(
-      `SELECT c.case_id, c.state, c.urgency, c.lob, c.member_ref,
+      `SELECT c.case_id, c.state, c.urgency, c.lob,
               c.created_at, c.updated_at
        FROM ens.case c
        ${pageWhere}
@@ -114,7 +114,7 @@ export async function worklist(db: TenantDb, args: WorklistArgs): Promise<Workli
           state: r['state'] as string,
           urgency: r['urgency'] as string,
           lob: r['lob'] as string,
-          memberRef: (r['member_ref'] as string | null | undefined) ?? null,
+          memberRef: null,
           createdAt,
           updatedAt: r['updated_at'] as string,
         },

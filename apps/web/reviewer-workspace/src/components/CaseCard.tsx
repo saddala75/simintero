@@ -3,13 +3,23 @@ import { ClockBadge } from './ClockBadge.js';
 
 interface CaseCardProps {
   case: CaseListItem;
+  onClick?: () => void;
 }
 
-export function CaseCard({ case: c }: CaseCardProps) {
+export function CaseCard({ case: c, onClick }: CaseCardProps) {
   const shortId = c.case_id.slice(-8);
 
   return (
-    <div className="case-card" data-case-id={c.case_id} data-urgency={c.urgency}>
+    <div
+      className="case-card"
+      data-case-id={c.case_id}
+      data-urgency={c.urgency}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+      style={onClick ? { cursor: 'pointer' } : undefined}
+    >
       <div className="case-card__header">
         <span className="case-card__id" title={c.case_id}>
           ...{shortId}
