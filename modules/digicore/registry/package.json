@@ -1,0 +1,33 @@
+{
+  "name": "@sim/digicore-registry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sim/tenant-context-ts": "workspace:*",
+    "@sim/outbox-ts": "workspace:*",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20",
+    "tsx": "^4.19.0",
+    "vitest": "^2",
+    "typescript": "^5.5"
+  },
+  "peerDependencies": {
+    "pg": ">=8"
+  },
+  "optionalDependencies": {
+    "@opensearch-project/opensearch": ">=2"
+  }
+}

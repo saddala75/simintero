@@ -1,0 +1,4 @@
+[
+  { "schema": "ens", "table": "determination", "tenant_column": "tenant_id" },
+  { "schema": "ens", "table": "rfi", "tenant_column": "tenant_id" }
+]

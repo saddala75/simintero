@@ -1,0 +1,6 @@
+io/simintero/digicore/runtime/PinResolverTest.class
+io/simintero/digicore/runtime/EvidenceRequirementsTest.class
+io/simintero/digicore/runtime/DeterminismTest.class
+io/simintero/digicore/runtime/ElmEvaluatorLibraryRefTest.class
+io/simintero/digicore/runtime/TraceBuilderTest.class
+io/simintero/digicore/runtime/ElmEvaluatorTest.class

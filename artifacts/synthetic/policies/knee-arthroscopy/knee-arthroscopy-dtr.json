@@ -1,0 +1,57 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "knee-arthroscopy-dtr",
+  "version": "1.0.0",
+  "name": "KneeArthroscopyDTR",
+  "title": "Knee Arthroscopy – Documentation Template and Rules",
+  "status": "active",
+  "description": "Prior authorization documentation requirements for knee arthroscopy procedures (CPT 27447).",
+  "url": "urn:sim:dtr:knee-arthroscopy:1.0.0",
+  "item": [
+    {
+      "linkId": "diagnosis_documented",
+      "text": "Is the diagnosis of a knee condition documented in the medical record?",
+      "type": "boolean",
+      "required": true,
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-itemExtractionContext",
+          "valueExpression": {
+            "language": "text/cql",
+            "expression": "Diagnosis Documented"
+          }
+        }
+      ]
+    },
+    {
+      "linkId": "conservative_therapy_tried",
+      "text": "Has the patient attempted conservative therapy (e.g., PT, NSAIDs) for at least 6 weeks?",
+      "type": "boolean",
+      "required": true,
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-itemExtractionContext",
+          "valueExpression": {
+            "language": "text/cql",
+            "expression": "Conservative Therapy Tried"
+          }
+        }
+      ]
+    },
+    {
+      "linkId": "imaging_documented",
+      "text": "Is imaging (X-ray or MRI) documenting the knee condition available?",
+      "type": "boolean",
+      "required": true,
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-itemExtractionContext",
+          "valueExpression": {
+            "language": "text/cql",
+            "expression": "Imaging Documented"
+          }
+        }
+      ]
+    }
+  ]
+}

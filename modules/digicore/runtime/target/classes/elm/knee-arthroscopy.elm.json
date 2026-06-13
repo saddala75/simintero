@@ -1,0 +1,28 @@
+{
+  "library": {
+    "identifier": { "id": "KneeArthroscopy", "version": "1.0.0" },
+    "statements": {
+      "def": [
+        {
+          "name": "Diagnosis Documented",
+          "expression": { "type": "EvidencePresent", "key": "diagnosis_documented" }
+        },
+        {
+          "name": "Conservative Therapy Tried",
+          "expression": { "type": "EvidencePresent", "key": "conservative_therapy_tried" }
+        },
+        {
+          "name": "Imaging Documented",
+          "expression": { "type": "EvidencePresent", "key": "imaging_documented" }
+        },
+        {
+          "name": "Meets All Criteria",
+          "expression": {
+            "type": "And",
+            "operands": ["Diagnosis Documented", "Conservative Therapy Tried", "Imaging Documented"]
+          }
+        }
+      ]
+    }
+  }
+}

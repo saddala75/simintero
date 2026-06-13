@@ -1,0 +1,5 @@
+{
+  "schema": "ens",
+  "table": "clock",
+  "tenant_column": "tenant_id"
+}

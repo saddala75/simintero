@@ -1,0 +1,44 @@
+{
+  "policy_id": "knee-arthroscopy",
+  "display_name": "Knee Arthroscopy Prior Authorization",
+  "version": "1.0.0",
+  "effective_date": "2025-01-01",
+  "status": "active",
+  "procedure_codes": ["27447"],
+  "pin": "urn:sim:policy:knee-arthroscopy:1.0.0",
+  "dtr_ref": "urn:sim:dtr:knee-arthroscopy:1.0.0",
+  "governing_rules": [
+    {
+      "rule_id": "knee-arthroscopy-criteria",
+      "version": "1.0.0",
+      "description": "Clinical criteria for knee arthroscopy PA determination"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "diagnosis_documented",
+      "display": "Diagnosis of knee condition documented",
+      "required": true
+    },
+    {
+      "id": "conservative_therapy_tried",
+      "display": "Conservative therapy attempted (≥6 weeks)",
+      "required": true
+    },
+    {
+      "id": "imaging_documented",
+      "display": "Imaging (X-ray or MRI) documented",
+      "required": true
+    }
+  ],
+  "artifacts": {
+    "cql": "knee-arthroscopy.cql",
+    "elm": "knee-arthroscopy.elm.json",
+    "dtr": "knee-arthroscopy-dtr.json"
+  },
+  "test_cases": [
+    "test-cases/case-a-meets-all.json",
+    "test-cases/case-b-imaging-missing.json",
+    "test-cases/case-c-indeterminate.json"
+  ]
+}

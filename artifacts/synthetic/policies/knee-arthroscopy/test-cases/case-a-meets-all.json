@@ -1,0 +1,10 @@
+{
+  "test_case_id": "case-a",
+  "description": "All criteria met",
+  "evidence": {
+    "diagnosis_documented": true,
+    "conservative_therapy_tried": true,
+    "imaging_documented": true
+  },
+  "expected_outcome": "meets_all"
+}

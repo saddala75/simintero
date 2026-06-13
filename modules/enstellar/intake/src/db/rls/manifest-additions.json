@@ -1,0 +1,9 @@
+{
+  "tables": [
+    { "schema": "ens",    "table": "case",         "tenant_column": "tenant_id" },
+    { "schema": "ens",    "table": "service_line",  "tenant_column": "tenant_id" },
+    { "schema": "ens",    "table": "case_pin",      "tenant_column": "tenant_id" },
+    { "schema": "fabric", "table": "resource",      "tenant_column": "tenant_id" },
+    { "schema": "ens",    "table": "task",           "tenant_column": "tenant_id" }
+  ]
+}

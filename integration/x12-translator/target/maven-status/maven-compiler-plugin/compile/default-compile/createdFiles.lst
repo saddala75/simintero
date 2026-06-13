@@ -1,0 +1,17 @@
+io/simintero/x12/x278/X278Parser.class
+io/simintero/x12/model/DeterminationResult$PerLine.class
+io/simintero/x12/X12ParseException.class
+io/simintero/x12/X12TranslatorApplication.class
+io/simintero/x12/x275/X275Parser.class
+io/simintero/x12/translation/CarcRarcMapper.class
+io/simintero/x12/model/DocumentReference.class
+io/simintero/x12/translation/TranslationContext.class
+io/simintero/x12/model/IntakeCommand$Providers.class
+io/simintero/x12/model/IntakeCommand.class
+io/simintero/x12/model/IntakeCommand$ServiceLine.class
+io/simintero/x12/controller/TranslatorController.class
+io/simintero/x12/controller/X12ExceptionHandler.class
+io/simintero/x12/model/IntakeCommand$ExternalId.class
+io/simintero/x12/x278/X278Serializer.class
+io/simintero/x12/model/DocumentReference$TrnLinkage.class
+io/simintero/x12/model/DeterminationResult.class

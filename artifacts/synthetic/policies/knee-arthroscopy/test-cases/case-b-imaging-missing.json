@@ -1,0 +1,11 @@
+{
+  "test_case_id": "case-b",
+  "description": "Imaging absent",
+  "evidence": {
+    "diagnosis_documented": true,
+    "conservative_therapy_tried": true,
+    "imaging_documented": false
+  },
+  "expected_outcome": "not_met",
+  "expected_gaps": ["imaging_documented"]
+}

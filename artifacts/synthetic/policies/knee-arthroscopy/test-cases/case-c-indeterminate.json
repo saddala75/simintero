@@ -1,0 +1,10 @@
+{
+  "test_case_id": "case-c",
+  "description": "Conservative therapy in progress, not completed",
+  "evidence": {
+    "diagnosis_documented": true,
+    "conservative_therapy_tried": "indeterminate",
+    "imaging_documented": true
+  },
+  "expected_outcome": "indeterminate"
+}

@@ -1,0 +1,45 @@
+{
+  "library": {
+    "identifier": { "id": "KneeArthroscopy", "version": "1.0.0" },
+    "schemaIdentifier": {
+      "id": "urn:hl7-org:elm",
+      "version": "r1"
+    },
+    "usings": {
+      "def": [
+        {
+          "localIdentifier": "FHIR",
+          "uri": "http://hl7.org/fhir",
+          "version": "4.0.1"
+        }
+      ]
+    },
+    "statements": {
+      "def": [
+        {
+          "name": "Diagnosis Documented",
+          "context": "Patient",
+          "expression": { "type": "EvidencePresent", "key": "diagnosis_documented" }
+        },
+        {
+          "name": "Conservative Therapy Tried",
+          "context": "Patient",
+          "expression": { "type": "EvidencePresent", "key": "conservative_therapy_tried" }
+        },
+        {
+          "name": "Imaging Documented",
+          "context": "Patient",
+          "expression": { "type": "EvidencePresent", "key": "imaging_documented" }
+        },
+        {
+          "name": "Meets All Criteria",
+          "context": "Patient",
+          "expression": {
+            "type": "And",
+            "operands": ["Diagnosis Documented", "Conservative Therapy Tried", "Imaging Documented"]
+          }
+        }
+      ]
+    }
+  }
+}

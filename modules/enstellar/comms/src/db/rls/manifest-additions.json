@@ -1,0 +1,3 @@
+[
+  { "schema": "ens", "table": "communication", "tenant_column": "tenant_id" }
+]
