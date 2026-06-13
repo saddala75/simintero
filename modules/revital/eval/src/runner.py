@@ -1,0 +1,51 @@
+import json
+import sys
+from pathlib import Path
+from src.metrics.extraction_pr import compute_extraction_pr
+from src.metrics.citation_validity import compute_citation_validity_pct
+from src.metrics.groundedness import compute_groundedness_score
+
+# HUMAN_REVIEW: these thresholds must be approved by a clinical safety reviewer
+# before being set as VKAS eval gate values. Use 0.0 as placeholder until reviewed.
+THRESHOLDS = {
+    "extraction_min_f1": 0.0,          # HUMAN_REVIEW
+    "citation_min_pct": 0.0,           # HUMAN_REVIEW
+    "groundedness_min_score": 0.0,     # HUMAN_REVIEW
+    "calibration_max_ece": 1.0,        # HUMAN_REVIEW
+}
+
+
+def run_eval(gold_dir: Path) -> dict:
+    results = {}
+
+    extraction_gold_path = gold_dir / "extraction_gold.json"
+    if extraction_gold_path.exists():
+        data = json.loads(extraction_gold_path.read_text())
+        for case in data.get("cases", []):
+            m = compute_extraction_pr(case["predicted"], case["gold"])
+            results[f"extraction_f1:{case['id']}"] = {
+                "value": m.f1,
+                "pass": m.f1 >= THRESHOLDS["extraction_min_f1"],
+            }
+
+    citation_gold_path = gold_dir / "citation_gold.json"
+    if citation_gold_path.exists():
+        data = json.loads(citation_gold_path.read_text())
+        for case in data.get("cases", []):
+            pct = compute_citation_validity_pct(case["assertions"])
+            results[f"citation_validity:{case['id']}"] = {
+                "value": pct,
+                "pass": pct >= THRESHOLDS["citation_min_pct"],
+            }
+
+    return results
+
+
+if __name__ == "__main__":
+    gold_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("artifacts/synthetic/revital-gold-sets")
+    results = run_eval(gold_dir)
+    all_pass = all(r["pass"] for r in results.values())
+    for key, r in results.items():
+        status = "PASS" if r["pass"] else "FAIL"
+        print(f"[{status}] {key}: {r['value']:.3f}")
+    sys.exit(0 if all_pass else 1)

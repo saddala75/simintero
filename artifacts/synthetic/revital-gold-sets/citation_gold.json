@@ -1,0 +1,11 @@
+{
+  "description": "Gold set for citation validity — Phase 2 seed. HUMAN_REVIEW: expand before production.",
+  "cases": [
+    {
+      "id": "pa_summary_01",
+      "assertions": [
+        { "id": "a1", "text": "Member completed PT", "citations": [{ "document_ref": "doc_fixture_01", "page": 1 }] }
+      ]
+    }
+  ]
+}

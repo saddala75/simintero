@@ -1,0 +1,14 @@
+{
+  "description": "Gold set for extraction P/R — Phase 2 seed. HUMAN_REVIEW: expand before production.",
+  "cases": [
+    {
+      "id": "knee_arthroscopy_01",
+      "predicted": [
+        { "resource_type": "Procedure", "normalization": { "code": "97110", "system": "CPT", "raw_text": "ther ex" } }
+      ],
+      "gold": [
+        { "resource_type": "Procedure", "normalization": { "code": "97110", "system": "CPT", "raw_text": "therapeutic exercises" } }
+      ]
+    }
+  ]
+}
