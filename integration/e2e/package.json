@@ -1,0 +1,16 @@
+{
+  "name": "@sim/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end Gherkin/Cucumber integration tests for the Simintero platform",
+  "scripts": {
+    "test": "cucumber-js --config cucumber.yml",
+    "test:p0": "cucumber-js --config cucumber.yml --tags '@phase0'",
+    "test:p2": "cucumber-js --config cucumber.yml --tags '@phase2'",
+    "test:dry-run": "cucumber-js --config cucumber.yml --dry-run"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.0.0",
+    "@types/node": "^20"
+  }
+}
