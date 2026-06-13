@@ -6,6 +6,7 @@ packages:
   - "modules/digicore/*"
   - "modules/revital/*"
   - "modules/qualitron/*"
+  - "modules/search/*"
   - "apps/web/*"
   - "integration/e2e"
   - "contracts"

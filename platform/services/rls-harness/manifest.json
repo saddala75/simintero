@@ -12,6 +12,8 @@
     { "schema": "qual", "table": "measure_run",       "tenant_column": "tenant_id" },
     { "schema": "qual", "table": "measure_report",     "tenant_column": "tenant_id" },
     { "schema": "qual", "table": "gap",               "tenant_column": "tenant_id" },
-    { "schema": "qual", "table": "outreach_task_ref",  "tenant_column": "tenant_id" }
+    { "schema": "qual", "table": "outreach_task_ref",  "tenant_column": "tenant_id" },
+    { "schema": "search", "table": "index_event", "tenant_column": "tenant_id" },
+    { "schema": "search", "table": "search_log",  "tenant_column": "tenant_id" }
   ]
 }
