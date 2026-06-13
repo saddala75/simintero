@@ -8,6 +8,7 @@ packages:
   - "modules/qualitron/*"
   - "modules/search/*"
   - "modules/analytics/*"
+  - "modules/claims/*"
   - "apps/web/*"
   - "integration/e2e"
   - "contracts"
