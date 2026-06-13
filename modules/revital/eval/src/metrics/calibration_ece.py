@@ -14,7 +14,10 @@ def compute_calibration_ece(
     bin_boundaries = np.linspace(0, 1, n_bins + 1)
     ece = 0.0
     for i in range(n_bins):
-        mask = (confs >= bin_boundaries[i]) & (confs < bin_boundaries[i + 1])
+        if i == n_bins - 1:
+            mask = (confs >= bin_boundaries[i]) & (confs <= bin_boundaries[i + 1])
+        else:
+            mask = (confs >= bin_boundaries[i]) & (confs < bin_boundaries[i + 1])
         if mask.sum() == 0:
             continue
         bin_conf = confs[mask].mean()

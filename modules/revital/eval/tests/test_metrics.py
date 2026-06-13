@@ -47,7 +47,29 @@ def test_groundedness_unresolvable_span():
 
 
 def test_calibration_ece_perfect():
-    pairs = [(0.9, True), (0.1, False)]
+    # conf==1.0 with True → bin_conf=1.0, bin_acc=1.0 → ECE contribution 0.0
+    # conf==0.0 with False → bin_conf=0.0, bin_acc=0.0 → ECE contribution 0.0
+    pairs = [(1.0, True), (0.0, False)]
     ece = compute_calibration_ece(pairs)
-    assert ece >= 0.0
-    assert ece <= 1.0
+    assert ece == pytest.approx(0.0)
+
+
+def test_extraction_pr_empty_gold():
+    pred = [{"resource_type": "Procedure", "normalization": {"code": "97110"}}]
+    m = compute_extraction_pr(pred, gold=[])
+    assert m.recall == 0.0
+    assert m.f1 == 0.0
+
+
+def test_citation_validity_empty_assertions():
+    assert compute_citation_validity_pct([]) == pytest.approx(1.0)
+
+
+def test_groundedness_empty_assertions():
+    score = compute_groundedness_score([], {})
+    assert score == pytest.approx(1.0)
+
+
+def test_calibration_ece_empty_pairs():
+    ece = compute_calibration_ece([])
+    assert ece == pytest.approx(0.0)

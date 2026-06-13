@@ -1,0 +1,25 @@
+{
+  "cases": [
+    {
+      "id": "gnd_01",
+      "assertions": [
+        {
+          "citations": [
+            {
+              "document_ref": "doc_1",
+              "page": 1
+            }
+          ]
+        }
+      ],
+      "spans": {
+        "doc_1": [
+          {
+            "page": 1,
+            "text": "Patient underwent physical therapy including therapeutic exercises."
+          }
+        ]
+      }
+    }
+  ]
+}
