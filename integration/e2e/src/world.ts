@@ -7,6 +7,8 @@ export const SERVICE_BASE: Record<string, string> = {
   modelGateway:  process.env['MODEL_GATEWAY_URL']  ?? 'http://localhost:3011',
   controlPlane:  process.env['CONTROL_PLANE_URL']  ?? 'http://localhost:3012',
   enstellarCase: process.env['ENSTELLAR_CASE_URL'] ?? 'http://localhost:3013',
+  enstellarIntake: process.env['ENSTELLAR_INTAKE_URL'] ?? 'http://localhost:3003',
+  workspaceBff:   process.env['WORKSPACE_BFF_URL']    ?? 'http://localhost:4010',
   revital:       process.env['REVITAL_URL']        ?? 'http://localhost:3014',
   qualitron:     process.env['QUALITRON_URL']      ?? 'http://localhost:3015',
   claims:        process.env['CLAIMS_URL']         ?? 'http://localhost:3016',

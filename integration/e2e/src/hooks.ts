@@ -21,6 +21,12 @@ After({ tags: '@wipe_tenants' }, async function (this: SimWorld) {
       await client.query('BEGIN');
       await client.query(`SELECT set_config('sim.tenant_id', $1, true)`, [tid]);
       await client.query(`DELETE FROM shared.outbox WHERE tenant_id = $1`, [tid]);
+      // Phase 1 tables: child-before-parent ordering
+      await client.query(`DELETE FROM revital.analysis WHERE tenant_id = $1`, [tid]);
+      await client.query(`DELETE FROM ens.determination WHERE tenant_id = $1`, [tid]).catch(() => undefined);
+      await client.query(`DELETE FROM ens.rfi WHERE tenant_id = $1`, [tid]).catch(() => undefined);
+      await client.query(`DELETE FROM ens.service_line WHERE tenant_id = $1`, [tid]).catch(() => undefined);
+      await client.query(`DELETE FROM ens.task WHERE tenant_id = $1`, [tid]).catch(() => undefined);
       await client.query(`DELETE FROM ens.case_event WHERE tenant_id = $1`, [tid]);
       await client.query(`DELETE FROM ens.case WHERE tenant_id = $1`, [tid]);
       await client.query('COMMIT');
