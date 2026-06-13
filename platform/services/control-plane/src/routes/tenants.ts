@@ -6,6 +6,19 @@ import type { CellAssigner } from "../provisioning/CellAssigner.js";
 import type { OperationTracker } from "../provisioning/OperationTracker.js";
 import type { TenantLifecycle } from "../lifecycle/TenantLifecycle.js";
 import type { TenantEventPublisher } from "../events/TenantEventPublisher.js";
+import { KeycloakAdminClient } from "@sim/connector-keycloak";
+
+function buildKeycloakClient(): KeycloakAdminClient | null {
+  const baseUrl = process.env["KEYCLOAK_URL"];
+  const clientSecret = process.env["KEYCLOAK_CLIENT_SECRET"];
+  if (!baseUrl || !clientSecret) return null;
+  return new KeycloakAdminClient({
+    baseUrl,
+    realm: process.env["KEYCLOAK_REALM"] ?? "simintero",
+    clientId: process.env["KEYCLOAK_CLIENT_ID"] ?? "control-plane",
+    clientSecret,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Guards — exported for unit testing
@@ -67,6 +80,7 @@ export function createTenantsRouter(
   lifecycle: TenantLifecycle,
 ): Router {
   const router = Router();
+  const kcClient = buildKeycloakClient();
 
   // POST /v1/tenants — provision a new tenant
   router.post("/", async (req: Request, res: Response) => {
@@ -112,6 +126,19 @@ export function createTenantsRouter(
           },
         );
       });
+
+      // Provision Keycloak tenant group
+      if (kcClient) {
+        try {
+          const groupId = await kcClient.createTenantGroup(tenantId);
+          await db.query(
+            "UPDATE ctrl.tenant SET keycloak_group_id = $1 WHERE tenant_id = $2",
+            [groupId, tenantId],
+          );
+        } catch (err) {
+          console.error("[control-plane] keycloak group creation failed:", err);
+        }
+      }
 
       const operationId = await tracker.create("provision", tenantId);
       res.status(202).json({ tenant_id: tenantId, operation_id: operationId });

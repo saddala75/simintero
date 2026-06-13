@@ -95,6 +95,12 @@ jobs:
           - name: ai-ops-console
             context: .
             dockerfile: apps/web/ai-ops-console/Dockerfile
+          - name: vsac-proxy
+            context: .
+            dockerfile: integration/connectors/vsac/Dockerfile
+          - name: cds-hooks
+            context: .
+            dockerfile: integration/connectors/cds-hooks/Dockerfile
 
     steps:
       - name: Checkout

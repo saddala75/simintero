@@ -12,5 +12,6 @@ packages:
   - "modules/automation/*"
   - "modules/market-bundles/*"
   - "apps/web/*"
+  - "integration/connectors/*"
   - "integration/e2e"
   - "contracts"

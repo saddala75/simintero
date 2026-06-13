@@ -334,6 +334,88 @@ importers:
         specifier: ^7
         version: 7.13.0(typescript@5.9.3)
 
+  integration/connectors/cds-hooks:
+    dependencies:
+      express:
+        specifier: ^4.18.0
+        version: 4.22.2
+      undici:
+        specifier: ^6.0.0
+        version: 6.26.0
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.0
+        version: 4.17.25
+      '@types/supertest':
+        specifier: ^6.0.0
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
+      tsx:
+        specifier: ^4.0.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.3)(jsdom@24.1.3)(msw@2.14.6(@types/node@25.9.3)(typescript@5.9.3))(terser@5.48.0)
+
+  integration/connectors/clearinghouse:
+    dependencies:
+      undici:
+        specifier: ^6.0.0
+        version: 6.26.0
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.3)(jsdom@24.1.3)(msw@2.14.6(@types/node@25.9.3)(typescript@5.9.3))(terser@5.48.0)
+
+  integration/connectors/keycloak:
+    dependencies:
+      undici:
+        specifier: ^6.0.0
+        version: 6.26.0
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.3)(jsdom@24.1.3)(msw@2.14.6(@types/node@25.9.3)(typescript@5.9.3))(terser@5.48.0)
+
+  integration/connectors/vsac:
+    dependencies:
+      express:
+        specifier: ^4.18.0
+        version: 4.22.2
+      undici:
+        specifier: ^6.0.0
+        version: 6.26.0
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.0
+        version: 4.17.25
+      '@types/supertest':
+        specifier: ^6.0.0
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
+      tsx:
+        specifier: ^4.0.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.3)(jsdom@24.1.3)(msw@2.14.6(@types/node@25.9.3)(typescript@5.9.3))(terser@5.48.0)
+
   integration/e2e:
     devDependencies:
       '@cucumber/cucumber':
@@ -443,6 +525,9 @@ importers:
 
   modules/claims/service:
     dependencies:
+      '@sim/connector-clearinghouse':
+        specifier: workspace:*
+        version: link:../../../integration/connectors/clearinghouse
       express:
         specifier: ^4.19.0
         version: 4.22.2
@@ -1198,6 +1283,9 @@ importers:
       '@sim/authz-client-ts':
         specifier: workspace:*
         version: link:../../libs/authz-client/ts
+      '@sim/connector-keycloak':
+        specifier: workspace:*
+        version: link:../../../integration/connectors/keycloak
       '@sim/outbox-ts':
         specifier: workspace:*
         version: link:../../libs/outbox/ts
@@ -6665,14 +6753,14 @@ snapshots:
       chai: 5.3.3
       tinyrainbow: 1.2.0
 
-  '@vitest/mocker@2.1.9(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(vite@5.4.21(@types/node@20.19.43)(terser@5.48.0))':
+  '@vitest/mocker@2.1.9(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(vite@5.4.21(@types/node@25.9.3)(terser@5.48.0))':
     dependencies:
       '@vitest/spy': 2.1.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
       msw: 2.14.6(@types/node@20.19.43)(typescript@5.9.3)
-      vite: 5.4.21(@types/node@20.19.43)(terser@5.48.0)
+      vite: 5.4.21(@types/node@25.9.3)(terser@5.48.0)
 
   '@vitest/mocker@2.1.9(msw@2.14.6(@types/node@25.9.3)(typescript@5.9.3))(vite@5.4.21(@types/node@25.9.3)(terser@5.48.0))':
     dependencies:
@@ -8851,7 +8939,7 @@ snapshots:
   vitest@2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(terser@5.48.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(vite@5.4.21(@types/node@20.19.43)(terser@5.48.0))
+      '@vitest/mocker': 2.1.9(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(vite@5.4.21(@types/node@25.9.3)(terser@5.48.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9

@@ -151,6 +151,10 @@ services:
       DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
+      KEYCLOAK_URL: "${KEYCLOAK_URL:-}"
+      KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:-}"
+      KEYCLOAK_REALM: "${KEYCLOAK_REALM:-simintero}"
+      KEYCLOAK_CLIENT_ID: "${KEYCLOAK_CLIENT_ID:-control-plane}"
       NODE_ENV: development
       PORT: "3012"
     ports:
@@ -280,6 +284,9 @@ services:
       DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
+      CLEARINGHOUSE_URL: "${CLEARINGHOUSE_URL:-}"
+      CLEARINGHOUSE_API_KEY: "${CLEARINGHOUSE_API_KEY:-}"
+      CLEARINGHOUSE_SUBMITTER_ID: "${CLEARINGHOUSE_SUBMITTER_ID:-SIMINTERO}"
       NODE_ENV: development
       PORT: "3016"
     ports:
@@ -346,6 +353,35 @@ services:
       PORT: "3020"
     ports:
       - "3020:3020"
+    networks:
+      - sim-net
+
+  vsac-proxy:
+    build:
+      context: .
+      dockerfile: integration/connectors/vsac/Dockerfile
+    environment:
+      VSAC_BASE_URL: "${VSAC_BASE_URL:-https://vsac.nlm.nih.gov/vsac/svs}"
+      VSAC_API_KEY: "${VSAC_API_KEY:-}"
+      PORT: "3051"
+    ports:
+      - "3051:3051"
+    networks:
+      - sim-net
+
+  cds-hooks:
+    build:
+      context: .
+      dockerfile: integration/connectors/cds-hooks/Dockerfile
+    environment:
+      CONTROL_PLANE_URL: http://control-plane:3012
+      FHIR_FACADE_URL: http://fhir-facade:8081
+      PORT: "3050"
+    ports:
+      - "3050:3050"
+    depends_on:
+      - control-plane
+      - fhir-facade
     networks:
       - sim-net
 
