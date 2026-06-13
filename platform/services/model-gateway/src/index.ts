@@ -4,6 +4,7 @@ import { InferenceDispatcher } from './gateway/InferenceDispatcher.js';
 import { KillSwitchChecker } from './kill-switch/KillSwitchChecker.js';
 import { createInferenceRouter } from './routes/inference.js';
 import { createKillSwitchRouter } from './routes/kill-switch.js';
+import { createFinopsRouter } from './routes/finops.js';
 
 const DB_URL = process.env['DATABASE_URL'] ?? 'postgresql://localhost/simintero';
 const VKAS_URL = process.env['VKAS_URL'] ?? 'http://localhost:4000';
@@ -18,6 +19,7 @@ app.use(express.json());
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 app.use(createInferenceRouter(dispatcher));
 app.use(createKillSwitchRouter(pool, killSwitchChecker));
+app.use(createFinopsRouter(pool));
 
 app.listen(PORT, () => {
   console.log(`Model Gateway listening on :${PORT}`);
