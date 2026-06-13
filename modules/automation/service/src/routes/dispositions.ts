@@ -41,12 +41,13 @@ export function buildDispositionsRouter(pool: Pool): express.Router {
     // Evaluate via OPA gateway
     let opaAllow = false;
     let denyReasons: string[] = [];
+    let liveEnabled = false;
     try {
       const entitlementRow = await pool.query<{ value: unknown }>(
         `SELECT value FROM ctrl.entitlement WHERE key = 'ai.automation.live' AND tenant_id = $1`,
         [tenantId],
       );
-      const liveEnabled = entitlementRow.rows[0]?.value === true;
+      liveEnabled = entitlementRow.rows[0]?.value === true;
 
       const opaRes = await fetch(`${OPA_GATEWAY_URL}/v1/data/sim/automation/allow`, {
         method: 'POST',
@@ -78,12 +79,7 @@ export function buildDispositionsRouter(pool: Pool): express.Router {
       return res.status(422).json({ code: 'SIM-AUTO-GATE_BLOCKED', disposition_id: dispositionId, deny_reasons: denyReasons });
     }
 
-    // Determine dry_run mode: re-read entitlement (already fetched above — use same liveEnabled)
-    const entitlementRow2 = await pool.query<{ value: unknown }>(
-      `SELECT value FROM ctrl.entitlement WHERE key = 'ai.automation.live' AND tenant_id = $1`,
-      [tenantId],
-    );
-    const dryRun = entitlementRow2.rows[0]?.value !== true;
+    const dryRun = !liveEnabled;
 
     const dispositionId = ulid();
 

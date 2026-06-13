@@ -91,13 +91,11 @@ describe('POST / dispositions', () => {
 
   it('200 with status=dry_run when entitlement absent and OPA allows', async () => {
     // Pool call ordering:
-    // Call 0: ctrl.entitlement (for OPA input build) → rows: [] → live = false
-    // Call 1: ctrl.entitlement (for dry_run determination) → rows: [] → dry_run = true
-    // Call 2: shared.outbox INSERT
-    // Call 3: automation.disposition_log INSERT
+    // Call 0: ctrl.entitlement (for OPA input + dry_run) → rows: [] → live = false → dry_run = true
+    // Call 1: shared.outbox INSERT
+    // Call 2: automation.disposition_log INSERT
     const pool = makePool([
-      { rows: [] }, // entitlement for OPA
-      { rows: [] }, // entitlement for dry_run
+      { rows: [] }, // entitlement (live disabled → dry_run)
       { rows: [] }, // outbox insert
       { rows: [] }, // disposition_log insert
     ]);
@@ -120,6 +118,34 @@ describe('POST / dispositions', () => {
     );
     const hadCaseUpdate = allCalls.some((sql) => sql.includes('UPDATE ens.case'));
     expect(hadCaseUpdate).toBe(false);
+  });
+
+  it('200 with status=executed when ai.automation.live is true and OPA allows', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ result: { allow: true, deny_reasons: [] } }),
+    }));
+    // Pool calls in live path:
+    // 0: ctrl.entitlement (for OPA input + dry_run) → value: true
+    // 1: UPDATE ens.case → { rows: [] }
+    // 2: shared.outbox INSERT → { rows: [] }
+    // 3: automation.disposition_log INSERT → { rows: [] }
+    const pool = makePool([
+      { rows: [{ value: true }] },  // entitlement: live enabled
+      { rows: [] },                  // UPDATE ens.case
+      { rows: [] },                  // outbox INSERT
+      { rows: [] },                  // disposition_log INSERT
+    ]);
+    const app = makeApp(pool);
+    const res = await supertest(app)
+      .post('/')
+      .set('x-sim-tenant-id', 'tenant-live')
+      .set('x-sim-user-id', 'user-system')
+      .send({ case_ref: '00000000-0000-0000-0000-000000000001', proposed_outcome: 'approve', confidence: 1.0, classification: 'advisory', analysis_id: 'ana-1' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('executed');
+    // Verify UPDATE ens.case was called
+    const calls = (pool.query as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0] as string);
+    expect(calls.some((sql: string) => sql.includes('UPDATE ens.case'))).toBe(true);
   });
 
   it('400 when required fields are missing', async () => {
