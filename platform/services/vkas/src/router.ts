@@ -1,6 +1,7 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { resolveEffectiveVersion, type ArtifactRow } from "./resolve.js";
 import { transitionStatus, StatusTransitionError } from "./lifecycle.js";
+import { evaluateBlastRadius, applyPromotion, type PromotionSet } from "./promotions.js";
 
 export function createVkasRouter(): Router {
   const router = Router();
@@ -37,6 +38,30 @@ export function createVkasRouter(): Router {
         return;
       }
       throw err;
+    }
+  });
+
+  // POST /v1/promotions — promote artifacts through blast-radius gate
+  router.post('/v1/promotions', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const set = req.body as PromotionSet;
+      const pool = req.app.locals['pool'];
+
+      const blastResult = await evaluateBlastRadius(set, pool);
+      if (!blastResult.passed) {
+        res.status(422).json({
+          type: 'https://errors.simintero.io/SIM-VKAS-BLAST_RADIUS',
+          code: 'SIM-VKAS-BLAST_RADIUS',
+          detail: 'Promotion blocked by blast-radius gate',
+          items: blastResult.items.filter(i => !i.passed),
+        });
+        return;
+      }
+
+      const diff = await applyPromotion(set, pool);
+      res.status(201).json({ status: 'promoted', diff });
+    } catch (err) {
+      next(err);
     }
   });
 
