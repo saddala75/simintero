@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import MarginDashboard from '../pages/MarginDashboard';
+import MarginDashboard from '../pages/MarginDashboard.js';
 
 function makeClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });

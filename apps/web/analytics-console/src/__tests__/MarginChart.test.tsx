@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import MarginChart from '../components/MarginChart';
+import MarginChart from '../components/MarginChart.js';
 
 const sampleSnapshots = [
   {

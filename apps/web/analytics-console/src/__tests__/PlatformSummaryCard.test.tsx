@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import PlatformSummaryCard from '../components/PlatformSummaryCard';
+import PlatformSummaryCard from '../components/PlatformSummaryCard.js';
 
 const sampleSummary = {
   aggregate_id: 'agg-1',
