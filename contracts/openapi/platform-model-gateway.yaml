@@ -1,0 +1,133 @@
+openapi: "3.1.0"
+info:
+  title: Platform Model Gateway API
+  version: "1.0.0"
+
+paths:
+  /inference:
+    post:
+      operationId: dispatch
+      summary: Dispatch a governed LLM inference call
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelGatewayRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceResponse'
+        '403':
+          description: Boundary mismatch or kill-switch active
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Artifact not active
+
+  /model-bindings:
+    get:
+      operationId: listModelBindings
+      summary: List active model bindings for the caller tenant
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelBinding'
+
+  /tenants/{id}/kill-switch:
+    post:
+      operationId: setKillSwitch
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workflow:
+                  type: string
+      responses:
+        '204': {}
+    delete:
+      operationId: removeKillSwitch
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: workflow
+          schema:
+            type: string
+      responses:
+        '204': {}
+
+components:
+  schemas:
+    ModelGatewayRequest:
+      type: object
+      required: [task_kind, prompt_ref, prompt_version, model_binding_ref, model_binding_version, inputs]
+      properties:
+        task_kind:
+          type: string
+        prompt_ref:
+          type: string
+        prompt_version:
+          type: string
+        model_binding_ref:
+          type: string
+        model_binding_version:
+          type: string
+        inputs:
+          type: object
+        workflow_id:
+          type: string
+
+    InferenceResponse:
+      type: object
+      required: [output, request_id]
+      properties:
+        output:
+          type: object
+        request_id:
+          type: string
+
+    ModelBinding:
+      type: object
+      required: [canonical_url, version, provider, model_id, no_train_enforced]
+      properties:
+        canonical_url:
+          type: string
+        version:
+          type: string
+        provider:
+          type: string
+        model_id:
+          type: string
+        no_train_enforced:
+          type: boolean
+
+    Problem:
+      type: object
+      required: [type, code]
+      properties:
+        type:
+          type: string
+        code:
+          type: string
+        detail:
+          type: string

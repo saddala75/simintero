@@ -1,201 +1,360 @@
 openapi: "3.1.0"
 info:
-  title: Revital Advisory Contract (C-2)
+  title: Revital Advisory API
   version: "1.0.0"
-  description: |
-    Contract between Revital (AI advisory engine) and consumers (Enstellar, clinical portal).
-    Generated clients are in platform/libs/generated/c2-revital-advisory/.
-    Breaking changes require a new major version and deprecation window.
+  description: >
+    C-2 contract — governs how Enstellar requests AI analysis and receives advisory outputs.
+    Every response carries classification=advisory. No field is accepted by decision.record.
 
 paths:
-  /v1/assist/analyze-case:
+  /v1/assist/analyses:
     post:
-      operationId: analyzeCase
-      summary: Request an AI-generated advisory for a UM case
-      description: |
-        Triggers Revital's advisory pipeline for the given case. When options.async is false
-        (default), the request blocks until the advisory is complete (subject to a timeout).
-        When options.async is true, returns immediately with status=queued and the advisory_id
-        for subsequent polling or event-driven retrieval.
-      x-sim-authz:
-        action: advisory.analyze
-        resource_type: case
+      operationId: requestAnalysis
+      summary: Request case analysis (async)
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [case_id, tenant_id]
-              additionalProperties: false
-              properties:
-                case_id:
-                  type: string
-                  description: The UM case to analyze
-                tenant_id:
-                  type: string
-                  description: Tenant that owns the case
-                options:
-                  type: object
-                  additionalProperties: false
-                  properties:
-                    async:
-                      type: boolean
-                      default: false
-                      description: When true, returns immediately with status=queued
-                    evidence_requirement_refs:
-                      type: array
-                      items:
-                        type: string
-                      description: |
-                        Subset of evidence requirement IDs (from Digicore C-1) to scope the analysis.
-                        When empty, Revital evaluates all requirements for the case context.
-                    pin_artifacts:
-                      type: array
-                      items:
-                        type: object
-                        required: [canonical_url, version]
-                        properties:
-                          canonical_url: { type: string, format: uri }
-                          version:       { type: string }
-                      description: Pin specific artifact versions for deterministic re-evaluation
-                    max_latency_seconds:
-                      type: integer
-                      minimum: 10
-                      maximum: 300
-                      default: 60
-                      description: Synchronous timeout in seconds (ignored when async=true)
+              $ref: '#/components/schemas/AnalysisRequest'
       responses:
-        "200":
-          description: Advisory result (synchronous completion or async acceptance)
+        '202':
+          description: Analysis accepted
           content:
             application/json:
               schema:
-                type: object
-                required: [advisory_id, status, trace_ref]
-                additionalProperties: false
-                properties:
-                  advisory_id:
-                    type: string
-                    pattern: "^adv_[0-9A-Z]{26}$"
-                    description: Stable identifier for this advisory
-                  status:
-                    type: string
-                    enum: [queued, processing, complete]
-                    description: Current status of the advisory
-                  advisory:
-                    description: Present when status is complete (synchronous mode only)
-                    $ref: "../../schemas/advisory-output.schema.json"
-                  trace_ref:
-                    type: string
-                    pattern: "^trc_[0-9A-Z]{26}$"
-                    description: Audit trace reference for this advisory request
-        "202":
-          description: Advisory accepted for async processing (only when options.async=true)
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [advisory_id, status, trace_ref]
-                properties:
-                  advisory_id:
-                    type: string
-                    pattern: "^adv_[0-9A-Z]{26}$"
-                  status:
-                    type: string
-                    enum: [queued]
-                  trace_ref:
-                    type: string
-                    pattern: "^trc_[0-9A-Z]{26}$"
-        "422":
-          description: Validation error or insufficient context to begin analysis
+                $ref: '#/components/schemas/AnalysisAccepted'
+        '409':
+          description: AI disabled for tenant or workflow
           content:
             application/problem+json:
               schema:
-                type: object
-                required: [code, detail]
-                properties:
-                  code:    { type: string, example: SIM-REV-INVALID-INPUT }
-                  detail:  { type: string }
-                  fields:  { type: array, items: { type: object } }
-        "503":
-          description: Advisory engine temporarily unavailable
-          content:
-            application/problem+json:
-              schema:
-                type: object
-                required: [code, retry_after_seconds]
-                properties:
-                  code:                 { const: SIM-REV-UNAVAILABLE }
-                  retry_after_seconds:  { type: integer }
+                $ref: '#/components/schemas/Problem'
 
-  /v1/assist/feedback:
+  /v1/assist/analyses/{analysisId}:
+    get:
+      operationId: getAnalysis
+      summary: Get advisory result
+      parameters:
+        - in: path
+          name: analysisId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Advisory result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+
+  /v1/assist/analyses/{analysisId}/feedback:
     post:
-      operationId: submitFeedback
-      summary: Submit reviewer feedback on an advisory
-      description: |
-        Records a clinical reviewer's assessment of an advisory's accuracy.
-        Used for model performance monitoring, RLHF pipelines, and compliance audit.
-      x-sim-authz:
-        action: advisory.feedback
-        resource_type: advisory
+      operationId: recordFeedback
+      summary: Capture reviewer action on advisory outputs
+      parameters:
+        - in: path
+          name: analysisId
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '204':
+          description: Feedback recorded
+
+  /v1/assist/analyses/{analysisId}:reanalyze:
+    post:
+      operationId: reanalyze
+      summary: Re-run analysis with current or pinned artifact versions
+      parameters:
+        - in: path
+          name: analysisId
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Re-analysis accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisAccepted'
+
+components:
+  schemas:
+    AnalysisRequest:
+      type: object
+      required: [case_ref, analysis_kinds, inputs]
+      properties:
+        case_ref:
+          type: string
+        analysis_kinds:
+          type: array
+          items:
+            type: string
+            enum: [summary, extraction, completeness, triage]
+        inputs:
+          type: object
+          required: [document_refs, case_context]
+          properties:
+            document_refs:
+              type: array
+              items:
+                type: string
+            questionnaire_responses:
+              type: array
+              items:
+                type: string
+            case_context:
               type: object
-              required: [advisory_id, reviewer_id, rating]
-              additionalProperties: false
               properties:
-                advisory_id:
+                lob:
                   type: string
-                  pattern: "^adv_[0-9A-Z]{26}$"
-                  description: The advisory being rated
-                reviewer_id:
+                urgency:
                   type: string
-                  description: Identity of the reviewer (human actor id)
-                rating:
-                  type: string
-                  enum: [accurate, partially_accurate, inaccurate]
-                  description: Overall accuracy assessment of the advisory
-                assertion_ratings:
+                service_lines:
                   type: array
-                  description: Optional per-assertion ratings for fine-grained feedback
                   items:
                     type: object
-                    required: [assertion_id, rating]
-                    properties:
-                      assertion_id: { type: string }
-                      rating:       { type: string, enum: [accurate, partially_accurate, inaccurate] }
-                      notes:        { type: ["string","null"] }
-                notes:
-                  type: ["string","null"]
-                  maxLength: 2000
-                  description: Free-text reviewer notes
-      responses:
-        "200":
-          description: Feedback recorded successfully
-          content:
-            application/json:
-              schema:
+        evidence_requirements:
+          type: object
+          properties:
+            requirements_ref:
+              type: object
+        priority:
+          type: string
+          enum: [interactive, batch]
+          default: interactive
+
+    AnalysisAccepted:
+      type: object
+      required: [analysis_id, operation]
+      properties:
+        analysis_id:
+          type: string
+        operation:
+          type: string
+
+    AnalysisResult:
+      type: object
+      required: [analysis_id, classification, status, case_ref, interaction]
+      properties:
+        analysis_id:
+          type: string
+        classification:
+          type: string
+          enum: [advisory]
+        status:
+          type: string
+          enum: [complete, partial, failed]
+        case_ref:
+          type: string
+        interaction:
+          $ref: '#/components/schemas/Interaction'
+        summary:
+          $ref: '#/components/schemas/SummaryBlock'
+        extraction:
+          $ref: '#/components/schemas/ExtractionBlock'
+        completeness:
+          $ref: '#/components/schemas/CompletenessBlock'
+        triage:
+          $ref: '#/components/schemas/TriageBlock'
+        abstentions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Abstention'
+        unprocessed_inputs:
+          type: array
+          items:
+            type: object
+
+    Interaction:
+      type: object
+      required: [model_binding, prompt, started_at, input_manifest]
+      properties:
+        model_binding:
+          type: object
+          required: [canonical_url, version]
+          properties:
+            canonical_url:
+              type: string
+            version:
+              type: string
+        prompt:
+          type: object
+          required: [canonical_url, version]
+          properties:
+            canonical_url:
+              type: string
+            version:
+              type: string
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        input_manifest:
+          type: array
+          items:
+            type: object
+
+    Assertion:
+      type: object
+      required: [id, text, citations, confidence]
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        citations:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Citation'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    Citation:
+      type: object
+      required: [document_ref, page, region, excerpt_hash, trace_ref]
+      properties:
+        document_ref:
+          type: string
+        page:
+          type: integer
+        region:
+          type: array
+          items:
+            type: number
+          minItems: 4
+          maxItems: 4
+        excerpt_hash:
+          type: string
+        trace_ref:
+          type: string
+
+    SummaryBlock:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, abstained]
+        abstain_reason:
+          type: string
+          nullable: true
+        assertions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assertion'
+
+    ExtractionBlock:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, abstained]
+        resources:
+          type: array
+          items:
+            type: object
+
+    CompletenessBlock:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, abstained]
+        against:
+          type: object
+        satisfied:
+          type: array
+          items:
+            type: object
+        gaps:
+          type: array
+          items:
+            type: object
+        conflicts:
+          type: array
+          items:
+            type: object
+
+    TriageBlock:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, abstained]
+        suggestion:
+          type: string
+          enum: [likely_meets, needs_rfi, route_to_clinician]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        calibration_ref:
+          type: string
+        rationale_assertion_ids:
+          type: array
+          items:
+            type: string
+
+    Abstention:
+      type: object
+      required: [block, reason]
+      properties:
+        block:
+          type: string
+        reason:
+          type: string
+
+    FeedbackRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [target, action]
+            properties:
+              target:
+                type: string
+              action:
+                type: string
+                enum: [accepted, edited, overridden, flagged]
+              reason_code:
+                type: string
+                enum: [incorrect, incomplete, irrelevant, hallucination_suspected, other]
+              note:
+                type: string
+              replacement:
                 type: object
-                required: [feedback_id, recorded_at]
-                additionalProperties: false
-                properties:
-                  feedback_id:
-                    type: string
-                    description: Unique identifier for the feedback record
-                  recorded_at:
-                    type: string
-                    format: date-time
-                    description: ISO 8601 timestamp when the feedback was persisted
-        "404":
-          description: Advisory not found
-          content:
-            application/problem+json:
-              schema:
-                type: object
-                required: [code]
-                properties:
-                  code: { const: SIM-REV-ADVISORY-NOT-FOUND }
+                nullable: true
+
+    Problem:
+      type: object
+      required: [type, code]
+      properties:
+        type:
+          type: string
+        code:
+          type: string
+        detail:
+          type: string
+        correlation_id:
+          type: string
