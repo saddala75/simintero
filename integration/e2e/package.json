@@ -10,6 +10,7 @@
     "test:p3": "cucumber-js --config cucumber.yml --tags '@phase3'",
     "test:p4a": "cucumber-js --config cucumber.yml --dry-run --tags '@phase4a'",
     "test:p4b": "cucumber-js --config cucumber.yml --dry-run --tags '@phase4b'",
+    "test:p4c": "cucumber-js --config cucumber.yml --dry-run --tags '@phase4c'",
     "test:dry-run": "cucumber-js --config cucumber.yml --dry-run"
   },
   "devDependencies": {
