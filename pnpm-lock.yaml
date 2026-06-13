@@ -1343,6 +1343,9 @@ importers:
       ulid:
         specifier: ^2.3.0
         version: 2.4.0
+      undici:
+        specifier: ^6.0.0
+        version: 6.26.0
     devDependencies:
       '@types/express':
         specifier: ^5.0.0
