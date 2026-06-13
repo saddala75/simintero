@@ -18,6 +18,8 @@
     { "schema": "analytics", "table": "margin_snapshot", "tenant_column": "tenant_id" },
     { "schema": "claims",    "table": "claim",           "tenant_column": "tenant_id" },
     { "schema": "claims",    "table": "appeal",          "tenant_column": "tenant_id" },
-    { "schema": "automation", "table": "disposition_log", "tenant_column": "tenant_id" }
+    { "schema": "automation", "table": "disposition_log", "tenant_column": "tenant_id" },
+    { "schema": "market",     "table": "bundle",          "tenant_column": "tenant_id" },
+    { "schema": "market",     "table": "bundle_artifact", "tenant_column": "tenant_id" }
   ]
 }
