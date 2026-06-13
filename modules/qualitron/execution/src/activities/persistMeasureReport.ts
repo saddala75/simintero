@@ -29,7 +29,7 @@ export async function persistMeasureReport(
       result.numerator,
       result.denominator,
       result.exclusion,
-      JSON.stringify({ member_id: result.member_id, measure_ref: result.measure_ref }),
+      JSON.stringify(result),
       JSON.stringify(result.evidence_refs),
       result.trace_ref,
     ],

@@ -193,6 +193,15 @@ describe('POST /v1/quality/runs', () => {
 // ---------------------------------------------------------------------------
 
 describe('GET /v1/quality/runs/:runId', () => {
+  it('GET /runs/:runId — 401 when tenant header absent', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(createRunsRouter(makePool()));
+
+    const response = await request(app).get('/v1/quality/runs/some-id');
+    expect(response.status).toBe(401);
+  });
+
   it('returns 200 with the run row when found', async () => {
     const runRow = {
       run_id: 'run_01J',
