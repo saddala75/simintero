@@ -7,6 +7,7 @@ packages:
   - "modules/revital/*"
   - "modules/qualitron/*"
   - "modules/search/*"
+  - "modules/analytics/*"
   - "apps/web/*"
   - "integration/e2e"
   - "contracts"
