@@ -177,6 +177,15 @@ describe('handleEvidenceEvent', () => {
     expect(pool.query).toHaveBeenCalledTimes(1);
     expect(client.upsert).not.toHaveBeenCalled();
   });
+
+  it('propagates error if IndexClient.upsert throws for document events', async () => {
+    const pool = makePool([{ rows: [] }]); // SELECT returns nothing (not seen)
+    const client = { upsert: vi.fn().mockRejectedValue(new Error('opensearch down')) };
+
+    await expect(
+      handleEvidenceEvent(baseEvidenceEvent, pool, client),
+    ).rejects.toThrow('opensearch down');
+  });
 });
 
 // ─── QualEvidenceHandler ──────────────────────────────────────────────────
