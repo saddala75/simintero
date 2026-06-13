@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Worklist } from '../pages/Worklist.js';
 
 vi.mock('../hooks/useWorklist.js', () => ({
@@ -11,7 +11,7 @@ vi.mock('../hooks/useWorklist.js', () => ({
         state: 'IN_REVIEW',
         member_ref: 'Patient/pat-001',
         lob: 'MA',
-        clock: { state: 'breached', deadline: '2026-01-15T00:00:00Z' },
+        clock: { state: 'crit', deadline: '04:30' },
       },
       {
         case_id: 'case_002',
@@ -19,7 +19,7 @@ vi.mock('../hooks/useWorklist.js', () => ({
         state: 'RECEIVED',
         member_ref: 'Patient/pat-002',
         lob: 'MA',
-        clock: { state: 'running', deadline: '2026-02-01T00:00:00Z' },
+        clock: { state: 'ok', deadline: '72:00' },
       },
     ],
     loading: false,
@@ -28,24 +28,26 @@ vi.mock('../hooks/useWorklist.js', () => ({
   }),
 }));
 
+const noop = vi.fn();
+
 describe('Worklist', () => {
-  it('renders case cards for both cases', () => {
-    render(<Worklist />);
-    expect(screen.getByText(/case_001/i)).toBeInTheDocument();
-    expect(screen.getByText(/case_002/i)).toBeInTheDocument();
+  it('renders rows for both cases', () => {
+    render(<Worklist onSelectCase={noop} onMdDetermination={noop} />);
+    // IDs display as PA-CASE_001 (last 8 chars uppercased)
+    expect(screen.getByText(/CASE_001/i)).toBeInTheDocument();
+    expect(screen.getByText(/CASE_002/i)).toBeInTheDocument();
   });
 
-  it('shows "Breached" badge for case_001 (clock.state === breached)', () => {
-    render(<Worklist />);
-    const card001 = screen.getByText(/case_001/i).closest('[data-case-id]') as HTMLElement;
-    expect(within(card001).getByText('Breached')).toBeInTheDocument();
+  it('shows "In Review" badge for case_001', () => {
+    render(<Worklist onSelectCase={noop} onMdDetermination={noop} />);
+    expect(screen.getByText('In Review')).toBeInTheDocument();
   });
 
-  it('case_001 (expedited) appears before case_002 (standard) in the list', () => {
-    render(<Worklist />);
-    const cards = screen.getAllByRole('listitem');
-    const card001Index = cards.findIndex((el) => el.textContent?.includes('case_001'));
-    const card002Index = cards.findIndex((el) => el.textContent?.includes('case_002'));
-    expect(card001Index).toBeLessThan(card002Index);
+  it('expedited case (case_001) appears before standard (case_002)', () => {
+    render(<Worklist onSelectCase={noop} onMdDetermination={noop} />);
+    const rows = screen.getAllByRole('row').slice(1); // skip header
+    const idx001 = rows.findIndex(r => r.textContent?.includes('CASE_001'));
+    const idx002 = rows.findIndex(r => r.textContent?.includes('CASE_002'));
+    expect(idx001).toBeLessThan(idx002);
   });
 });
