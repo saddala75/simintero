@@ -5,7 +5,7 @@ import { buildDispositionsRouter } from '../routes/dispositions.js';
 
 function makePool(responses: Array<{ rows: unknown[] }>) {
   let i = 0;
-  return { query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })) } as any;
+  return { query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })) };
 }
 function makeApp(pool: ReturnType<typeof makePool>) {
   const app = express();
@@ -70,6 +70,19 @@ describe('POST / dispositions', () => {
       .send({ ...validBody, proposed_outcome: 'modify' });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe('SIM-AUTO-ADVERSE_BLOCKED');
+  });
+
+  it('422 SIM-AUTO-ADVERSE_BLOCKED when proposed_outcome is partial_deny', async () => {
+    const pool = makePool([{ rows: [] }]);
+    const app = makeApp(pool);
+    const res = await supertest(app)
+      .post('/')
+      .set('x-sim-tenant-id', 'tenant-abc')
+      .set('x-sim-user-id', 'system-agent-1')
+      .send({ ...validBody, proposed_outcome: 'partial_deny' });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('SIM-AUTO-ADVERSE_BLOCKED');
+    expect(res.body.deny_reasons).toContain('adverse_outcome_blocked');
   });
 
   it('422 SIM-AUTO-GATE_BLOCKED when OPA gate returns allow=false', async () => {
