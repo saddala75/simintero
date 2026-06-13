@@ -48,6 +48,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnalysisResult'
+        '404':
+          description: Analysis not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
   /v1/assist/analyses/{analysisId}/feedback:
     post:
@@ -68,6 +74,12 @@ paths:
       responses:
         '204':
           description: Feedback recorded
+        '404':
+          description: Analysis not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
   /v1/assist/analyses/{analysisId}:reanalyze:
     post:
@@ -86,6 +98,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnalysisAccepted'
+        '404':
+          description: Analysis not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
 components:
   schemas:
@@ -111,7 +129,8 @@ components:
             questionnaire_responses:
               type: array
               items:
-                type: string
+                type: object
+                additionalProperties: true
             case_context:
               type: object
               properties:
@@ -123,11 +142,13 @@ components:
                   type: array
                   items:
                     type: object
+                    additionalProperties: true
         evidence_requirements:
           type: object
           properties:
             requirements_ref:
               type: object
+              additionalProperties: true
         priority:
           type: string
           enum: [interactive, batch]
@@ -153,7 +174,7 @@ components:
           enum: [advisory]
         status:
           type: string
-          enum: [complete, partial, failed]
+          enum: [processing, complete, partial, failed]
         case_ref:
           type: string
         interaction:
@@ -174,6 +195,7 @@ components:
           type: array
           items:
             type: object
+            additionalProperties: true
 
     Interaction:
       type: object
@@ -205,6 +227,7 @@ components:
           type: array
           items:
             type: object
+            additionalProperties: true
 
     Assertion:
       type: object
@@ -251,8 +274,7 @@ components:
           type: string
           enum: [ok, abstained]
         abstain_reason:
-          type: string
-          nullable: true
+          type: [string, "null"]
         assertions:
           type: array
           items:
@@ -269,6 +291,7 @@ components:
           type: array
           items:
             type: object
+            additionalProperties: true
 
     CompletenessBlock:
       type: object
@@ -283,14 +306,17 @@ components:
           type: array
           items:
             type: object
+            additionalProperties: true
         gaps:
           type: array
           items:
             type: object
+            additionalProperties: true
         conflicts:
           type: array
           items:
             type: object
+            additionalProperties: true
 
     TriageBlock:
       type: object
@@ -343,8 +369,10 @@ components:
               note:
                 type: string
               replacement:
-                type: object
-                nullable: true
+                oneOf:
+                  - type: object
+                    additionalProperties: true
+                  - type: "null"
 
     Problem:
       type: object

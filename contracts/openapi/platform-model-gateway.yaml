@@ -16,6 +16,7 @@ paths:
               $ref: '#/components/schemas/ModelGatewayRequest'
       responses:
         '200':
+          description: Inference result
           content:
             application/json:
               schema:
@@ -35,6 +36,7 @@ paths:
       summary: List active model bindings for the caller tenant
       responses:
         '200':
+          description: Active model bindings
           content:
             application/json:
               schema:
@@ -52,6 +54,7 @@ paths:
           schema:
             type: string
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -60,7 +63,8 @@ paths:
                 workflow:
                   type: string
       responses:
-        '204': {}
+        '204':
+          description: Kill-switch updated
     delete:
       operationId: removeKillSwitch
       parameters:
@@ -74,7 +78,8 @@ paths:
           schema:
             type: string
       responses:
-        '204': {}
+        '204':
+          description: Kill-switch updated
 
 components:
   schemas:
@@ -94,6 +99,7 @@ components:
           type: string
         inputs:
           type: object
+          additionalProperties: true
         workflow_id:
           type: string
 
@@ -103,6 +109,7 @@ components:
       properties:
         output:
           type: object
+          additionalProperties: true
         request_id:
           type: string
 
@@ -130,4 +137,6 @@ components:
         code:
           type: string
         detail:
+          type: string
+        correlation_id:
           type: string

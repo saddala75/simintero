@@ -64,11 +64,15 @@ export interface components {
             prompt_version: string;
             model_binding_ref: string;
             model_binding_version: string;
-            inputs: Record<string, never>;
+            inputs: {
+                [key: string]: unknown;
+            };
             workflow_id?: string;
         };
         InferenceResponse: {
-            output: Record<string, never>;
+            output: {
+                [key: string]: unknown;
+            };
             request_id: string;
         };
         ModelBinding: {
@@ -82,6 +86,7 @@ export interface components {
             type: string;
             code: string;
             detail?: string;
+            correlation_id?: string;
         };
     };
     responses: never;
@@ -105,6 +110,7 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Inference result */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -140,6 +146,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Active model bindings */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -159,7 +166,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "application/json": {
                     workflow?: string;
@@ -167,6 +174,7 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Kill-switch updated */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -188,6 +196,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Kill-switch updated */
             204: {
                 headers: {
                     [name: string]: unknown;

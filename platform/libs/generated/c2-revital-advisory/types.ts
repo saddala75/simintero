@@ -81,15 +81,21 @@ export interface components {
             analysis_kinds: ("summary" | "extraction" | "completeness" | "triage")[];
             inputs: {
                 document_refs: string[];
-                questionnaire_responses?: string[];
+                questionnaire_responses?: {
+                    [key: string]: unknown;
+                }[];
                 case_context: {
                     lob?: string;
                     urgency?: string;
-                    service_lines?: Record<string, never>[];
+                    service_lines?: {
+                        [key: string]: unknown;
+                    }[];
                 };
             };
             evidence_requirements?: {
-                requirements_ref?: Record<string, never>;
+                requirements_ref?: {
+                    [key: string]: unknown;
+                };
             };
             /**
              * @default interactive
@@ -106,7 +112,7 @@ export interface components {
             /** @enum {string} */
             classification: "advisory";
             /** @enum {string} */
-            status: "complete" | "partial" | "failed";
+            status: "processing" | "complete" | "partial" | "failed";
             case_ref: string;
             interaction: components["schemas"]["Interaction"];
             summary?: components["schemas"]["SummaryBlock"];
@@ -114,7 +120,9 @@ export interface components {
             completeness?: components["schemas"]["CompletenessBlock"];
             triage?: components["schemas"]["TriageBlock"];
             abstentions?: components["schemas"]["Abstention"][];
-            unprocessed_inputs?: Record<string, never>[];
+            unprocessed_inputs?: {
+                [key: string]: unknown;
+            }[];
         };
         Interaction: {
             model_binding: {
@@ -129,7 +137,9 @@ export interface components {
             started_at: string;
             /** Format: date-time */
             completed_at?: string;
-            input_manifest: Record<string, never>[];
+            input_manifest: {
+                [key: string]: unknown;
+            }[];
         };
         Assertion: {
             id: string;
@@ -153,15 +163,23 @@ export interface components {
         ExtractionBlock: {
             /** @enum {string} */
             status: "ok" | "abstained";
-            resources?: Record<string, never>[];
+            resources?: {
+                [key: string]: unknown;
+            }[];
         };
         CompletenessBlock: {
             /** @enum {string} */
             status: "ok" | "abstained";
             against?: Record<string, never>;
-            satisfied?: Record<string, never>[];
-            gaps?: Record<string, never>[];
-            conflicts?: Record<string, never>[];
+            satisfied?: {
+                [key: string]: unknown;
+            }[];
+            gaps?: {
+                [key: string]: unknown;
+            }[];
+            conflicts?: {
+                [key: string]: unknown;
+            }[];
         };
         TriageBlock: {
             /** @enum {string} */
@@ -184,7 +202,9 @@ export interface components {
                 /** @enum {string} */
                 reason_code?: "incorrect" | "incomplete" | "irrelevant" | "hallucination_suspected" | "other";
                 note?: string;
-                replacement?: Record<string, never> | null;
+                replacement?: {
+                    [key: string]: unknown;
+                } | null;
             }[];
         };
         Problem: {
@@ -255,6 +275,15 @@ export interface operations {
                     "application/json": components["schemas"]["AnalysisResult"];
                 };
             };
+            /** @description Analysis not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     recordFeedback: {
@@ -279,6 +308,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Analysis not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     reanalyze: {
@@ -299,6 +337,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalysisAccepted"];
+                };
+            };
+            /** @description Analysis not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
