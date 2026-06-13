@@ -1,0 +1,5 @@
+apiVersion: v2
+name: base-service
+description: Shared base chart for all Simintero Node.js and Java services
+type: library
+version: 0.1.0

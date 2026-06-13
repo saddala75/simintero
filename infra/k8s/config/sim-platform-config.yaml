@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sim-platform-config
+  namespace: simintero
+data:
+  OPA_URL: "http://opa.simintero.svc.cluster.local:8181"
+  KAFKA_BROKERS: "redpanda.simintero.svc.cluster.local:9092"
+  VKAS_URL: "http://vkas.simintero.svc.cluster.local:3040"
+  CONTROL_PLANE_URL: "http://control-plane.simintero.svc.cluster.local:3012"

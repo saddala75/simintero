@@ -1,0 +1,25 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/simintero/base-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 3000
+
+# Set worker: true for Temporal workers — disables Service and health probes
+worker: false
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+env: {}
+
+podAnnotations:
+  sim.io/rls-context: "true"

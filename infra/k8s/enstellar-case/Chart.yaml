@@ -1,0 +1,11 @@
+apiVersion: v2
+name: enstellar-case
+description: Helm chart for the Simintero enstellar-case
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: base-service
+    version: "0.1.0"
+    repository: "file://../charts/base-service"
+    alias: base

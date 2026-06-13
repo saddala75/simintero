@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: simintero
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Simintero Payer Platform
+
+  sourceRepos:
+    - "https://github.com/simintero/simintero"
+
+  destinations:
+    - server: "https://pooled-cluster.simintero.io"
+      namespace: simintero
+    - server: "https://enclave-cluster.simintero.io"
+      namespace: simintero
+
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRole
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRoleBinding
+
+  namespaceResourceWhitelist:
+    - group: "apps"
+      kind: Deployment
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ConfigMap
+    - group: "networking.k8s.io"
+      kind: NetworkPolicy
+    - group: "batch"
+      kind: Job
+
+  roles:
+    - name: ci-deployer
+      description: "GitHub Actions CI pipeline — can sync applications"
+      policies:
+        - "p, proj:simintero:ci-deployer, applications, sync, simintero/*, allow"
+        - "p, proj:simintero:ci-deployer, applications, get, simintero/*, allow"
+      jwtTokens:
+        - iat: 1700000000
+    - name: readonly
+      description: "Monitoring and audit — read-only access"
+      policies:
+        - "p, proj:simintero:readonly, applications, get, simintero/*, allow"

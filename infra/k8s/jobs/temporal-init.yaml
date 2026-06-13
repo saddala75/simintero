@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: temporal-namespace-init
+  namespace: simintero
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: temporal-admin
+          image: temporalio/admin-tools:1.24
+          command:
+            - sh
+            - -c
+            - |
+              until temporal operator namespace describe simintero \
+                --address temporal.simintero.svc.cluster.local:7233; do
+                echo "Waiting for Temporal..."
+                sleep 5
+              done || \
+              temporal operator namespace create simintero \
+                --address temporal.simintero.svc.cluster.local:7233 \
+                --retention 14d
+              echo "Temporal namespace 'simintero' is ready."
+          env:
+            - name: TEMPORAL_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: sim-temporal-config
+                  key: TEMPORAL_ADDRESS

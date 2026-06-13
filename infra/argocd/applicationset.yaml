@@ -1,0 +1,111 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: simintero-platform
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          # ── Pooled cell — Node.js HTTP services ────────────────────────────
+          - service: document-service
+            chart: document-service
+            cell: pooled
+          - service: model-gateway
+            chart: model-gateway
+            cell: pooled
+          - service: control-plane
+            chart: control-plane
+            cell: pooled
+          - service: enstellar-case
+            chart: enstellar-case
+            cell: pooled
+          - service: enstellar-comms
+            chart: enstellar-comms
+            cell: pooled
+          - service: workspace-bff
+            chart: workspace-bff
+            cell: pooled
+          - service: revital-pipeline
+            chart: revital-pipeline
+            cell: pooled
+          - service: qualitron
+            chart: qualitron
+            cell: pooled
+          - service: claims-service
+            chart: claims-service
+            cell: pooled
+          - service: automation-service
+            chart: automation-service
+            cell: pooled
+          - service: market-bundles-service
+            chart: market-bundles-service
+            cell: pooled
+          - service: search-service
+            chart: search-service
+            cell: pooled
+          - service: analytics-service
+            chart: analytics-service
+            cell: pooled
+          # ── Pooled cell — Temporal workers ─────────────────────────────────
+          - service: enstellar-workflow-worker
+            chart: enstellar-workflow-worker
+            cell: pooled
+          - service: enstellar-clock-worker
+            chart: enstellar-clock-worker
+            cell: pooled
+          # ── Pooled cell — Web apps ─────────────────────────────────────────
+          - service: reviewer-workspace
+            chart: reviewer-workspace
+            cell: pooled
+          - service: saas-admin
+            chart: saas-admin
+            cell: pooled
+          - service: provisioning-console
+            chart: provisioning-console
+            cell: pooled
+          - service: support-console
+            chart: support-console
+            cell: pooled
+          - service: ai-ops-console
+            chart: ai-ops-console
+            cell: pooled
+          # ── Enclave cell — Java services (FedRAMP) ─────────────────────────
+          - service: fhir-facade
+            chart: fhir-facade
+            cell: enclave
+          - service: x12-translator
+            chart: x12-translator
+            cell: enclave
+          - service: digicore-runtime
+            chart: digicore-runtime
+            cell: enclave
+
+  template:
+    metadata:
+      name: '{{service}}'
+      namespace: argocd
+    spec:
+      project: simintero
+      source:
+        repoURL: https://github.com/simintero/simintero
+        targetRevision: HEAD
+        path: 'infra/k8s/{{chart}}'
+        helm:
+          valueFiles:
+            - 'values-{{cell}}.yaml'
+      destination:
+        server: >-
+          {{- if eq .cell "enclave" -}}
+          https://enclave-cluster.simintero.io
+          {{- else -}}
+          https://pooled-cluster.simintero.io
+          {{- end -}}
+        namespace: simintero
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

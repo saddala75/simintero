@@ -1,0 +1,52 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flyway-migrate
+  namespace: simintero
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: flyway
+          image: flyway/flyway:10-alpine
+          args:
+            - "-url=jdbc:postgresql://$(POSTGRES_HOST):5432/simintero"
+            - "-user=$(POSTGRES_USER)"
+            - "-password=$(POSTGRES_PASSWORD)"
+            - "-locations=filesystem:/flyway/sql"
+            - "migrate"
+          env:
+            - name: POSTGRES_HOST
+              value: "postgres.simintero.svc.cluster.local"
+            - name: POSTGRES_USER
+              value: "sim"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sim-db
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: migrations
+              mountPath: /flyway/sql
+      volumes:
+        - name: migrations
+          configMap:
+            name: sim-db-migrations
+---
+# This ConfigMap is populated by CI before applying the Job.
+# CI command: kubectl create configmap sim-db-migrations \
+#   --from-file=platform/services/db-migrations/migrations/ \
+#   --namespace simintero --dry-run=client -o yaml | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sim-db-migrations
+  namespace: simintero
+  annotations:
+    sim.io/managed-by: "ci"
+data: {}

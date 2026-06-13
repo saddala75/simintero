@@ -1,0 +1,23 @@
+image:
+  repository: ghcr.io/simintero/search-query-api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 3019
+
+replicaCount: 2
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+podAnnotations:
+  sim.io/rls-context: "true"
+
+env:
+  SEARCH_INDEX_SIZE: "10000"

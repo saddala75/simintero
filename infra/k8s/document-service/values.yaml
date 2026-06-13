@@ -1,0 +1,23 @@
+image:
+  repository: ghcr.io/simintero/document-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 3010
+
+replicaCount: 2
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+podAnnotations:
+  sim.io/rls-context: "true"
+
+env:
+  OBJECT_STORE_BUCKET: sim-documents

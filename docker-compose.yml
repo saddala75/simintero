@@ -1,0 +1,399 @@
+networks:
+  sim-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redpanda-data:
+  temporal-data:
+
+services:
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: simintero
+      POSTGRES_USER: sim
+      POSTGRES_PASSWORD: devpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sim -d simintero"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  flyway:
+    image: flyway/flyway:10-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      -url=jdbc:postgresql://postgres:5432/simintero
+      -user=sim
+      -password=devpassword
+      -locations=filesystem:/flyway/sql
+      migrate
+    volumes:
+      - ./platform/services/db-migrations/migrations:/flyway/sql:ro
+    networks:
+      - sim-net
+
+  redpanda:
+    image: redpandadata/redpanda:latest
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks:
+      - sim-net
+
+  temporal:
+    image: temporalio/auto-setup:1.24
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=sim
+      - POSTGRES_PWD=devpassword
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7233:7233"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sim-net
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    ports:
+      - "8088:8080"
+    depends_on:
+      - temporal
+    networks:
+      - sim-net
+
+  opa:
+    image: openpolicyagent/opa:latest
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - /policies
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./platform/services/opa-policies:/policies:ro
+    networks:
+      - sim-net
+
+  # ── Node.js services ───────────────────────────────────────────────────────
+
+  document-service:
+    build:
+      context: .
+      dockerfile: platform/services/document/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      NODE_ENV: development
+      PORT: "3010"
+    ports:
+      - "3010:3010"
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
+    networks:
+      - sim-net
+
+  model-gateway:
+    build:
+      context: .
+      dockerfile: platform/services/model-gateway/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      OPA_URL: http://opa:8181
+      VKAS_URL: http://vkas:3040
+      NODE_ENV: development
+      PORT: "3011"
+    ports:
+      - "3011:3011"
+    depends_on:
+      - flyway
+      - opa
+    networks:
+      - sim-net
+
+  control-plane:
+    build:
+      context: .
+      dockerfile: platform/services/control-plane/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      NODE_ENV: development
+      PORT: "3012"
+    ports:
+      - "3012:3012"
+    depends_on:
+      - flyway
+    networks:
+      - sim-net
+
+  enstellar-case:
+    build:
+      context: .
+      dockerfile: modules/enstellar/case/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      NODE_ENV: development
+      PORT: "3013"
+    ports:
+      - "3013:3013"
+    depends_on:
+      - flyway
+      - temporal
+    networks:
+      - sim-net
+
+  enstellar-workflow-worker:
+    build:
+      context: .
+      dockerfile: modules/enstellar/workflow/Dockerfile
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      TASK_QUEUE: pa-workflow
+      NODE_ENV: development
+    depends_on:
+      - temporal
+    networks:
+      - sim-net
+
+  enstellar-clock-worker:
+    build:
+      context: .
+      dockerfile: modules/enstellar/clock/Dockerfile
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      TASK_QUEUE: clock-workflow
+      NODE_ENV: development
+    depends_on:
+      - temporal
+    networks:
+      - sim-net
+
+  enstellar-comms:
+    build:
+      context: .
+      dockerfile: modules/enstellar/comms/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      NODE_ENV: development
+      PORT: "3022"
+    ports:
+      - "3022:3022"
+    networks:
+      - sim-net
+
+  workspace-bff:
+    build:
+      context: .
+      dockerfile: modules/enstellar/workspace-bff/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      ENSTELLAR_CASE_URL: http://enstellar-case:3013
+      REVITAL_URL: http://revital-pipeline:3014
+      NODE_ENV: development
+      PORT: "3021"
+    ports:
+      - "3021:3021"
+    depends_on:
+      - enstellar-case
+    networks:
+      - sim-net
+
+  revital-pipeline:
+    build:
+      context: .
+      dockerfile: modules/revital/pipeline/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      MODEL_GATEWAY_URL: http://model-gateway:3011
+      NODE_ENV: development
+      PORT: "3014"
+    ports:
+      - "3014:3014"
+    networks:
+      - sim-net
+
+  qualitron:
+    build:
+      context: .
+      dockerfile: modules/qualitron/execution/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      DIGICORE_RUNTIME_URL: http://digicore-runtime:8083
+      NODE_ENV: development
+      PORT: "3015"
+    ports:
+      - "3015:3015"
+    networks:
+      - sim-net
+
+  claims-service:
+    build:
+      context: .
+      dockerfile: modules/claims/service/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      NODE_ENV: development
+      PORT: "3016"
+    ports:
+      - "3016:3016"
+    networks:
+      - sim-net
+
+  automation-service:
+    build:
+      context: .
+      dockerfile: modules/automation/service/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      OPA_URL: http://opa:8181
+      NODE_ENV: development
+      PORT: "3017"
+    ports:
+      - "3017:3017"
+    networks:
+      - sim-net
+
+  market-bundles-service:
+    build:
+      context: .
+      dockerfile: modules/market-bundles/service/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      NODE_ENV: development
+      PORT: "3018"
+    ports:
+      - "3018:3018"
+    networks:
+      - sim-net
+
+  search-service:
+    build:
+      context: .
+      dockerfile: modules/search/query-api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      SEARCH_INDEX_SIZE: "10000"
+      NODE_ENV: development
+      PORT: "3019"
+    ports:
+      - "3019:3019"
+    networks:
+      - sim-net
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: modules/analytics/service/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      NODE_ENV: development
+      PORT: "3020"
+    ports:
+      - "3020:3020"
+    networks:
+      - sim-net
+
+  # ── Java services ──────────────────────────────────────────────────────────
+
+  fhir-facade:
+    build:
+      context: integration/fhir-facade
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: "8081"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/simintero
+      SPRING_DATASOURCE_USERNAME: sim
+      SPRING_DATASOURCE_PASSWORD: devpassword
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sim-net
+
+  x12-translator:
+    build:
+      context: integration/x12-translator
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: "8082"
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/simintero
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sim-net
+
+  digicore-runtime:
+    build:
+      context: modules/digicore/runtime
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: "8083"
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/simintero
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sim-net

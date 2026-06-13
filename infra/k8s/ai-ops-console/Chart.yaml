@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ai-ops-console
+description: Ai-Ops-Console SPA (Nginx)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

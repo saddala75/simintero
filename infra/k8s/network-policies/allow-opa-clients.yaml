@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-opa-clients
+  namespace: simintero
+spec:
+  podSelector:
+    matchLabels:
+      app: opa
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: model-gateway
+        - podSelector:
+            matchLabels:
+              app: automation-service
+      ports:
+        - protocol: TCP
+          port: 8181

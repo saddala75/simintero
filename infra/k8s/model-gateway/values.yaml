@@ -1,0 +1,24 @@
+image:
+  repository: ghcr.io/simintero/model-gateway
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 3011
+
+replicaCount: 2
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+podAnnotations:
+  sim.io/rls-context: "true"
+
+env:
+  OPA_URL: "http://opa.simintero.svc.cluster.local:8181"
+  VKAS_URL: "http://vkas.simintero.svc.cluster.local:3040"

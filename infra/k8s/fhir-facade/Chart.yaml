@@ -1,0 +1,11 @@
+apiVersion: v2
+name: fhir-facade
+description: FHIR R4 facade for Simintero — enclave cell only
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: base-service
+    version: "0.1.0"
+    repository: "file://../charts/base-service"
+    alias: base

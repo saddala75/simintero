@@ -1,0 +1,24 @@
+image:
+  repository: ghcr.io/simintero/digicore-runtime
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8083
+
+replicaCount: 1
+
+resources:
+  requests:
+    memory: 768Mi
+    cpu: 250m
+  limits:
+    memory: 2Gi
+    cpu: 1500m
+
+podAnnotations:
+  sim.io/rls-context: "true"
+
+env:
+  SERVER_PORT: "8083"
+  POSTGRES_URL: "jdbc:postgresql://postgres.simintero.svc.cluster.local:5432/simintero"

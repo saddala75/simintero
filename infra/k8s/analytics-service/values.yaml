@@ -1,0 +1,22 @@
+image:
+  repository: ghcr.io/simintero/analytics-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 3020
+
+replicaCount: 2
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+podAnnotations:
+  sim.io/rls-context: "true"
+
+env: {}

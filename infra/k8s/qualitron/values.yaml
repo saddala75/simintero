@@ -1,0 +1,24 @@
+image:
+  repository: ghcr.io/simintero/qualitron-execution
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 3015
+
+replicaCount: 2
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+podAnnotations:
+  sim.io/rls-context: "true"
+
+env:
+  DIGICORE_RUNTIME_URL: "http://digicore-runtime.simintero.svc.cluster.local:8083"
+  TEMPORAL_NAMESPACE: "simintero"
