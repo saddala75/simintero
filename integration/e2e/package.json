@@ -8,15 +8,23 @@
     "test:p0": "cucumber-js --config cucumber.yml --tags '@phase0'",
     "test:p2": "cucumber-js --config cucumber.yml --tags '@phase2'",
     "test:p3": "cucumber-js --config cucumber.yml --tags '@phase3'",
-    "test:p4a": "cucumber-js --config cucumber.yml --dry-run --tags '@phase4a'",
-    "test:p4b": "cucumber-js --config cucumber.yml --dry-run --tags '@phase4b'",
-    "test:p4c": "cucumber-js --config cucumber.yml --dry-run --tags '@phase4c'",
-    "test:p4d": "cucumber-js --tags '@phase4d'",
-    "test:p4e": "cucumber-js --tags '@phase4e'",
+    "test:p4a": "cucumber-js --config cucumber.yml --tags '@phase4a'",
+    "test:p4b": "cucumber-js --config cucumber.yml --tags '@phase4b'",
+    "test:p4c": "cucumber-js --config cucumber.yml --tags '@phase4c'",
+    "test:p4d": "cucumber-js --config cucumber.yml --tags '@phase4d'",
+    "test:p4e": "cucumber-js --config cucumber.yml --tags '@phase4e'",
     "test:dry-run": "cucumber-js --config cucumber.yml --dry-run"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^11.0.0",
-    "@types/node": "^20"
+    "@temporalio/client": "^1.11.0",
+    "@temporalio/common": "^1.11.0",
+    "@types/node": "^20",
+    "@types/pg": "^8",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.11.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "undici": "^6.18.1"
   }
 }

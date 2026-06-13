@@ -31,7 +31,8 @@ export function buildBundlesRouter(pool: Pool): express.Router {
       return res.status(404).json({ error: 'Bundle not found' });
     }
 
-    const bundle = bundleResult.rows[0];
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const bundle = bundleResult.rows[0]!;
     const artifactsResult = await pool.query<{ artifact_id: string; artifact_role: string }>(
       `SELECT ba.artifact_id, ba.artifact_role
        FROM market.bundle_artifact ba
@@ -88,10 +89,11 @@ export function buildBundlesRouter(pool: Pool): express.Router {
       );
       if (artResult.rows.length === 0) continue; // skip missing artifacts — VKAS may not have them yet
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       await pool.query(
         `INSERT INTO market.bundle_artifact (bundle_id, artifact_id, tenant_id, artifact_role)
          VALUES ($1, $2, $3, $4)`,
-        [bundleId, artResult.rows[0].artifact_id, tenantId, art.role],
+        [bundleId, artResult.rows[0]!.artifact_id, tenantId, art.role],
       );
     }
 
