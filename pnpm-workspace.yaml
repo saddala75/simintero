@@ -5,6 +5,7 @@ packages:
   - "modules/enstellar/*"
   - "modules/digicore/*"
   - "modules/revital/*"
+  - "modules/qualitron/*"
   - "apps/web/*"
   - "integration/e2e"
   - "contracts"
