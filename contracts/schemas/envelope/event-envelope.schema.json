@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.simintero.io/event-envelope/v1",
+  "title": "EventEnvelope",
   "type": "object",
   "required": ["event_id","schema_ref","occurred_at","tenant","correlation_id","actor","payload"],
   "additionalProperties": false,

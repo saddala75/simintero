@@ -88,6 +88,18 @@ export interface ServiceLine {
   requestedEndDate?: string;
 }
 
+export interface EventEnvelope {
+  eventId: string;
+  schemaRef: string;
+  occurredAt: string;
+  tenant: Record<string, unknown>;
+  correlationId: string;
+  causationId?: unknown;
+  actor: Record<string, unknown>;
+  traceRef?: unknown;
+  payload: Record<string, unknown>;
+}
+
 export interface CaseIntakeReceived {
   caseId: string;
   case: Case;
