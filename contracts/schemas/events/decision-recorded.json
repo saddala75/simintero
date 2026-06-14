@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/events/decision-recorded.json",
+  "title": "DecisionRecorded",
+  "description": "Payload for sim.case.lifecycle/DecisionRecorded/v1",
+  "type": "object",
+  "required": ["case_id", "decision"],
+  "additionalProperties": false,
+  "properties": {
+    "case_id":  { "type": "string" },
+    "decision": { "$ref": "https://schemas.simintero.io/canonical/decision.json" }
+  }
+}

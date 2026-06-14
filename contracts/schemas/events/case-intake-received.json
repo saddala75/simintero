@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/events/case-intake-received.json",
+  "title": "CaseIntakeReceived",
+  "description": "Payload for sim.case.lifecycle/CaseIntakeReceived/v1",
+  "type": "object",
+  "required": ["case_id", "case"],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": { "type": "string" },
+    "case":    { "$ref": "https://schemas.simintero.io/canonical/case.json" }
+  }
+}

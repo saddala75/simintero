@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/canonical/service_line.json",
+  "title": "ServiceLine",
+  "description": "One line item in a prior authorization request",
+  "type": "object",
+  "properties": {
+    "service_line_id":       { "type": "string", "format": "uuid" },
+    "tenant_id":             { "type": "string" },
+    "sequence":              { "type": "integer", "minimum": 1 },
+    "service_type_code":     { "type": "string", "description": "X12 service type code" },
+    "procedure_code":        { "type": "string", "description": "CPT / HCPCS code" },
+    "procedure_description": { "type": "string" },
+    "quantity":              { "type": "number", "exclusiveMinimum": 0 },
+    "units":                 { "type": "string" },
+    "diagnosis_codes":       { "type": "array", "items": { "type": "string" } },
+    "place_of_service":      { "type": "string" },
+    "requested_start_date":  { "type": "string", "format": "date" },
+    "requested_end_date":    { "type": "string", "format": "date" }
+  },
+  "required": ["service_line_id", "tenant_id", "sequence", "service_type_code", "procedure_code", "diagnosis_codes"],
+  "additionalProperties": false
+}

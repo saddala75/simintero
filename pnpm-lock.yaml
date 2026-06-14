@@ -330,6 +330,12 @@ importers:
 
   contracts:
     devDependencies:
+      ajv:
+        specifier: ^8.17.1
+        version: 8.20.0
+      ajv-formats:
+        specifier: ^3.0.1
+        version: 3.0.1(ajv@8.20.0)
       openapi-typescript:
         specifier: ^7
         version: 7.13.0(typescript@5.9.3)
@@ -699,9 +705,9 @@ importers:
       '@sim/authz-client-ts':
         specifier: workspace:*
         version: link:../../../platform/libs/authz-client/ts
-      '@sim/canonical-types':
+      '@sim/contracts':
         specifier: workspace:*
-        version: link:../../../platform/libs/canonical-types/ts
+        version: link:../../../contracts
       '@sim/outbox-ts':
         specifier: workspace:*
         version: link:../../../platform/libs/outbox/ts
@@ -1257,12 +1263,6 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(terser@5.48.0)
-
-  platform/libs/canonical-types/ts:
-    devDependencies:
-      typescript:
-        specifier: ^5.5.0
-        version: 5.9.3
 
   platform/libs/outbox/ts:
     dependencies:
@@ -3165,6 +3165,14 @@ packages:
 
   ajv-formats@2.1.1:
     resolution: {integrity: sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==}
+    peerDependencies:
+      ajv: ^8.0.0
+    peerDependenciesMeta:
+      ajv:
+        optional: true
+
+  ajv-formats@3.0.1:
+    resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
     peerDependencies:
       ajv: ^8.0.0
     peerDependenciesMeta:
@@ -6969,6 +6977,10 @@ snapshots:
   agent-base@7.1.4: {}
 
   ajv-formats@2.1.1(ajv@8.20.0):
+    optionalDependencies:
+      ajv: 8.20.0
+
+  ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
       ajv: 8.20.0
 

@@ -23,19 +23,40 @@ channels:
         title: Case Created
         summary: Emitted when a new PA case is created
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
+      CaseIntakeReceived:
+        name: CaseIntakeReceived
+        title: Case Intake Received
+        summary: Emitted when a new case intake payload is received
+        payload:
+          allOf:
+            - $ref: "../schemas/envelope/event-envelope.schema.json"
+            - type: object
+              properties:
+                payload:
+                  $ref: "../schemas/events/case-intake-received.json"
       CaseStateChanged:
         name: CaseStateChanged
         title: Case State Changed
         summary: Emitted on every state machine transition
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          allOf:
+            - $ref: "../schemas/envelope/event-envelope.schema.json"
+            - type: object
+              properties:
+                payload:
+                  $ref: "../schemas/events/case-state-changed.json"
       DeterminationRecorded:
         name: DeterminationRecorded
         title: Determination Recorded
         summary: Emitted when a final determination is made on a case
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          allOf:
+            - $ref: "../schemas/envelope/event-envelope.schema.json"
+            - type: object
+              properties:
+                payload:
+                  $ref: "../schemas/events/decision-recorded.json"
 
   evidence:
     address: sim.evidence
@@ -53,7 +74,7 @@ channels:
         title: Evidence Added
         summary: Emitted when evidence is attached to a case
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
 
   artifact:
     address: sim.artifact
@@ -71,13 +92,13 @@ channels:
         title: Artifact Activated
         summary: Emitted when a VKAS artifact transitions to active status
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
       ArtifactRolledBack:
         name: ArtifactRolledBack
         title: Artifact Rolled Back
         summary: Emitted when an active artifact is rolled back to a prior version
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
 
   aiInteraction:
     address: sim.ai.interaction
@@ -95,7 +116,7 @@ channels:
         title: AI Interaction Recorded
         summary: Emitted after each Model Gateway call with cost and trace metadata
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
 
   clock:
     address: sim.clock
@@ -113,13 +134,13 @@ channels:
         title: Clock Breach Warning
         summary: Emitted when a regulatory clock has less than warning_hours remaining
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
       ClockBreached:
         name: ClockBreached
         title: Clock Breached
         summary: Emitted when a regulatory deadline is missed
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
 
   tenantAdmin:
     address: sim.tenant.admin
@@ -137,13 +158,13 @@ channels:
         title: Tenant Provisioned
         summary: Emitted when a tenant is fully provisioned and set to active
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
       TenantTierChanged:
         name: TenantTierChanged
         title: Tenant Tier Changed
         summary: Emitted when a tenant migrates between deployment tiers
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          $ref: "../schemas/envelope/event-envelope.schema.json"
 
 operations:
   publishCaseCreated:
@@ -152,6 +173,13 @@ operations:
       $ref: "#/channels/caseLifecycle"
     messages:
       - $ref: "#/channels/caseLifecycle/messages/CaseCreated"
+
+  publishCaseIntakeReceived:
+    action: send
+    channel:
+      $ref: "#/channels/caseLifecycle"
+    messages:
+      - $ref: "#/channels/caseLifecycle/messages/CaseIntakeReceived"
 
   publishCaseStateChanged:
     action: send

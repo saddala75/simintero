@@ -18,6 +18,10 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "check": {
+      "dependsOn": [],
+      "outputs": []
     }
   }
 }

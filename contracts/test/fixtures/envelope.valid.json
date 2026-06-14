@@ -1,0 +1,11 @@
+{
+  "event_id": "evt_01HZ0Q9KT0R8X4M2WB7C5N3D6F",
+  "schema_ref": "sim.case.lifecycle/CaseStateChanged/v1",
+  "occurred_at": "2026-06-14T12:00:00Z",
+  "tenant": { "tenant_id": "t_acme", "lob": "MA", "region": "us-east-1" },
+  "correlation_id": "case_123",
+  "causation_id": null,
+  "actor": { "type": "service", "id": "workflow-engine", "on_behalf_of": null },
+  "trace_ref": null,
+  "payload": { "from_status": "intake", "to_status": "completeness_check" }
+}
