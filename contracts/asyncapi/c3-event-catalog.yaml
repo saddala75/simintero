@@ -24,18 +24,39 @@ channels:
         summary: Emitted when a new PA case is created
         payload:
           $ref: "../schemas/event-envelope.schema.json"
+      CaseIntakeReceived:
+        name: CaseIntakeReceived
+        title: Case Intake Received
+        summary: Emitted when a new case intake payload is received
+        payload:
+          allOf:
+            - $ref: "../schemas/envelope/event-envelope.schema.json"
+            - type: object
+              properties:
+                payload:
+                  $ref: "../schemas/events/case-intake-received.json"
       CaseStateChanged:
         name: CaseStateChanged
         title: Case State Changed
         summary: Emitted on every state machine transition
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          allOf:
+            - $ref: "../schemas/envelope/event-envelope.schema.json"
+            - type: object
+              properties:
+                payload:
+                  $ref: "../schemas/events/case-state-changed.json"
       DeterminationRecorded:
         name: DeterminationRecorded
         title: Determination Recorded
         summary: Emitted when a final determination is made on a case
         payload:
-          $ref: "../schemas/event-envelope.schema.json"
+          allOf:
+            - $ref: "../schemas/envelope/event-envelope.schema.json"
+            - type: object
+              properties:
+                payload:
+                  $ref: "../schemas/events/decision-recorded.json"
 
   evidence:
     address: sim.evidence
@@ -152,6 +173,13 @@ operations:
       $ref: "#/channels/caseLifecycle"
     messages:
       - $ref: "#/channels/caseLifecycle/messages/CaseCreated"
+
+  publishCaseIntakeReceived:
+    action: send
+    channel:
+      $ref: "#/channels/caseLifecycle"
+    messages:
+      - $ref: "#/channels/caseLifecycle/messages/CaseIntakeReceived"
 
   publishCaseStateChanged:
     action: send
