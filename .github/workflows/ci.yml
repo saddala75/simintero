@@ -33,7 +33,6 @@ jobs:
       - run: pnpm rls-harness
         env:
           DATABASE_URL: postgresql://postgres:test@localhost/simintero_test
-      - run: pnpm contracts:check
 
   contracts:
     runs-on: ubuntu-latest
@@ -45,7 +44,7 @@ jobs:
         with: { node-version: 20, cache: pnpm }
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - run: pip install 'datamodel-code-generator>=0.25' pydantic jinja2 genson
+      - run: pip install 'datamodel-code-generator>=0.25' pydantic jinja2 genson pytest
       - run: pnpm install --frozen-lockfile
       - run: python3 contracts/codegen/generate.py
       - run: pnpm --filter @sim/contracts test
