@@ -10,7 +10,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CaseStateChanged(
     @JsonProperty("case_id") String caseId,
-    @JsonProperty("from_status") status fromStatus,
-    @JsonProperty("to_status") status toStatus,
+    @JsonProperty("from_status") String fromStatus,
+    @JsonProperty("to_status") String toStatus,
     @JsonProperty("reason") Object reason
 ) {}

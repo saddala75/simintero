@@ -233,9 +233,21 @@ def _ts_interface(title: str, schema: dict, defs: dict, registry: dict | None = 
     return lines
 
 
-def _json_type_to_java(prop: dict, nullable: bool = True) -> str:
+def _json_type_to_java(prop: dict, nullable: bool = True, registry: dict | None = None) -> str:
     if "$ref" in prop:
-        return _resolve_ref_name(prop["$ref"])
+        ref = prop["$ref"]
+        # A ref into another schema's #/properties/... has no emitted named type,
+        # so inline the referenced property's type (e.g. the status enum → String).
+        if "#/properties/" in ref and registry is not None:
+            file_id, fragment = ref.split("#", 1)
+            target = registry.get(file_id)
+            if target is not None:
+                node = target
+                for seg in [s for s in fragment.split("/") if s]:
+                    node = node.get(seg, {})
+                if node:
+                    return _json_type_to_java(node, nullable=nullable, registry=registry)
+        return _resolve_ref_name(ref)
     t = prop.get("type")
     fmt = prop.get("format", "")
     if t == "string" and fmt == "uuid":
@@ -253,13 +265,30 @@ def _json_type_to_java(prop: dict, nullable: bool = True) -> str:
     if t == "boolean":
         return "Boolean" if nullable else "boolean"
     if t == "array":
-        item = _json_type_to_java(prop.get("items", {}), nullable=False)
+        item = _json_type_to_java(prop.get("items", {}), nullable=False, registry=registry)
         return f"java.util.List<{item}>"
     return "Object"
 
 
+# Java reserved words that cannot be used as record-component identifiers. When a
+# JSON property maps to one of these, suffix an underscore for the Java name only;
+# the wire name is preserved by @JsonProperty.
+_JAVA_RESERVED = frozenset({
+    "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char",
+    "class", "const", "continue", "default", "do", "double", "else", "enum",
+    "extends", "final", "finally", "float", "for", "goto", "if", "implements",
+    "import", "instanceof", "int", "interface", "long", "native", "new", "package",
+    "private", "protected", "public", "return", "short", "static", "strictfp",
+    "super", "switch", "synchronized", "this", "throw", "throws", "transient",
+    "try", "void", "volatile", "while", "true", "false", "null", "_",
+})
+
+
 def _snake_to_lower_camel(name: str) -> str:
-    return _snake_to_camel(name)
+    camel = _snake_to_camel(name)
+    if camel in _JAVA_RESERVED:
+        return camel + "_"
+    return camel
 
 
 def run_java() -> None:
@@ -273,6 +302,7 @@ def run_java() -> None:
     out_dir = GEN_DIR / "java" / base_pkg
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    registry = _schema_registry()
     schema_files = _all_schema_files()
     for sf in schema_files:
         schema = json.loads(sf.read_text())
@@ -280,23 +310,23 @@ def run_java() -> None:
         # Handle common.json $defs (generates Identifier.java etc.)
         if schema.get("title") == "Common":
             for def_name, def_schema in schema.get("$defs", {}).items():
-                _write_java_record(tmpl, out_dir, def_name, def_schema)
+                _write_java_record(tmpl, out_dir, def_name, def_schema, registry)
             continue
 
         title = schema.get("title")
         if not title:
             continue
-        _write_java_record(tmpl, out_dir, title, schema)
+        _write_java_record(tmpl, out_dir, title, schema, registry)
 
     print("✓ Java codegen done")
 
 
-def _write_java_record(tmpl, out_dir: Path, title: str, schema: dict) -> None:
+def _write_java_record(tmpl, out_dir: Path, title: str, schema: dict, registry: dict | None = None) -> None:
     props = schema.get("properties", {})
     required = set(schema.get("required", []))
     fields = []
     for snake_name, prop in props.items():
-        java_type = _json_type_to_java(prop, nullable=(snake_name not in required))
+        java_type = _json_type_to_java(prop, nullable=(snake_name not in required), registry=registry)
         camel_name = _snake_to_lower_camel(snake_name)
         fields.append({
             "json_name": snake_name,

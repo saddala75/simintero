@@ -10,5 +10,5 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CaseIntakeReceived(
     @JsonProperty("case_id") String caseId,
-    @JsonProperty("case") Case case
+    @JsonProperty("case") Case case_
 ) {}
