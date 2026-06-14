@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Literal
 from pydantic import BaseModel, Field
@@ -21,8 +22,27 @@ class TenantContext(BaseModel):
 
 _current: ContextVar[TenantContext | None] = ContextVar("sim_tenant_ctx", default=None)
 
-def set_context(ctx: TenantContext) -> None:
-    _current.set(ctx)
+def set_context(ctx: TenantContext):
+    """Set the current tenant context and return the reset token.
+
+    Prefer `tenant_context(...)` (scoped) for request handling. This bare setter
+    is for adapters that manage the token lifecycle themselves; the caller is
+    responsible for calling `_current.reset(token)`.
+    """
+    return _current.set(ctx)
+
+@contextmanager
+def tenant_context(ctx: TenantContext):
+    """Scoped tenant context — sets on enter, ALWAYS resets on exit.
+
+    Mirrors the TS `withTenantContext`: prevents a stale context leaking into the
+    next unit of work on a reused task.
+    """
+    token = _current.set(ctx)
+    try:
+        yield ctx
+    finally:
+        _current.reset(token)
 
 def get_context() -> TenantContext:
     ctx = _current.get()
