@@ -1,0 +1,10 @@
+{
+  "event_id": "5f9d8a1e-2c3b-4a5d-8e7f-1a2b3c4d5e6f",
+  "tenant_id": "t_acme",
+  "correlation_id": "case_123",
+  "type": "case.state.transitioned",
+  "occurred_at": "2026-06-14T12:00:00Z",
+  "actor": { "id": "workflow-engine", "type": "service" },
+  "payload": {},
+  "schema_version": "1.0.0"
+}
