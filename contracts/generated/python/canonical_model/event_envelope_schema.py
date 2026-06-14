@@ -36,7 +36,7 @@ class Actor(BaseModel):
     on_behalf_of: str | None = None
 
 
-class Model(BaseModel):
+class EventEnvelope(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )

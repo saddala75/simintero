@@ -4,7 +4,7 @@ from .case import Status, Urgency, Case
 from .common import Identifier
 from .coverage import Coverage
 from .decision import Outcome, Decision
-from .event_envelope_schema import Lob, Tenant, Type, Actor, Model
+from .event_envelope_schema import Lob, Tenant, Type, Actor, EventEnvelope
 from .member import Gender, Member
 from .provider import Provider
 from .service_line import ServiceLine
@@ -21,7 +21,7 @@ __all__ = [
     "Tenant",
     "Type",
     "Actor",
-    "Model",
+    "EventEnvelope",
     "Gender",
     "Member",
     "Provider",
