@@ -21,6 +21,16 @@ def _all_schema_files():
     return files
 
 
+def _schema_registry() -> dict:
+    """Map each schema's $id to its parsed body, for cross-file ref resolution."""
+    registry: dict = {}
+    for sf in _all_schema_files():
+        body = json.loads(sf.read_text())
+        if "$id" in body:
+            registry[body["$id"]] = body
+    return registry
+
+
 def _write_python_init(out: Path) -> None:
     """Scan generated Python files and write a proper __init__.py with re-exports."""
     import ast
@@ -148,9 +158,21 @@ def _resolve_ref_name(ref_str: str) -> str:
     return _snake_to_pascal(filename)
 
 
-def _json_type_to_ts(prop: dict, defs: dict) -> str:
+def _json_type_to_ts(prop: dict, defs: dict, registry: dict | None = None) -> str:
     if "$ref" in prop:
-        return _resolve_ref_name(prop["$ref"])
+        ref = prop["$ref"]
+        # A ref into another schema's #/properties/... has no emitted named type,
+        # so inline the referenced property's type (e.g. the status enum).
+        if "#/properties/" in ref and registry is not None:
+            file_id, fragment = ref.split("#", 1)
+            target = registry.get(file_id)
+            if target is not None:
+                node = target
+                for seg in [s for s in fragment.split("/") if s]:
+                    node = node.get(seg, {})
+                if node:
+                    return _json_type_to_ts(node, target.get("$defs", {}), registry)
+        return _resolve_ref_name(ref)
     t = prop.get("type")
     fmt = prop.get("format", "")
     if t == "string" and fmt in ("date-time",):
@@ -166,7 +188,7 @@ def _json_type_to_ts(prop: dict, defs: dict) -> str:
     if t == "boolean":
         return "boolean"
     if t == "array":
-        item_type = _json_type_to_ts(prop.get("items", {}), defs)
+        item_type = _json_type_to_ts(prop.get("items", {}), defs, registry)
         return f"{item_type}[]"
     if t == "object":
         return "Record<string, unknown>"
@@ -182,6 +204,7 @@ def run_typescript() -> None:
         "",
     ]
 
+    registry = _schema_registry()
     schema_files = _all_schema_files()
     for sf in schema_files:
         schema = json.loads(sf.read_text())
@@ -189,21 +212,21 @@ def run_typescript() -> None:
         if not title or title == "Common":
             if title == "Common":
                 for def_name, def_schema in schema.get("$defs", {}).items():
-                    lines.extend(_ts_interface(def_name, def_schema, schema.get("$defs", {})))
+                    lines.extend(_ts_interface(def_name, def_schema, schema.get("$defs", {}), registry))
             continue
-        lines.extend(_ts_interface(title, schema, schema.get("$defs", {})))
+        lines.extend(_ts_interface(title, schema, schema.get("$defs", {}), registry))
 
     (out_dir / "index.ts").write_text("\n".join(lines) + "\n")
     print("✓ TypeScript codegen done")
 
 
-def _ts_interface(title: str, schema: dict, defs: dict) -> list[str]:
+def _ts_interface(title: str, schema: dict, defs: dict, registry: dict | None = None) -> list[str]:
     props = schema.get("properties", {})
     required = set(schema.get("required", []))
     lines = [f"export interface {title} {{"]
     for name, prop in props.items():
         camel = _snake_to_camel(name)
-        ts_type = _json_type_to_ts(prop, defs)
+        ts_type = _json_type_to_ts(prop, defs, registry)
         opt = "" if name in required else "?"
         lines.append(f"  {camel}{opt}: {ts_type};")
     lines += ["}", ""]

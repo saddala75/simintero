@@ -1,6 +1,10 @@
 import { mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 
+// 1. canonical + envelope + event types (Python/TS/Java)
+execSync('python3 codegen/generate.py', { stdio: 'inherit' });
+
+// 2. OpenAPI → TS (unchanged)
 const specs = [
   ['c1-digicore-runtime',    'openapi/c1-digicore-runtime.yaml'],
   ['c2-revital-advisory',    'openapi/c2-revital-advisory.yaml'],

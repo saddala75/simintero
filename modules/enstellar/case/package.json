@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@sim/authz-client-ts": "workspace:*",
-    "@sim/canonical-types": "workspace:*",
+    "@sim/contracts": "workspace:*",
     "@sim/outbox-ts": "workspace:*",
     "@sim/tenant-context-ts": "workspace:*",
     "express": "^4.21.0"

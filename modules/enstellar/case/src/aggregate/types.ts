@@ -1,4 +1,4 @@
-import type { CaseStatus } from '@sim/canonical-types';
+import type { CaseStatus } from '@sim/contracts';
 export type { CaseStatus };
 
 export interface CaseState {
