@@ -97,3 +97,15 @@ jobs:
             -e platform/conformance-kit
           ./.ci-venv/bin/pip install pytest pytest-asyncio 'testcontainers[postgres]>=4.7' respx 'python-jose[cryptography]>=3.3' httpx
       - run: ./.ci-venv/bin/python -m pytest platform/libs/tenant-context/py platform/libs/outbox/py platform/libs/authz-client/py platform/conformance-kit -q
+
+  java-libs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -f platform/libs/tenant-context/java/pom.xml -B test
+      - run: mvn -f platform/libs/authz-client/java/pom.xml -B test
