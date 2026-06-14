@@ -26,6 +26,9 @@ export type { SatisfyRFIResult } from './commands/SatisfyRFI.js';
 export { linkCase } from './commands/LinkCase.js';
 export type { LinkCaseResult } from './commands/LinkCase.js';
 
+// Guards
+export { adverseTransitionGuard, ADVERSE_STATES, TransitionGuardError } from './guards/AdverseTransitionGuard.js';
+
 // Projections
 export { getWorklist } from './projections/worklist.js';
 export type { WorklistEntry } from './projections/worklist.js';

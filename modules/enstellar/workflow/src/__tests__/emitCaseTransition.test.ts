@@ -37,9 +37,9 @@ describe('emitCaseTransition', () => {
     expect(payload['trigger']).toBe('case.created');
   });
 
-  it('does not throw when case-service returns 501 (stub path)', async () => {
+  it('resolves when case-service returns 200 on completeness_check→rfi_pending', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(null, { status: 501 }),
+      new Response(null, { status: 200 }),
     );
 
     await expect(
@@ -53,9 +53,9 @@ describe('emitCaseTransition', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('does not throw when case-service returns 404', async () => {
+  it('resolves when case-service returns 200 on rfi_pending→clinical_review', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(null, { status: 404 }),
+      new Response(null, { status: 200 }),
     );
 
     await expect(
@@ -112,7 +112,7 @@ describe('emitCaseTransition', () => {
 
     const [, init] = fetchMock.mock.calls[0]!;
     const headers = init?.headers as Record<string, string>;
-    expect(headers['x-tenant-id']).toBe('tenant-xyz');
+    expect(headers['x-sim-tenant-id']).toBe('tenant-xyz');
   });
 
   it('throws when case-service returns a 5xx status (e.g. 500)', async () => {

@@ -14,6 +14,8 @@ import type { Request, Response } from 'express';
 import { Pool } from 'pg';
 import type { PoolClient } from 'pg';
 import { appendPin } from './commands/AppendPin.js';
+import { transitionCase, TransitionGuardError } from './commands/TransitionCase.js';
+import type { CaseStatus } from './aggregate/types.js';
 import { withTenantContext } from '@sim/tenant-context-ts';
 import type { TenantContext } from '@sim/tenant-context-ts';
 import type { TenantDb } from '@sim/outbox-ts';
@@ -319,6 +321,72 @@ app.get('/v1/cases/:id', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     client.release();
+  }
+});
+
+/**
+ * POST /internal/transitions/notify
+ *
+ * Accepts a CaseStateChanged EventEnvelope from enstellar-workflow Temporal activities.
+ * Implements the real handler for the stub that previously returned 404/501.
+ *
+ * 200: transition accepted and persisted (or idempotent no-op)
+ * 400: malformed body (missing case_id, from, to, trigger)
+ * 403: AdverseTransitionGuard blocked — SIM-GUARD-0001
+ * 503: DB not initialised
+ */
+app.post('/internal/transitions/notify', async (req: Request, res: Response) => {
+  if (!tenantDb) {
+    res.status(503).json({ error: 'DB not initialised' });
+    return;
+  }
+
+  const body = req.body as {
+    event_id?: string;
+    tenant?: { tenant_id?: string };
+    actor?: { type?: string; id?: string };
+    payload?: {
+      case_id?: string;
+      from?: string;
+      to?: string;
+      trigger?: string;
+      human_signoff_recorded?: boolean;
+    };
+  };
+
+  const { case_id: caseId, from: fromState, to: toState, trigger, human_signoff_recorded } =
+    body.payload ?? {};
+
+  if (!caseId || !fromState || !toState || !trigger) {
+    res.status(400).json({ error: 'payload must include case_id, from, to, trigger' });
+    return;
+  }
+
+  const tenantId = body.tenant?.tenant_id ?? resolveTenantId(req);
+  const tenantCtx = buildServiceContext(tenantId);
+
+  try {
+    let result!: { eventId: string; seq: number };
+    await withTenantContext(tenantCtx, async () => {
+      result = await transitionCase(tenantDb!, {
+        caseId,
+        fromState: fromState as CaseStatus,
+        toState: toState as CaseStatus,
+        trigger,
+        humanSignoffRecorded: human_signoff_recorded ?? false,
+        actorType: (body.actor?.type ?? 'service') as 'human' | 'service' | 'model_agent',
+        actorId: body.actor?.id ?? 'enstellar-workflow',
+        ...(body.event_id !== undefined ? { idempotencyKey: body.event_id } : {}),
+      });
+    });
+    res.status(200).json({ event_id: result.eventId, seq: result.seq });
+  } catch (err: unknown) {
+    if (err instanceof TransitionGuardError) {
+      res.status(403).json({ error: err.message, code: err.code });
+      return;
+    }
+    console.error('[enstellar-case] POST /internal/transitions/notify failed', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
