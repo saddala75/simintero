@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "generate": "node scripts/generate.mjs",
-    "check": "node scripts/check-breaking-changes.js"
+    "check": "node scripts/check-breaking-changes.js",
+    "test": "node --test test/"
   },
   "devDependencies": {
-    "openapi-typescript": "^7"
+    "openapi-typescript": "^7",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
   }
 }
