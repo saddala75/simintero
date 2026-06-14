@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/events/case-state-changed.json",
+  "title": "CaseStateChanged",
+  "description": "Payload for sim.case.lifecycle/CaseStateChanged/v1",
+  "type": "object",
+  "required": ["case_id", "from_status", "to_status"],
+  "additionalProperties": false,
+  "properties": {
+    "case_id":     { "type": "string" },
+    "from_status": { "$ref": "https://schemas.simintero.io/canonical/case.json#/properties/status" },
+    "to_status":   { "$ref": "https://schemas.simintero.io/canonical/case.json#/properties/status" },
+    "reason":      { "type": ["string", "null"] }
+  }
+}
