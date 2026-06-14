@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/canonical/provider.json",
+  "title": "Provider",
+  "description": "Requesting or servicing provider",
+  "type": "object",
+  "properties": {
+    "provider_id":        { "type": "string", "format": "uuid" },
+    "tenant_id":          { "type": "string" },
+    "npi":                { "type": "string", "pattern": "^[0-9]{10}$" },
+    "name":               { "type": "string" },
+    "specialty":          { "type": "string" },
+    "organization_name":  { "type": "string" },
+    "identifiers":        {
+      "type": "array",
+      "items": { "$ref": "common.json#/$defs/Identifier" },
+      "default": []
+    }
+  },
+  "required": ["provider_id", "tenant_id", "npi", "name"],
+  "additionalProperties": false
+}

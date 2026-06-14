@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.simintero.io/canonical/member.json",
+  "title": "Member",
+  "description": "Health plan member (patient) — carries tenant_id for boundary enforcement",
+  "type": "object",
+  "properties": {
+    "member_id":     { "type": "string", "format": "uuid" },
+    "tenant_id":     { "type": "string", "description": "Required: tenant owning this record" },
+    "mrn":           { "type": "string", "description": "Medical record number in the payer's system" },
+    "first_name":    { "type": "string" },
+    "last_name":     { "type": "string" },
+    "date_of_birth": { "type": "string", "format": "date" },
+    "gender":        { "type": "string", "enum": ["M", "F", "O", "U"] },
+    "identifiers":   {
+      "type": "array",
+      "items": { "$ref": "common.json#/$defs/Identifier" },
+      "default": []
+    }
+  },
+  "required": ["member_id", "tenant_id", "first_name", "last_name", "date_of_birth"],
+  "additionalProperties": false
+}
