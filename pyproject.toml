@@ -1,2 +1,2 @@
 [tool.uv.workspace]
-members = ["services/enstellar-packages/*"]
+members = ["services/enstellar-packages/*", "services/enstellar-connectors"]
