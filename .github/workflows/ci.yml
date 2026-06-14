@@ -35,6 +35,24 @@ jobs:
           DATABASE_URL: postgresql://postgres:test@localhost/simintero_test
       - run: pnpm contracts:check
 
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # gate needs full history + origin/main for the baseline diff
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install 'datamodel-code-generator>=0.25' pydantic jinja2 genson
+      - run: pnpm install --frozen-lockfile
+      - run: python3 contracts/codegen/generate.py
+      - run: pnpm --filter @sim/contracts test
+      - run: python3 -m pytest contracts/codegen/test_python_roundtrip.py -v
+      - run: git fetch origin main --depth=1 || true   # ensure baseline ref exists for the gate
+      - run: node contracts/scripts/check-breaking-changes.js
+
   security:
     runs-on: ubuntu-latest
     steps:
