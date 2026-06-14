@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enstellar.simintero.com/schemas/coverage.json",
+  "title": "Coverage",
+  "description": "Health plan coverage for a member",
+  "type": "object",
+  "properties": {
+    "coverage_id":        { "type": "string", "format": "uuid" },
+    "tenant_id":          { "type": "string" },
+    "member_id":          { "type": "string", "format": "uuid" },
+    "plan_id":            { "type": "string" },
+    "group_id":           { "type": "string" },
+    "subscriber_id":      { "type": "string" },
+    "payer_name":         { "type": "string" },
+    "lob":                { "type": "string", "description": "Line of business: commercial, medicare, medicaid, …" },
+    "effective_date":     { "type": "string", "format": "date" },
+    "termination_date":   { "type": "string", "format": "date" }
+  },
+  "required": ["coverage_id", "tenant_id", "member_id", "plan_id", "subscriber_id", "payer_name", "lob", "effective_date"],
+  "additionalProperties": false
+}
