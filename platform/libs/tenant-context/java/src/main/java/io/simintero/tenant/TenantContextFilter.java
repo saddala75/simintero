@@ -13,6 +13,8 @@ public class TenantContextFilter implements Filter {
   @FunctionalInterface
   public interface Verifier { TenantContext verify(String token) throws Exception; }
 
+  private static final System.Logger LOG = System.getLogger(TenantContextFilter.class.getName());
+
   private final Verifier verifier;
 
   public TenantContextFilter(Verifier verifier) { this.verifier = verifier; }
@@ -33,6 +35,7 @@ public class TenantContextFilter implements Filter {
     try {
       ctx = verifier.verify(token);
     } catch (Exception e) {
+      LOG.log(System.Logger.Level.WARNING, "x-sim-ctx verification failed", e);
       res.sendError(401, "SIM-PLAT-0003: the x-sim-ctx token could not be verified");
       return;
     }
