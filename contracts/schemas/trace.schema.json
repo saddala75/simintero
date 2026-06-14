@@ -5,7 +5,7 @@
   "required": ["trace_id","tenant","subject","governing_artifacts","inputs","actors","outcome"],
   "properties": {
     "trace_id":   { "type": "string", "pattern": "^trc_[0-9A-Z]{26}$" },
-    "tenant":     { "$ref": "event-envelope.schema.json#/properties/tenant" },
+    "tenant":     { "$ref": "https://schemas.simintero.io/event-envelope/v1#/properties/tenant" },
     "subject": {
       "type": "object",
       "required": ["type","ref"],
