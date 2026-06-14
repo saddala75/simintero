@@ -69,7 +69,7 @@ export class ProcessIntakeCommand {
       memberRef: resolution.memberRef,
       code: firstCode,
       createdAt: receivedAt,
-      providerNpi: command.providers.requestingNpi,
+      ...(command.providers.requestingNpi !== undefined ? { providerNpi: command.providers.requestingNpi } : {}),
     });
 
     if (existingCaseId !== null) {
@@ -82,7 +82,7 @@ export class ProcessIntakeCommand {
       memberRef: command.memberRef,
       coverageRef: command.coverageRef,
       rawPayloadRef: command.rawPayloadRef,
-      providerNpi: command.providers.requestingNpi,
+      ...(command.providers.requestingNpi !== undefined ? { providerNpi: command.providers.requestingNpi } : {}),
     });
 
     // 4. Create case + service lines in ONE atomic transaction

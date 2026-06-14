@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import type { Request, Response } from 'express';
 import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
@@ -10,7 +10,7 @@ const pool = new Pool({
   connectionString: process.env['DATABASE_URL'] ?? 'postgres://sim:sim@localhost:5432/simintero',
 });
 
-const app = express();
+const app: Express = express();
 app.use(express.json());
 
 app.get('/health', (_req: Request, res: Response) => {

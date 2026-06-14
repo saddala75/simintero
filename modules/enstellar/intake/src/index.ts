@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import type { Request, Response } from 'express';
 import { ProcessIntakeCommand } from './commands/ProcessIntakeCommand.js';
 import type { IntakeCommand } from './commands/ProcessIntakeCommand.js';
 import { createTenantDb } from '@sim/tenant-context-ts';
 import type { TenantDb } from '@sim/outbox-ts';
 
-const app = express();
+const app: Express = express();
 app.use(express.json());
 
 // Dependency injection: callers should set this before starting
