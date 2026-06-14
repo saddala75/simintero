@@ -34,18 +34,18 @@ describe('Case Aggregate Reducers — pa-standard-ma.yaml transitions', () => {
     expect(next.status).toBe('completeness_check');
   });
 
-  // completeness_check → rfi_pending (trigger: completeness.gap_found)
-  it('CaseStateChanged to rfi_pending changes status', () => {
+  // completeness_check → pend_rfi (trigger: completeness.gap_found)
+  it('CaseStateChanged to pend_rfi changes status', () => {
     const state = makeSeed({ status: 'completeness_check' });
     const event: CaseEvent = {
       type: 'CaseStateChanged',
       case_id: 'case-uuid-001',
-      to: 'rfi_pending',
+      to: 'pend_rfi',
       trigger: 'completeness.gap_found',
-      payload: { to: 'rfi_pending', trigger: 'completeness.gap_found' },
+      payload: { to: 'pend_rfi', trigger: 'completeness.gap_found' },
     };
     const next = reduce(state, event);
-    expect(next.status).toBe('rfi_pending');
+    expect(next.status).toBe('pend_rfi');
   });
 
   // completeness_check → clinical_review (trigger: completeness.complete)
@@ -62,9 +62,9 @@ describe('Case Aggregate Reducers — pa-standard-ma.yaml transitions', () => {
     expect(next.status).toBe('clinical_review');
   });
 
-  // rfi_pending → clinical_review (trigger: rfi.satisfied)
-  it('CaseStateChanged to clinical_review from rfi_pending changes status', () => {
-    const state = makeSeed({ status: 'rfi_pending' });
+  // pend_rfi → clinical_review (trigger: rfi.satisfied)
+  it('CaseStateChanged to clinical_review from pend_rfi changes status', () => {
+    const state = makeSeed({ status: 'pend_rfi' });
     const event: CaseEvent = {
       type: 'CaseStateChanged',
       case_id: 'case-uuid-001',
@@ -76,9 +76,9 @@ describe('Case Aggregate Reducers — pa-standard-ma.yaml transitions', () => {
     expect(next.status).toBe('clinical_review');
   });
 
-  // rfi_pending → determined (trigger: rfi.deadline_expired)
-  it('CaseStateChanged to determined from rfi_pending (deadline expired)', () => {
-    const state = makeSeed({ status: 'rfi_pending' });
+  // pend_rfi → determined (trigger: rfi.deadline_expired)
+  it('CaseStateChanged to determined from pend_rfi (deadline expired)', () => {
+    const state = makeSeed({ status: 'pend_rfi' });
     const event: CaseEvent = {
       type: 'CaseStateChanged',
       case_id: 'case-uuid-001',
@@ -131,8 +131,8 @@ describe('Case Aggregate Reducers — pa-standard-ma.yaml transitions', () => {
     expect(next.status).toBe('withdrawn');
   });
 
-  it('CaseStateChanged to withdrawn from rfi_pending', () => {
-    const state = makeSeed({ status: 'rfi_pending' });
+  it('CaseStateChanged to withdrawn from pend_rfi', () => {
+    const state = makeSeed({ status: 'pend_rfi' });
     const event: CaseEvent = {
       type: 'CaseStateChanged',
       case_id: 'case-uuid-001',

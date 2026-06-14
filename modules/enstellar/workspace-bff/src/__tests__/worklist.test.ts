@@ -24,7 +24,7 @@ const CASE_ROWS = [
   },
   {
     case_id: 'case-uuid-002',
-    state: 'rfi_pending',
+    state: 'pend_rfi',
     urgency: 'standard',
     lob: 'MA',
     member_ref: null,

@@ -13,7 +13,7 @@ const PA_STANDARD_MA_STUB = {
   states: [
     'intake',
     'completeness_check',
-    'rfi_pending',
+    'pend_rfi',
     'clinical_review',
     'determined',
     'withdrawn',
@@ -23,10 +23,10 @@ const PA_STANDARD_MA_STUB = {
   terminal_states: ['determined', 'withdrawn', 'voided'],
   transitions: [
     { from: 'intake', to: 'completeness_check', trigger: 'case.created' },
-    { from: 'completeness_check', to: 'rfi_pending', trigger: 'completeness.gap_found' },
+    { from: 'completeness_check', to: 'pend_rfi', trigger: 'completeness.gap_found' },
     { from: 'completeness_check', to: 'clinical_review', trigger: 'completeness.complete' },
-    { from: 'rfi_pending', to: 'clinical_review', trigger: 'rfi.satisfied' },
-    { from: 'rfi_pending', to: 'determined', trigger: 'rfi.deadline_expired' },
+    { from: 'pend_rfi', to: 'clinical_review', trigger: 'rfi.satisfied' },
+    { from: 'pend_rfi', to: 'determined', trigger: 'rfi.deadline_expired' },
     { from: 'clinical_review', to: 'determined', trigger: 'decision.recorded' },
   ],
 };

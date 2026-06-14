@@ -1,6 +1,9 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
+    "codegen": {
+      "outputs": ["src/_generated.ts"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]

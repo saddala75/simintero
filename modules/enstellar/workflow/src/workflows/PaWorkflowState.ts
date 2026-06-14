@@ -1,7 +1,7 @@
 export type PaWorkflowStatus =
   | 'intake'
   | 'completeness_check'
-  | 'rfi_pending'
+  | 'pend_rfi'
   | 'clinical_review'
   | 'determined'
   | 'withdrawn'
@@ -57,11 +57,11 @@ export function advanceState(
       return null;
 
     case 'completeness_check':
-      if (trigger === 'completeness.gap_found') return 'rfi_pending';
+      if (trigger === 'completeness.gap_found') return 'pend_rfi';
       if (trigger === 'completeness.complete') return 'clinical_review';
       return null;
 
-    case 'rfi_pending':
+    case 'pend_rfi':
       if (trigger === 'rfi.satisfied') return 'clinical_review';
       if (trigger === 'rfi.deadline_expired') return 'determined';
       return null;

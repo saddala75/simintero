@@ -33,20 +33,20 @@ describe('PaWorkflow state machine', () => {
     expect(advanceState('intake', 'case.created')).toBe('completeness_check');
   });
 
-  it('routes to rfi_pending on completeness.gap_found', () => {
-    expect(advanceState('completeness_check', 'completeness.gap_found')).toBe('rfi_pending');
+  it('routes to pend_rfi on completeness.gap_found', () => {
+    expect(advanceState('completeness_check', 'completeness.gap_found')).toBe('pend_rfi');
   });
 
   it('routes to clinical_review on completeness.complete', () => {
     expect(advanceState('completeness_check', 'completeness.complete')).toBe('clinical_review');
   });
 
-  it('advances rfi_pending to clinical_review on rfi.satisfied', () => {
-    expect(advanceState('rfi_pending', 'rfi.satisfied')).toBe('clinical_review');
+  it('advances pend_rfi to clinical_review on rfi.satisfied', () => {
+    expect(advanceState('pend_rfi', 'rfi.satisfied')).toBe('clinical_review');
   });
 
-  it('advances rfi_pending to determined on rfi.deadline_expired', () => {
-    expect(advanceState('rfi_pending', 'rfi.deadline_expired')).toBe('determined');
+  it('advances pend_rfi to determined on rfi.deadline_expired', () => {
+    expect(advanceState('pend_rfi', 'rfi.deadline_expired')).toBe('determined');
   });
 
   it('advances clinical_review to determined on decision.recorded', () => {
@@ -61,8 +61,8 @@ describe('PaWorkflow state machine', () => {
     expect(advanceState('completeness_check', 'member.withdrawal')).toBe('withdrawn');
   });
 
-  it('allows withdrawal from rfi_pending', () => {
-    expect(advanceState('rfi_pending', 'member.withdrawal')).toBe('withdrawn');
+  it('allows withdrawal from pend_rfi', () => {
+    expect(advanceState('pend_rfi', 'member.withdrawal')).toBe('withdrawn');
   });
 
   it('allows withdrawal from clinical_review', () => {
@@ -109,7 +109,7 @@ describe('PaWorkflow state machine', () => {
 describe('isTerminal', () => {
   const terminals: PaWorkflowStatus[] = ['determined', 'withdrawn', 'voided'];
   const nonTerminals: PaWorkflowStatus[] = [
-    'intake', 'completeness_check', 'rfi_pending', 'clinical_review',
+    'intake', 'completeness_check', 'pend_rfi', 'clinical_review',
   ];
 
   for (const s of terminals) {
@@ -214,11 +214,11 @@ describe('CEL guard drives completeness routing', () => {
     expect(guardPasses).toBe(false);
   });
 
-  it('simulates completeness routing: gaps → rfi_pending', () => {
+  it('simulates completeness routing: gaps → pend_rfi', () => {
     // When C-1 returns gaps, trigger gap_found
     const gaps = ['missing_auth_letter'];
     const trigger = gaps.length > 0 ? ('completeness.gap_found' as const) : ('completeness.complete' as const);
-    expect(advanceState('completeness_check', trigger)).toBe('rfi_pending');
+    expect(advanceState('completeness_check', trigger)).toBe('pend_rfi');
   });
 
   it('simulates completeness routing: no gaps → clinical_review', () => {
@@ -254,14 +254,14 @@ describe('pa-standard-ma happy path simulation', () => {
     expect(isTerminal(status)).toBe(true);
   });
 
-  it('drives intake → rfi_pending → clinical_review → determined', () => {
+  it('drives intake → pend_rfi → clinical_review → determined', () => {
     let status: PaWorkflowStatus = 'intake';
 
     status = advanceState(status, 'case.created')!;
     expect(status).toBe('completeness_check');
 
     status = advanceState(status, 'completeness.gap_found')!;
-    expect(status).toBe('rfi_pending');
+    expect(status).toBe('pend_rfi');
 
     status = advanceState(status, 'rfi.satisfied')!;
     expect(status).toBe('clinical_review');
@@ -272,7 +272,7 @@ describe('pa-standard-ma happy path simulation', () => {
     expect(isTerminal(status)).toBe(true);
   });
 
-  it('drives rfi_pending → determined (deadline expired)', () => {
+  it('drives pend_rfi → determined (deadline expired)', () => {
     let status: PaWorkflowStatus = 'intake';
 
     status = advanceState(status, 'case.created')!;

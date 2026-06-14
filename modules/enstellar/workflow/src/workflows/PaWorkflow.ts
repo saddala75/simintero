@@ -5,8 +5,8 @@
  *   1. Resolve workflow_def from VKAS
  *   2. Run coverage discovery → populate entitlements
  *   3. Run completeness check (C-1) if DIG entitlement present
- *   4. Route to rfi_pending (create RFI) or clinical_review
- *   5. At rfi_pending: await rfiSatisfiedSignal or deadline timeout
+ *   4. Route to pend_rfi (create RFI) or clinical_review
+ *   5. At pend_rfi: await rfiSatisfiedSignal or deadline timeout
  *   6. At clinical_review: routeToReviewer, await decisionRecordedSignal
  *   7. Reach determined terminal state
  *
@@ -205,13 +205,13 @@ export async function PaWorkflow(input: PaWorkflowInput): Promise<PaWorkflowStat
   // Step 4: Route based on completeness
   // -------------------------------------------------------------------------
   if (gaps.length > 0) {
-    // completeness.gap_found → rfi_pending
-    state.status = 'rfi_pending';
+    // completeness.gap_found → pend_rfi
+    state.status = 'pend_rfi';
     await emitCaseTransition({
       caseId: state.caseId,
       tenantId: state.tenantId,
       from: 'completeness_check',
-      to: 'rfi_pending',
+      to: 'pend_rfi',
       trigger: 'completeness.gap_found',
     });
 
@@ -237,7 +237,7 @@ export async function PaWorkflow(input: PaWorkflowInput): Promise<PaWorkflowStat
       await emitCaseTransition({
         caseId: state.caseId,
         tenantId: state.tenantId,
-        from: 'rfi_pending',
+        from: 'pend_rfi',
         to: 'withdrawn',
         trigger: 'member.withdrawal',
       });
@@ -250,7 +250,7 @@ export async function PaWorkflow(input: PaWorkflowInput): Promise<PaWorkflowStat
       await emitCaseTransition({
         caseId: state.caseId,
         tenantId: state.tenantId,
-        from: 'rfi_pending',
+        from: 'pend_rfi',
         to: 'determined',
         trigger: 'rfi.deadline_expired',
       });
@@ -260,9 +260,9 @@ export async function PaWorkflow(input: PaWorkflowInput): Promise<PaWorkflowStat
   }
 
   // completeness.complete or rfi.satisfied → clinical_review
-  const fromForClinical = state.status; // 'completeness_check' or 'rfi_pending'
+  const fromForClinical = state.status; // 'completeness_check' or 'pend_rfi'
   const clinicalTrigger =
-    fromForClinical === 'rfi_pending' ? 'rfi.satisfied' : 'completeness.complete';
+    fromForClinical === 'pend_rfi' ? 'rfi.satisfied' : 'completeness.complete';
   state.status = 'clinical_review';
   await emitCaseTransition({
     caseId: state.caseId,

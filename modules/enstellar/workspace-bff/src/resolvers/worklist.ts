@@ -94,7 +94,7 @@ export async function worklist(db: TenantDb, args: WorklistArgs): Promise<Workli
     pageParams.push(limit + 1);
     const rowsResult = await client.query(
       `SELECT c.case_id, c.state, c.urgency, c.lob,
-              c.created_at, c.updated_at
+              c.member_ref, c.created_at, c.updated_at
        FROM ens.case c
        ${pageWhere}
        ORDER BY (c.urgency = 'expedited') DESC, c.created_at ASC
@@ -114,7 +114,7 @@ export async function worklist(db: TenantDb, args: WorklistArgs): Promise<Workli
           state: r['state'] as string,
           urgency: r['urgency'] as string,
           lob: r['lob'] as string,
-          memberRef: null,
+          memberRef: (r['member_ref'] as string | null) ?? null,
           createdAt,
           updatedAt: r['updated_at'] as string,
         },

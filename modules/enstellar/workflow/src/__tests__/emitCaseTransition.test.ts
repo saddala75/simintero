@@ -37,7 +37,7 @@ describe('emitCaseTransition', () => {
     expect(payload['trigger']).toBe('case.created');
   });
 
-  it('resolves when case-service returns 200 on completeness_check→rfi_pending', async () => {
+  it('resolves when case-service returns 200 on completeness_check→pend_rfi', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(null, { status: 200 }),
     );
@@ -47,13 +47,13 @@ describe('emitCaseTransition', () => {
         caseId: 'case-002',
         tenantId: 'tenant-abc',
         from: 'completeness_check',
-        to: 'rfi_pending',
+        to: 'pend_rfi',
         trigger: 'completeness.gap_found',
       }),
     ).resolves.toBeUndefined();
   });
 
-  it('resolves when case-service returns 200 on rfi_pending→clinical_review', async () => {
+  it('resolves when case-service returns 200 on pend_rfi→clinical_review', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(null, { status: 200 }),
     );
@@ -62,7 +62,7 @@ describe('emitCaseTransition', () => {
       emitCaseTransition({
         caseId: 'case-003',
         tenantId: 'tenant-abc',
-        from: 'rfi_pending',
+        from: 'pend_rfi',
         to: 'clinical_review',
         trigger: 'rfi.satisfied',
       }),
@@ -90,7 +90,7 @@ describe('emitCaseTransition', () => {
       emitCaseTransition({
         caseId: 'case-005',
         tenantId: 'tenant-abc',
-        from: 'rfi_pending',
+        from: 'pend_rfi',
         to: 'determined',
         trigger: 'rfi.deadline_expired',
       }),
@@ -177,7 +177,7 @@ describe('emitTransitionEvent envelope', () => {
     await emitTransitionEvent({
       caseId: 'c2',
       tenantId: 't2',
-      fromState: 'rfi_pending',
+      fromState: 'pend_rfi',
       toState: 'clinical_review',
       trigger: 'rfi.satisfied',
     });

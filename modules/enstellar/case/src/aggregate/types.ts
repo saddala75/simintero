@@ -1,17 +1,5 @@
-export type CaseStatus =
-  | 'intake'
-  | 'completeness_check'
-  | 'rfi_pending'
-  | 'pending_documents'
-  | 'under_review'
-  | 'clinical_review'
-  | 'approved'
-  | 'denied'
-  | 'partially_denied'
-  | 'adverse_modification'
-  | 'determined'
-  | 'withdrawn'
-  | 'voided';
+import type { CaseStatus } from '@sim/canonical-types';
+export type { CaseStatus };
 
 export interface CaseState {
   caseId: string; // UUID string
