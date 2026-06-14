@@ -15,7 +15,10 @@ Target (standard): contracts/schemas/envelope/event-envelope.schema.json
 | actor.type system   | actor.type service      | system→service                                                            |
 | actor.type service  | actor.type service      | unchanged                                                                 |
 | (n/a)               | actor.type model_agent  | NEW — emit for agent-layer-produced events.                              |
-| case_id             | correlation_id          | Legacy used correlation_id already; case_id becomes payload.case_id.     |
+| actor.id            | actor.id                | unchanged                                                                 |
+| (n/a)               | actor.on_behalf_of      | NEW nullable — set when a human acts on behalf of another principal; else null. |
+| correlation_id      | correlation_id          | unchanged (1:1 passthrough).                                             |
+| case_id             | payload.case_id         | Move into the event payload; it is NOT the envelope correlation_id.       |
 | (n/a)               | causation_id            | NEW nullable — set to the triggering event_id when known.                |
 | (n/a)               | trace_ref               | NEW nullable — populated once observability lands (Section D).           |
 | occurred_at         | occurred_at             | unchanged (ISO-8601 UTC).                                                 |
