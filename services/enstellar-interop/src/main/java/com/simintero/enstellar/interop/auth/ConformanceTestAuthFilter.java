@@ -1,5 +1,7 @@
 package com.simintero.enstellar.interop.auth;
 
+import io.simintero.tenant.TenantContext;
+import io.simintero.tenant.TenantContextHolder;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,7 +54,9 @@ public class ConformanceTestAuthFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             if (expectedToken.equals(token)) {
-                TenantContext.set(CONFORMANCE_TENANT);
+                TenantContextHolder.set(new TenantContext(
+                    CONFORMANCE_TENANT, "", "pooled", TenantContext.Scopes.empty(),
+                    java.util.List.of(), "service"));
                 // Populate SecurityContext so Spring Security's authorization checks pass.
                 // 3-arg constructor sets authenticated=true; empty authorities satisfies
                 // .anyRequest().authenticated() without requiring specific roles.
@@ -65,7 +69,7 @@ public class ConformanceTestAuthFilter extends OncePerRequestFilter {
                 try {
                     chain.doFilter(new StripAuthorizationHeaderWrapper(request), response);
                 } finally {
-                    TenantContext.clear();
+                    TenantContextHolder.clear();
                     SecurityContextHolder.clearContext();
                 }
                 return;

@@ -1,5 +1,7 @@
 package com.simintero.enstellar.interop.auth;
 
+import io.simintero.tenant.TenantContext;
+import io.simintero.tenant.TenantContextHolder;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +33,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
                                     FilterChain chain)
             throws ServletException, IOException {
         try {
-            if (!TenantContext.isSet()) {
+            if (!ctxSet()) {
                 var auth = SecurityContextHolder.getContext().getAuthentication();
                 if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {
                     String tenantId = jwt.getClaimAsString("tenant_id");
@@ -40,12 +42,27 @@ public class TenantContextFilter extends OncePerRequestFilter {
                             "Token is missing required tenant_id claim");
                         return;  // finally still runs; clear() is a no-op here
                     }
-                    TenantContext.set(tenantId);
+                    @SuppressWarnings("unchecked")
+                    java.util.List<String> roles = java.util.Optional.ofNullable(jwt.getClaimAsMap("realm_access"))
+                        .map(ra -> (java.util.List<String>) ra.get("roles")).orElse(java.util.List.of());
+                    String principalType = jwt.getClaimAsString("principal_type");
+                    if (principalType == null || principalType.isBlank()) principalType = "human";
+                    TenantContextHolder.set(new TenantContext(
+                        tenantId, "", "pooled", TenantContext.Scopes.empty(), roles, principalType));
                 }
             }
             chain.doFilter(request, response);
         } finally {
-            TenantContext.clear();
+            TenantContextHolder.clear();
+        }
+    }
+
+    private static boolean ctxSet() {
+        try {
+            TenantContextHolder.get();
+            return true;
+        } catch (IllegalStateException e) {
+            return false;
         }
     }
 }

@@ -20,9 +20,11 @@ tasks.withType<JavaCompile> {
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
+    implementation("io.simintero:simintero-tenant-context:1.0.0")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")

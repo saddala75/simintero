@@ -1,6 +1,7 @@
 package com.simintero.enstellar.interop.crd;
 
-import com.simintero.enstellar.interop.auth.TenantContext;
+import io.simintero.tenant.TenantContext;
+import io.simintero.tenant.TenantContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -58,7 +59,9 @@ public class CdsServicesController {
             return ResponseEntity.status(401).build();
         }
         try {
-            TenantContext.set(tenantId);
+            TenantContextHolder.set(new TenantContext(
+                tenantId, "", "pooled", TenantContext.Scopes.empty(),
+                java.util.List.of(), "service"));
             Map<String, Object> ctx = request.context() == null ? Map.of() : request.context();
             String serviceCode = String.valueOf(ctx.getOrDefault("serviceCode", "unknown"));
             String memberId = String.valueOf(ctx.getOrDefault("patientId", "unknown"));
@@ -67,7 +70,7 @@ public class CdsServicesController {
             CrdContent content = digicore.getCrdContent(serviceCode, memberId, planId, tenantId);
             return ResponseEntity.ok(new CdsServicesResponse(mapper.toCards(content, serviceCode)));
         } finally {
-            TenantContext.clear();
+            TenantContextHolder.clear();
         }
     }
 }

@@ -5,8 +5,8 @@ import ca.uhn.fhir.rest.annotation.OperationParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException;
-import com.simintero.enstellar.interop.auth.TenantContext;
 import com.simintero.enstellar.interop.decision.DecisionRecord;
+import io.simintero.tenant.TenantContextHolder;
 import com.simintero.enstellar.interop.decision.DecisionStore;
 import com.simintero.enstellar.interop.pas.dto.NormalizeResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -60,7 +60,7 @@ public class PasClaimSubmitProvider implements IResourceProvider {
     public Bundle submit(
         @OperationParam(name = "resource") Bundle bundle
     ) {
-        String tenantId = TenantContext.require();
+        String tenantId = TenantContextHolder.get().tenantId();
 
         String correlationId = (bundle != null && bundle.hasId() && !bundle.getIdElement().getIdPart().isBlank())
             ? bundle.getIdElement().getIdPart()
