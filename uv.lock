@@ -592,6 +592,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-jose", extra = ["cryptography"] },
+    { name = "simintero-authz" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -613,6 +614,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.3" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.3" },
+    { name = "simintero-authz", editable = "platform/libs/authz-client/py" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 

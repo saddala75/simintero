@@ -13,14 +13,15 @@ from httpx import AsyncClient, ASGITransport, Response
 import enstellar_bff.auth as auth_module
 from enstellar_bff.main import app
 
+from tests.conftest import make_principal
+
 CASE_ID = "00000000-0000-0000-0000-000000000001"
-FIXED_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["reviewer"], "sub": "user-001"}
 FHIR_BASE = "http://interop:8080/fhir"
 
 
 @pytest.fixture(autouse=True)
 def bypass_auth(monkeypatch):
-    app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+    app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal()
     yield
     app.dependency_overrides.clear()
 
@@ -80,7 +81,7 @@ async def test_get_documents_requires_auth() -> None:
             resp = await client.get(f"/bff/cases/{CASE_ID}/documents")
         assert resp.status_code in (401, 403)
     finally:
-        app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+        app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal()
 
 
 # ── GET /bff/cases/{id}/documents/{doc_id}/content ───────────────────────────

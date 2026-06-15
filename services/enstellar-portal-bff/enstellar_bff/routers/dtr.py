@@ -14,10 +14,11 @@ router = APIRouter(prefix="/bff/dtr", tags=["dtr"])
 async def get_questionnaire(
     context: str,
     plan: str,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> dict[str, Any]:
+    ctx, _bearer = auth
     try:
-        q = await fhir_client.get_questionnaire(context, plan, auth["tenant_id"])
+        q = await fhir_client.get_questionnaire(context, plan, ctx.tenant_id)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=502, detail="DTR upstream error") from exc
     if not q:
@@ -28,10 +29,11 @@ async def get_questionnaire(
 @router.post("/questionnaire-response")
 async def post_questionnaire_response(
     qr: dict = Body(...),
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> dict[str, Any]:
+    ctx, _bearer = auth
     try:
-        return await fhir_client.post_questionnaire_response(qr, auth["tenant_id"])
+        return await fhir_client.post_questionnaire_response(qr, ctx.tenant_id)
     except httpx.HTTPStatusError as exc:
         status = exc.response.status_code if exc.response is not None else 502
         # surface client validation errors (422) to the browser; everything else is 502

@@ -12,14 +12,8 @@ from httpx import AsyncClient, ASGITransport, Response
 from enstellar_bff.main import app
 import enstellar_bff.auth as auth_module
 
-pytestmark = pytest.mark.xfail(
-    reason="Pre-existing upstream failure (KeyError 'bearer_token' in worklist router); "
-           "portal-bff auth/worklist is reworked under the platform x-sim-ctx contract in "
-           "Section C2. Quarantined to keep C1 green.",
-    strict=False,
-)
+from tests.conftest import make_principal
 
-FIXED_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["reviewer"], "sub": "user-001"}
 STATS_PAYLOAD = {
     "ai_determinations": 12,
     "adverse_human_signed_pct": 100.0,
@@ -33,7 +27,7 @@ STATS_PAYLOAD = {
 @respx.mock
 async def test_get_queue_stats_returns_data_with_cache_header() -> None:
     async def _fake_reviewer():
-        return FIXED_PRINCIPAL
+        return make_principal()
 
     app.dependency_overrides[auth_module.require_reviewer] = _fake_reviewer
     respx.get("http://workflow-engine:8000/queues/standard/stats").mock(
@@ -68,7 +62,7 @@ async def test_get_queue_stats_tenant_enforced() -> None:
 @respx.mock
 async def test_get_queue_stats_all_fields_present() -> None:
     async def _fake_reviewer():
-        return FIXED_PRINCIPAL
+        return make_principal()
 
     app.dependency_overrides[auth_module.require_reviewer] = _fake_reviewer
     respx.get("http://workflow-engine:8000/queues/standard/stats").mock(

@@ -8,13 +8,17 @@ from httpx import AsyncClient, ASGITransport
 from enstellar_bff.auth import require_reviewer
 from enstellar_bff.main import app
 
+from tests.conftest import make_principal
+
 CASE_ID = "00000000-0000-0000-0000-000000000001"
-AUTH = {"sub": "reviewer-001", "tenant_id": "tenant-a"}
+SUB = "reviewer-001"
 
 
 @pytest.fixture(autouse=True)
 def override_auth():
-    app.dependency_overrides[require_reviewer] = lambda: AUTH
+    app.dependency_overrides[require_reviewer] = lambda: make_principal(
+        sub=SUB, tenant_id="tenant-a"
+    )
     yield
     app.dependency_overrides.clear()
 
@@ -60,7 +64,7 @@ async def test_structured_fields_forwarded_to_workflow_engine():
         assert payload["citations"] == ["InterQual 2025 §3.4.1"]
         assert payload["reason"] == "Not medically necessary"
         # actor_id MUST come from auth["sub"], never from request body
-        assert mock_wf.transition.call_args.kwargs["actor_id"] == AUTH["sub"]
+        assert mock_wf.transition.call_args.kwargs["actor_id"] == SUB
 
 
 @pytest.mark.asyncio
