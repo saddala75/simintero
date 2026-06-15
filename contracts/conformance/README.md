@@ -17,9 +17,9 @@ in its own language. Reference TS implementations: `platform/libs/{tenant-contex
   `shared.outbox(event_id, topic, key, envelope jsonb, tenant_id)`; insert
   `ON CONFLICT (event_id) DO NOTHING`. The whole envelope is stored as one jsonb column.
 - The envelope is the `EventEnvelope` from `simintero-contracts`.
-- Topic routing by `schema_ref` prefix: `sim.case.`→`sim.case.lifecycle`, `sim.evidence.`→`sim.evidence`,
-  `sim.artifact.`→`sim.artifact`, `sim.ai.`→`sim.ai.interaction`, `sim.clock.`→`sim.clock`,
-  `sim.tenant.`→`sim.tenant.admin`; unknown prefix is an error.
+- Topic routing: the topic is the FIRST path segment of `schema_ref` (a `<topic>/<EventName>/v<N>`
+  C-3 ref), validated against the known channels (`sim.case.lifecycle`, `sim.evidence`,
+  `sim.artifact`, `sim.ai.interaction`, `sim.clock`, `sim.tenant.admin`); an unknown topic is an error.
 - A relay polls unpublished rows `FOR UPDATE SKIP LOCKED`, publishes to Kafka, marks published.
 - Consumers dedup on `event_id` (`shared.processed_events`).
 

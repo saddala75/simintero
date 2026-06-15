@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-_PREFIX_TO_TOPIC = [
-    ("sim.case.", "sim.case.lifecycle"),
-    ("sim.evidence.", "sim.evidence"),
-    ("sim.artifact.", "sim.artifact"),
-    ("sim.ai.", "sim.ai.interaction"),
-    ("sim.clock.", "sim.clock"),
-    ("sim.tenant.", "sim.tenant.admin"),
-]
+# The C-3 channels (Kafka topics). A schema_ref is "<topic>/<EventName>/v<N>",
+# so the topic is the first path segment.
+_KNOWN_TOPICS = frozenset({
+    "sim.case.lifecycle",
+    "sim.evidence",
+    "sim.artifact",
+    "sim.ai.interaction",
+    "sim.clock",
+    "sim.tenant.admin",
+})
 
 def topic_for(schema_ref: str) -> str:
-    """Route a schema_ref to its Kafka topic by prefix (matches outbox/ts)."""
-    for prefix, topic in _PREFIX_TO_TOPIC:
-        if schema_ref.startswith(prefix):
-            return topic
-    raise ValueError(f"Unknown schema_ref prefix: {schema_ref}")
+    """Return the Kafka topic for a C-3 schema_ref (the first '/'-segment)."""
+    topic = schema_ref.split("/", 1)[0]
+    if topic not in _KNOWN_TOPICS:
+        raise ValueError(f"Unknown C-3 topic in schema_ref: {schema_ref!r}")
+    return topic
