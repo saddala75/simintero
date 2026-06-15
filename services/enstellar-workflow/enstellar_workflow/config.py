@@ -5,6 +5,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="WORKFLOW_", case_sensitive=False)
 
+    # Deployment environment/profile. Used by the startup audience fail-fast
+    # guard to distinguish prod (audience MUST be set) from local/test/dev
+    # (audience may be unset). Default "local" so dev runs without extra config.
+    env: str = "local"
+
     db_url: str = "postgresql+asyncpg://workflow:workflow_secret@localhost:5432/workflow"
 
     kafka_bootstrap_servers: str = "localhost:9092"

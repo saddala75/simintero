@@ -54,6 +54,11 @@ def _adverse_principal(req: "TransitionRequest") -> dict:
             "principal_type": ctx.principal_type,
         }
     except RuntimeError:
+        # Consumer/event path: the principal's actor comes from the validated internal
+        # Kafka event, not a user request. The adverse-action gate (in-process guard + OPA
+        # principal_type==human) therefore trusts event-producer integrity here. No current
+        # consumer emits adverse states (they route to clinical_review for a human), so a
+        # non-human actor is denied; revisit this trust boundary if that changes.
         return {
             "tenant_id": req.tenant_id,
             "roles": [],

@@ -101,6 +101,9 @@ async def test_opa_allows_adverse_determination_proceeds(ac: AsyncClient, opa_mo
 
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "denied"
+    # OPA must actually have been consulted on the allow path — guards a future
+    # refactor that silently drops the authoritative OPA call.
+    assert opa_mock.called
 
 
 @pytest.mark.asyncio
