@@ -11,7 +11,15 @@ class TokenClaims(BaseModel):
     scope: str | None = None
     fhirUser: str | None = None
     email: str | None = None
+    realm_access: dict | None = None
+    azp: str | None = None
+    typ: str | None = None
+    principal_type: str | None = None
 
     @property
     def scopes(self) -> frozenset[str]:
         return frozenset((self.scope or "").split())
+
+    @property
+    def roles(self) -> list[str]:
+        return list((self.realm_access or {}).get("roles", []))
