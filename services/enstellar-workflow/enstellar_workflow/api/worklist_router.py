@@ -15,7 +15,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from enstellar_authz import AuthedRequest
-from ..db.connection import get_pool, tenant_conn
+from ..db.connection import get_pool
+from simintero_tenant_context import tenant_transaction
 
 router = APIRouter(prefix="/queues", tags=["worklist"])
 
@@ -32,7 +33,7 @@ async def get_worklist(
     pool = await get_pool()
     offset = (page - 1) * page_size
 
-    async with tenant_conn(pool, tenant_id) as conn:
+    async with tenant_transaction(pool, tenant_id) as conn:
         # Total count (no clock join needed)
         total_row = await conn.fetchrow(
             """

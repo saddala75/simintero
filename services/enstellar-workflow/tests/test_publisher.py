@@ -5,7 +5,7 @@ import asyncpg
 import pytest
 
 from simintero_outbox import SchemaRef, make_envelope
-from enstellar_workflow.db.connection import tenant_conn
+from simintero_tenant_context import tenant_transaction
 from enstellar_workflow.outbox.publisher import OutboxPublisher
 
 
@@ -29,11 +29,10 @@ async def test_publisher_inserts_outbox_row(pg_pool: asyncpg.Pool):
     publisher = OutboxPublisher()
     event = _make_event()
 
-    async with tenant_conn(pg_pool, "tenant-test") as conn:
-        async with conn.transaction():
-            await publisher.publish(conn, event)
+    async with tenant_transaction(pg_pool, "tenant-test") as conn:
+        await publisher.publish(conn, event)
 
-    async with tenant_conn(pg_pool, "tenant-test") as conn:
+    async with tenant_transaction(pg_pool, "tenant-test") as conn:
         row = await conn.fetchrow(
             "SELECT event_id, topic, key, envelope, tenant_id, published_at "
             "FROM shared.outbox WHERE event_id = $1",
@@ -55,13 +54,12 @@ async def test_publisher_deduplicates_same_event_id(pg_pool: asyncpg.Pool):
     publisher = OutboxPublisher()
     event = _make_event()
 
-    async with tenant_conn(pg_pool, "tenant-test") as conn:
-        async with conn.transaction():
-            await publisher.publish(conn, event)
-        async with conn.transaction():
-            await publisher.publish(conn, event)
+    async with tenant_transaction(pg_pool, "tenant-test") as conn:
+        await publisher.publish(conn, event)
+    async with tenant_transaction(pg_pool, "tenant-test") as conn:
+        await publisher.publish(conn, event)
 
-    async with tenant_conn(pg_pool, "tenant-test") as conn:
+    async with tenant_transaction(pg_pool, "tenant-test") as conn:
         count = await conn.fetchval(
             "SELECT COUNT(*) FROM shared.outbox WHERE event_id = $1", event.event_id
         )

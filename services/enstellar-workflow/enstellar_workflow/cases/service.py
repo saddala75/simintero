@@ -20,7 +20,7 @@ from simintero_outbox import SchemaRef, make_envelope
 
 from ..clocks.model import ClockDefinition
 from ..clocks.service import ClockService
-from ..db.connection import tenant_conn
+from simintero_tenant_context import tenant_transaction
 from ..escalation.service import EscalationService
 from ..outbox.publisher import OutboxPublisher, lob_for_envelope
 from ..rfi.service import RfiRequest, RfiService
@@ -54,65 +54,64 @@ class CaseService:
         row and writes a case.intake.received event to the outbox — both in a
         single transaction.
         """
-        async with tenant_conn(self._pool, case.tenant_id) as conn:
-            async with conn.transaction():
-                # Attempt idempotent insert — ON CONFLICT returns no row
-                row = await conn.fetchrow(
-                    """
-                    INSERT INTO workflow_instances
-                      (case_id, tenant_id, correlation_id, lob, program, status, urgency,
-                       workflow_def_version, case_json, created_at, updated_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)
-                    ON CONFLICT (correlation_id) DO NOTHING
-                    RETURNING case_id
-                    """,
-                    case.case_id,
-                    case.tenant_id,
-                    case.correlation_id,
-                    case.lob,
-                    case.program,
-                    case.status.value,
-                    case.urgency.value,
-                    "v1",
-                    json.dumps(case.model_dump(mode="json")),
-                    case.created_at,
-                    case.updated_at,
+        async with tenant_transaction(self._pool, case.tenant_id) as conn:
+            # Attempt idempotent insert — ON CONFLICT returns no row
+            row = await conn.fetchrow(
+                """
+                INSERT INTO workflow_instances
+                  (case_id, tenant_id, correlation_id, lob, program, status, urgency,
+                   workflow_def_version, case_json, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)
+                ON CONFLICT (correlation_id) DO NOTHING
+                RETURNING case_id
+                """,
+                case.case_id,
+                case.tenant_id,
+                case.correlation_id,
+                case.lob,
+                case.program,
+                case.status.value,
+                case.urgency.value,
+                "v1",
+                json.dumps(case.model_dump(mode="json")),
+                case.created_at,
+                case.updated_at,
+            )
+
+            if row is None:
+                # Duplicate correlation_id — return existing case without side-effects
+                existing = await self._repo.fetch_by_correlation_id(
+                    conn, case.correlation_id, case.tenant_id
                 )
+                return existing  # type: ignore[return-value]
 
-                if row is None:
-                    # Duplicate correlation_id — return existing case without side-effects
-                    existing = await self._repo.fetch_by_correlation_id(
-                        conn, case.correlation_id, case.tenant_id
-                    )
-                    return existing  # type: ignore[return-value]
+            # New case — publish intake event to outbox in same transaction
+            event = make_envelope(
+                SchemaRef.CASE_INTAKE_RECEIVED,
+                tenant_id=case.tenant_id,
+                actor_id="system",
+                actor_type="system",
+                correlation_id=case.correlation_id,
+                occurred_at=case.created_at,
+                lob=lob_for_envelope(case.lob),
+                payload={"case_id": str(case.case_id), "status": case.status.value},
+            )
+            await self._publisher.publish(conn, event)
 
-                # New case — publish intake event to outbox in same transaction
-                event = make_envelope(
-                    SchemaRef.CASE_INTAKE_RECEIVED,
+            # Start the decision clock for the new case
+            try:
+                defn = ClockDefinition.for_case(case.urgency.value)
+                await self._clock_svc.start(
+                    conn,
                     tenant_id=case.tenant_id,
-                    actor_id="system",
-                    actor_type="system",
-                    correlation_id=case.correlation_id,
-                    occurred_at=case.created_at,
-                    lob=lob_for_envelope(case.lob),
-                    payload={"case_id": str(case.case_id), "status": case.status.value},
+                    case_id=case.case_id,
+                    definition=defn,
                 )
-                await self._publisher.publish(conn, event)
+            except ValueError:
+                # Unknown urgency/clock_type — clock not started; non-fatal
+                pass
 
-                # Start the decision clock for the new case
-                try:
-                    defn = ClockDefinition.for_case(case.urgency.value)
-                    await self._clock_svc.start(
-                        conn,
-                        tenant_id=case.tenant_id,
-                        case_id=case.case_id,
-                        definition=defn,
-                    )
-                except ValueError:
-                    # Unknown urgency/clock_type — clock not started; non-fatal
-                    pass
-
-                return case
+            return case
 
     async def transition(self, req: TransitionRequest) -> Case:
         """Apply a state transition.
@@ -124,22 +123,21 @@ class CaseService:
         """
         engine: TransitionEngine = self._engine
         from_state: str | None = None
-        async with tenant_conn(self._pool, req.tenant_id) as conn:
-            async with conn.transaction():
-                # Capture from_state before apply() mutates the case
-                pre_case = await self._repo.fetch_by_id(conn, req.case_id, req.tenant_id)
-                if pre_case is not None:
-                    from_state = pre_case.status.value
-                case, event_id = await engine.apply(conn, req)
-                if case.status.value in _TERMINAL_STATES:
-                    try:
-                        await self._clock_svc.stop(
-                            conn,
-                            tenant_id=req.tenant_id,
-                            case_id=req.case_id,
-                        )
-                    except ValueError:
-                        pass  # No clock exists (or already stopped) — non-fatal
+        async with tenant_transaction(self._pool, req.tenant_id) as conn:
+            # Capture from_state before apply() mutates the case
+            pre_case = await self._repo.fetch_by_id(conn, req.case_id, req.tenant_id)
+            if pre_case is not None:
+                from_state = pre_case.status.value
+            case, event_id = await engine.apply(conn, req)
+            if case.status.value in _TERMINAL_STATES:
+                try:
+                    await self._clock_svc.stop(
+                        conn,
+                        tenant_id=req.tenant_id,
+                        case_id=req.case_id,
+                    )
+                except ValueError:
+                    pass  # No clock exists (or already stopped) — non-fatal
         # Notify platform OUTSIDE the transaction (fire-and-forget)
         if from_state is not None:
             await engine.notify_platform(req, from_state=from_state, event_id=event_id)
@@ -168,42 +166,41 @@ class CaseService:
         pend_req: TransitionRequest | None = None
         pend_event_id: uuid.UUID | None = None
         pend_from_state: str | None = None
-        async with tenant_conn(self._pool, tenant_id) as conn:
-            async with conn.transaction():
-                pre_case = await self._repo.fetch_by_id(conn, case_id, tenant_id)
-                if pre_case is not None:
-                    pend_from_state = pre_case.status.value
-                pend_req = TransitionRequest(
-                    case_id=case_id,
-                    tenant_id=tenant_id,
-                    to_state="pend_rfi",
-                    actor_id=requested_by,
-                    actor_type="user",
-                    correlation_id=str(uuid.uuid4()),
-                    payload={"reason": "rfi_dispatched"},
-                )
-                case, pend_event_id = await self._engine.apply(conn, pend_req)
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            pre_case = await self._repo.fetch_by_id(conn, case_id, tenant_id)
+            if pre_case is not None:
+                pend_from_state = pre_case.status.value
+            pend_req = TransitionRequest(
+                case_id=case_id,
+                tenant_id=tenant_id,
+                to_state="pend_rfi",
+                actor_id=requested_by,
+                actor_type="user",
+                correlation_id=str(uuid.uuid4()),
+                payload={"reason": "rfi_dispatched"},
+            )
+            case, pend_event_id = await self._engine.apply(conn, pend_req)
 
-                # Pause the decision clock
-                try:
-                    await self._clock_svc.pause(
-                        conn,
-                        tenant_id=tenant_id,
-                        case_id=case_id,
-                        reason="rfi_dispatched",
-                    )
-                except ValueError:
-                    pass  # No clock — non-fatal
-
-                rfi_req = RfiRequest(
-                    case_id=case_id,
+            # Pause the decision clock
+            try:
+                await self._clock_svc.pause(
+                    conn,
                     tenant_id=tenant_id,
-                    provider_npi=provider_npi,
-                    document_types=document_types,
-                    free_text=free_text,
-                    requested_by=requested_by,
+                    case_id=case_id,
+                    reason="rfi_dispatched",
                 )
-                request_id = await self._rfi_svc.dispatch_rfi(conn, rfi_req)
+            except ValueError:
+                pass  # No clock — non-fatal
+
+            rfi_req = RfiRequest(
+                case_id=case_id,
+                tenant_id=tenant_id,
+                provider_npi=provider_npi,
+                document_types=document_types,
+                free_text=free_text,
+                requested_by=requested_by,
+            )
+            request_id = await self._rfi_svc.dispatch_rfi(conn, rfi_req)
 
         # Notify platform OUTSIDE the transaction (fire-and-forget)
         if pend_req is not None and pend_from_state is not None and pend_event_id is not None:
@@ -225,11 +222,10 @@ class CaseService:
         or does not exist for the given tenant.
         """
         svc = EscalationService(self._publisher)
-        async with tenant_conn(self._pool, tenant_id) as conn:
-            async with conn.transaction():
-                return await svc.escalate(
-                    conn, str(case_id), tenant_id, actor_id, actor_type, reason, correlation_id
-                )
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            return await svc.escalate(
+                conn, str(case_id), tenant_id, actor_id, actor_type, reason, correlation_id
+            )
 
     async def record_signoff(
         self,
@@ -244,17 +240,16 @@ class CaseService:
         Returns the signoff row as a plain dict.
         """
         svc = SignoffService()
-        async with tenant_conn(self._pool, tenant_id) as conn:
-            async with conn.transaction():
-                return await svc.record_signoff(
-                    conn, str(case_id), tenant_id, actor_id, actor_type, outcome_context
-                )
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            return await svc.record_signoff(
+                conn, str(case_id), tenant_id, actor_id, actor_type, outcome_context
+            )
 
     async def get_events(
         self, case_id: uuid.UUID, tenant_id: str
     ) -> list[dict[str, Any]]:
         """Return all workflow_events rows for a case, ordered by insertion (id ASC)."""
-        async with tenant_conn(self._pool, tenant_id) as conn:
+        async with tenant_transaction(self._pool, tenant_id) as conn:
             rows = await conn.fetch(
                 """
                 SELECT id, case_id, tenant_id, event_type, from_state, to_state,

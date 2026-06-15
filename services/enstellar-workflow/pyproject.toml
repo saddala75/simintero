@@ -12,6 +12,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0",
     "simintero-contracts",
     "simintero-outbox",
+    "simintero-tenant-context",
     "enstellar-authz",
     "enstellar-connectors",
     "minio>=7.2",
@@ -37,6 +38,7 @@ dev = [
 [tool.uv.sources]
 simintero-contracts = { workspace = true }
 simintero-outbox = { workspace = true }
+simintero-tenant-context = { workspace = true }
 enstellar-authz = { workspace = true }
 enstellar-connectors = { workspace = true }
 

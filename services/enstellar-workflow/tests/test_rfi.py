@@ -21,7 +21,7 @@ async def test_dispatch_rfi_returns_request_id(pg_pool: asyncpg.Pool):
     """dispatch_rfi returns the request_id embedded in the RfiRequest."""
     from enstellar_workflow.rfi.service import RfiRequest, RfiService
     from enstellar_workflow.outbox.publisher import OutboxPublisher
-    from enstellar_workflow.db.connection import tenant_conn
+    from simintero_tenant_context import tenant_transaction
 
     svc = RfiService(OutboxPublisher())
     req = RfiRequest(
@@ -30,9 +30,8 @@ async def test_dispatch_rfi_returns_request_id(pg_pool: asyncpg.Pool):
         provider_npi="1234567890",
         document_types=["clinical_notes", "lab_results"],
     )
-    async with tenant_conn(pg_pool, "tenant-rfi1") as conn:
-        async with conn.transaction():
-            rid = await svc.dispatch_rfi(conn, req)
+    async with tenant_transaction(pg_pool, "tenant-rfi1") as conn:
+        rid = await svc.dispatch_rfi(conn, req)
 
     assert rid == req.request_id
 
@@ -41,7 +40,7 @@ async def test_dispatch_rfi_writes_outbox_event(pg_pool: asyncpg.Pool):
     """dispatch_rfi writes an rfi.dispatched row to shared.outbox with correct payload."""
     from enstellar_workflow.rfi.service import RfiRequest, RfiService
     from enstellar_workflow.outbox.publisher import OutboxPublisher
-    from enstellar_workflow.db.connection import tenant_conn
+    from simintero_tenant_context import tenant_transaction
 
     svc = RfiService(OutboxPublisher())
     tid = f"tenant-rfi2-{uuid.uuid4()}"
@@ -53,16 +52,15 @@ async def test_dispatch_rfi_writes_outbox_event(pg_pool: asyncpg.Pool):
         document_types=["imaging"],
         free_text="Please send CT scan report",
     )
-    async with tenant_conn(pg_pool, tid) as conn:
-        async with conn.transaction():
-            await svc.dispatch_rfi(conn, req)
-            row = await conn.fetchrow(
-                "SELECT topic, envelope FROM shared.outbox"
-                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
-                " ORDER BY event_id DESC LIMIT 1",
-                tid,
-                str(cid),
-            )
+    async with tenant_transaction(pg_pool, tid) as conn:
+        await svc.dispatch_rfi(conn, req)
+        row = await conn.fetchrow(
+            "SELECT topic, envelope FROM shared.outbox"
+            " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+            " ORDER BY event_id DESC LIMIT 1",
+            tid,
+            str(cid),
+        )
 
     assert row is not None
     assert row["topic"] == "sim.case.lifecycle"
@@ -117,9 +115,9 @@ async def test_pend_rfi_emits_rfi_dispatched_event(pg_pool: asyncpg.Pool):
         requested_by="reviewer2",
     )
 
-    from enstellar_workflow.db.connection import tenant_conn
+    from simintero_tenant_context import tenant_transaction
 
-    async with tenant_conn(pg_pool, created.tenant_id) as conn:
+    async with tenant_transaction(pg_pool, created.tenant_id) as conn:
         row = await conn.fetchrow(
             "SELECT event_id FROM shared.outbox"
             " WHERE tenant_id = $1"

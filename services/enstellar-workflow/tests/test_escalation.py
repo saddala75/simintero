@@ -7,7 +7,7 @@ import pytest
 from canonical_model import Status
 from tests.conftest import make_case
 from enstellar_workflow.cases.repository import CaseRepository
-from enstellar_workflow.db.connection import tenant_conn
+from simintero_tenant_context import tenant_transaction
 from enstellar_workflow.escalation.service import EscalationService
 from enstellar_workflow.outbox.publisher import OutboxPublisher
 
@@ -24,11 +24,10 @@ async def test_escalate_from_clinical_review_updates_queue(pg_pool: asyncpg.Pool
 
     svc = EscalationService(OutboxPublisher())
 
-    async with tenant_conn(pg_pool, case.tenant_id) as conn:
-        async with conn.transaction():
-            result = await svc.escalate(
-                conn, str(case.case_id), case.tenant_id, "user-reviewer-1", "user", reason="Needs MD"
-            )
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        result = await svc.escalate(
+            conn, str(case.case_id), case.tenant_id, "user-reviewer-1", "user", reason="Needs MD"
+        )
 
     assert result["case_id"] == str(case.case_id)
     assert result["queue"] == "md_review"
@@ -52,11 +51,10 @@ async def test_escalate_emits_case_assigned_outbox_event(pg_pool: asyncpg.Pool):
 
     svc = EscalationService(OutboxPublisher())
 
-    async with tenant_conn(pg_pool, case.tenant_id) as conn:
-        async with conn.transaction():
-            await svc.escalate(conn, str(case.case_id), case.tenant_id, "user-reviewer-2", "user")
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        await svc.escalate(conn, str(case.case_id), case.tenant_id, "user-reviewer-2", "user")
 
-    async with tenant_conn(pg_pool, case.tenant_id) as conn:
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
         row = await conn.fetchrow(
             "SELECT tenant_id FROM shared.outbox"
             " WHERE envelope->'payload'->>'case_id' = $1"

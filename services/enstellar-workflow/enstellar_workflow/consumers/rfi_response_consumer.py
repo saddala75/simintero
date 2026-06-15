@@ -16,7 +16,7 @@ import asyncpg
 
 from canonical_model import EventEnvelope
 from ..clocks.service import ClockService
-from ..db.connection import tenant_conn
+from simintero_tenant_context import tenant_transaction
 from ..engine.transitions import TransitionEngine
 from ..outbox.publisher import OutboxPublisher
 
@@ -43,47 +43,46 @@ class RfiResponseConsumer:
         tenant_id = event.tenant.tenant_id
         case_id = uuid.UUID(str(event.payload["case_id"]))
 
-        async with tenant_conn(self._pool, tenant_id) as conn:
-            async with conn.transaction():
-                # 1. Resume the paused decision clock
-                try:
-                    await self._clock_svc.resume(
-                        conn,
-                        tenant_id=tenant_id,
-                        case_id=case_id,
-                    )
-                except ValueError:
-                    logger.warning(
-                        "No paused clock for case_id=%s tenant=%s; skipping resume",
-                        case_id,
-                        tenant_id,
-                    )
-
-                # 2. Transition case to clinical_review
-                from ..engine.transitions import TransitionRequest
-                from ..cases.repository import CaseRepository
-                repo = CaseRepository()
-                req = TransitionRequest(
-                    case_id=case_id,
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            # 1. Resume the paused decision clock
+            try:
+                await self._clock_svc.resume(
+                    conn,
                     tenant_id=tenant_id,
-                    to_state="clinical_review",
-                    actor_id="system",
-                    actor_type="system",
-                    correlation_id=str(uuid.uuid4()),
-                    payload={"reason": "rfi_response_received"},
+                    case_id=case_id,
                 )
-                pre_case = await repo.fetch_by_id(conn, case_id, tenant_id)
-                rfi_from_state = pre_case.status.value if pre_case is not None else "pend_rfi"
-                rfi_event_id: uuid.UUID | None = None
-                try:
-                    _result_case, rfi_event_id = await self._engine.apply(conn, req)
-                except Exception as exc:
-                    logger.warning(
-                        "Could not transition case %s to clinical_review: %s",
-                        case_id,
-                        exc,
-                    )
-                    raise
+            except ValueError:
+                logger.warning(
+                    "No paused clock for case_id=%s tenant=%s; skipping resume",
+                    case_id,
+                    tenant_id,
+                )
+
+            # 2. Transition case to clinical_review
+            from ..engine.transitions import TransitionRequest
+            from ..cases.repository import CaseRepository
+            repo = CaseRepository()
+            req = TransitionRequest(
+                case_id=case_id,
+                tenant_id=tenant_id,
+                to_state="clinical_review",
+                actor_id="system",
+                actor_type="system",
+                correlation_id=str(uuid.uuid4()),
+                payload={"reason": "rfi_response_received"},
+            )
+            pre_case = await repo.fetch_by_id(conn, case_id, tenant_id)
+            rfi_from_state = pre_case.status.value if pre_case is not None else "pend_rfi"
+            rfi_event_id: uuid.UUID | None = None
+            try:
+                _result_case, rfi_event_id = await self._engine.apply(conn, req)
+            except Exception as exc:
+                logger.warning(
+                    "Could not transition case %s to clinical_review: %s",
+                    case_id,
+                    exc,
+                )
+                raise
 
         # Notify platform OUTSIDE the transaction (fire-and-forget)
         if rfi_event_id is not None:
