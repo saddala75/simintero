@@ -3,7 +3,7 @@ name = "simintero-outbox"
 version = "1.0.0"
 description = "Platform transactional outbox: EventEnvelope -> shared.outbox(jsonb) with schema_ref topic routing"
 requires-python = ">=3.12"
-dependencies = ["asyncpg>=0.29", "pydantic>=2.9", "simintero-contracts"]
+dependencies = ["asyncpg>=0.29", "pydantic>=2.9", "simintero-contracts", "python-ulid>=2.2"]
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "testcontainers[postgres]>=4.7"]
