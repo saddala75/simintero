@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from simintero_outbox import map_actor_type
+
 if TYPE_CHECKING:
     from .transitions import TransitionRequest
 
@@ -45,7 +47,7 @@ class PlatformCaseClient:
             "tenant": {"tenant_id": req.tenant_id},
             "correlation_id": req.correlation_id,
             "causation_id": None,
-            "actor": {"type": req.actor_type, "id": req.actor_id},
+            "actor": {"type": map_actor_type(req.actor_type), "id": req.actor_id},
             "trace_ref": None,
             "payload": {
                 "case_id": str(req.case_id),

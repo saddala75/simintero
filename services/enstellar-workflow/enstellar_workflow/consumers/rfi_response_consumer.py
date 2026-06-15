@@ -68,7 +68,11 @@ class RfiResponseConsumer:
                 to_state="clinical_review",
                 actor_id="system",
                 actor_type="system",
-                correlation_id=str(uuid.uuid4()),
+                # Preserve the triggering event's correlation_id (do NOT regenerate);
+                # carry its event_id as causation_id so the emitted transition event
+                # records the causal chain back to rfi.response.received.
+                correlation_id=event.correlation_id,
+                causation_id=event.event_id,
                 payload={"reason": "rfi_response_received"},
             )
             pre_case = await repo.fetch_by_id(conn, case_id, tenant_id)

@@ -36,6 +36,8 @@ class NotificationService:
         context: dict,
         actor_id: str,
         actor_type: str,
+        correlation_id: str | None = None,
+        causation_id: str | None = None,
     ) -> list[str]:
         """Render all active templates for the given event_type and persist log + outbox events.
 
@@ -81,7 +83,11 @@ class NotificationService:
                     tenant_id=tenant_id,
                     actor_id=actor_id,
                     actor_type=actor_type,
-                    correlation_id=str(uuid.uuid4()),
+                    # Preserve the triggering event's correlation_id (do NOT
+                    # regenerate); fall back to a fresh id only on synchronous
+                    # paths that supply no triggering event.
+                    correlation_id=correlation_id or str(uuid.uuid4()),
+                    causation_id=causation_id,
                     payload={
                         "case_id": case_id,
                         "channel": tmpl["channel"],

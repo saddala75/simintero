@@ -76,6 +76,11 @@ class TransitionRequest:
     correlation_id: str
     payload: dict = field(default_factory=dict)
     human_signoff_recorded: bool = False
+    # Event lineage (set by consumer/event-driven paths). When this transition is
+    # driven by a triggering Kafka event, callers pass the triggering event's
+    # correlation_id and its event_id (as causation_id) so emitted events preserve
+    # the causal chain. Synchronous/API paths leave these None.
+    causation_id: str | None = None
 
 
 class TransitionEngine:
@@ -154,6 +159,7 @@ class TransitionEngine:
             correlation_id=req.correlation_id,
             occurred_at=occurred_at,
             lob=lob,
+            causation_id=req.causation_id,
             payload={
                 "case_id": str(req.case_id),
                 "from_state": from_state,

@@ -72,6 +72,7 @@ class AutoDeterminator:
         conn: asyncpg.Connection,
         case: Case,
         correlation_id: str,
+        causation_id: str | None = None,
     ) -> Case:
         """Run auto-determination for one case. Returns the updated case.
 
@@ -107,11 +108,12 @@ class AutoDeterminator:
                 type(exc).__name__,
             )
             return await self._route_to_clinical_review(
-                conn, case, correlation_id, reason="digicore_unavailable"
+                conn, case, correlation_id, reason="digicore_unavailable",
+                causation_id=causation_id,
             )
 
         if resp.decision == "approved":
-            return await self._approve(conn, case, correlation_id, resp)
+            return await self._approve(conn, case, correlation_id, resp, causation_id)
 
         # 'pending_review' or 'denied' from Digicore → clinical review.
         # INVARIANT: 'denied' from Digicore does NOT map to Status.denied here.
@@ -123,7 +125,8 @@ class AutoDeterminator:
             resp.decision,
         )
         return await self._route_to_clinical_review(
-            conn, case, correlation_id, reason=resp.decision
+            conn, case, correlation_id, reason=resp.decision,
+            causation_id=causation_id,
         )
 
     async def _approve(
@@ -132,6 +135,7 @@ class AutoDeterminator:
         case: Case,
         correlation_id: str,
         resp: DecisionResponse,
+        causation_id: str | None = None,
     ) -> Case:
         """Apply an auto-approval: transition to 'approved' + record Decision + emit event."""
         decided_at = datetime.now(timezone.utc)
@@ -166,6 +170,7 @@ class AutoDeterminator:
             correlation_id=correlation_id,
             payload={"decision": decision.model_dump(mode="json")},
             human_signoff_recorded=False,
+            causation_id=causation_id,
         )
         updated_case, transition_event_id = await self._engine.apply(conn, transition_req)
 
@@ -222,6 +227,7 @@ class AutoDeterminator:
         case: Case,
         correlation_id: str,
         reason: str,
+        causation_id: str | None = None,
     ) -> Case:
         """Transition the case to 'clinical_review' for human review.
 
@@ -242,6 +248,7 @@ class AutoDeterminator:
             correlation_id=f"{correlation_id}-to-clinical",
             payload={"reason": reason},
             human_signoff_recorded=False,
+            causation_id=causation_id,
         )
         updated_case, _event_id = await self._engine.apply(conn, transition_req)
 
