@@ -67,7 +67,7 @@ public abstract class FhirTestBase {
         // Match the issuer and audience used by mintJwt so that SecurityConfig's
         // production jwtDecoder bean (if ever un-overridden) would accept test tokens.
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri",
-                () -> "http://test-issuer");
+                () -> "http://localhost:8081/realms/simintero");
         registry.add("enstellar.security.expected-audience", () -> "enstellar-api");
     }
 
@@ -123,14 +123,31 @@ public abstract class FhirTestBase {
     @Autowired
     protected TestRestTemplate restTemplate;
 
+    /** Issuer for minted test tokens; mirrors realm `simintero` (see SecurityConfig). */
+    protected static final String TEST_ISSUER = "http://localhost:8081/realms/simintero";
+
+    /** Audience interop's resource server expects (independent of realm name). */
+    protected static final String TEST_AUDIENCE = "enstellar-api";
+
     protected static String mintJwt(String tenantId, String scopes) {
+        return mintJwt(tenantId, scopes, List.of(TEST_AUDIENCE));
+    }
+
+    /**
+     * Mint a signed test JWT with an explicit audience. Pass {@code null} for the
+     * audience to omit the `aud` claim entirely (used to prove missing-aud rejection).
+     */
+    protected static String mintJwt(String tenantId, String scopes, List<String> audience) {
         try {
             JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
-                    .issuer("http://test-issuer")
+                    .issuer(TEST_ISSUER)
                     .subject("test-user")
-                    .audience(List.of("enstellar-api"))
                     .claim("scope", scopes)
                     .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L));
+
+            if (audience != null) {
+                builder.audience(audience);
+            }
 
             if (tenantId != null) {
                 builder.claim("tenant_id", tenantId);

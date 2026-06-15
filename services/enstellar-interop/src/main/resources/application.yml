@@ -22,8 +22,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8081/realms/enstellar/protocol/openid-connect/certs}
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/enstellar}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8081/realms/simintero/protocol/openid-connect/certs}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/simintero}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:

@@ -28,9 +28,11 @@ public class TestSecurityConfig {
     @Primary
     public JwtDecoder testJwtDecoder() throws Exception {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(TEST_RSA_KEY.toPublicJWK().toRSAPublicKey()).build();
-        OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer("http://test-issuer");
+        OAuth2TokenValidator<Jwt> issuerValidator =
+                JwtValidators.createDefaultWithIssuer("http://localhost:8081/realms/simintero");
+        // Mirror the production predicate: a missing/empty `aud` must FAIL validation.
         OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<List<String>>(
-                JwtClaimNames.AUD, aud -> aud != null && aud.contains("enstellar-api"));
+                JwtClaimNames.AUD, aud -> aud != null && !aud.isEmpty() && aud.contains("enstellar-api"));
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuerValidator, audienceValidator));
         return decoder;
     }
