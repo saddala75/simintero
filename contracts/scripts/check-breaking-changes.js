@@ -72,10 +72,30 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   }
 
-  // major() is always 1 today because schemas carry no `$schemaVersion` field, so
-  // the major-bump escape hatch is currently inert and ALL breaking changes are
-  // blocked. Intended for now.
-  const major = (s) => parseInt(String(s.$schemaVersion || '1.0.0').split('.')[0], 10);
+  // Major-bump escape hatch. A schema MAY carry an inline `$schemaVersion`, but the
+  // canonical signal is the contract-package version in contracts/VERSION (mirrored
+  // by package.json). Bumping the package MAJOR is how an intentional incompatible
+  // contract change (e.g. a newly required field during a reconciliation) is declared.
+  // We read VERSION at the baseline ref and in the working tree and gate on the
+  // package-level major. Per-schema `$schemaVersion`, when present, takes precedence.
+  function readVersionAt(ref) {
+    try {
+      return execSync(`git show ${ref}:contracts/VERSION`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    } catch {
+      return '1.0.0';
+    }
+  }
+  function readVersionWorking() {
+    try {
+      return readFileSync(join(REPO_ROOT, 'contracts', 'VERSION'), 'utf8').trim();
+    } catch {
+      return '1.0.0';
+    }
+  }
+  const baselinePkgMajor = parseInt(String(readVersionAt(BASELINE) || '1.0.0').split('.')[0], 10);
+  const currentPkgMajor = parseInt(String(readVersionWorking() || '1.0.0').split('.')[0], 10);
+  const majorOld = (s) => parseInt(String(s.$schemaVersion || `${baselinePkgMajor}.0.0`).split('.')[0], 10);
+  const majorNew = (s) => parseInt(String(s.$schemaVersion || `${currentPkgMajor}.0.0`).split('.')[0], 10);
 
   try {
     const all = [];
@@ -84,7 +104,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       const newS = JSON.parse(readFileSync(absPath, 'utf8'));
       if (!oldS) continue;
       const issues = breakingChanges(oldS, newS, relative(REPO_ROOT, absPath).split(sep).join('/'));
-      if (issues.length && major(newS) <= major(oldS)) all.push(...issues);
+      if (issues.length && majorNew(newS) <= majorOld(oldS)) all.push(...issues);
     }
     if (all.length) {
       console.error('Breaking contract changes without a major bump:\n' + all.map(i => '  ✗ ' + i).join('\n'));

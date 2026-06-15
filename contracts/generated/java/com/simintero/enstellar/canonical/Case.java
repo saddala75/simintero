@@ -22,6 +22,7 @@ public record Case(
     @JsonProperty("servicing_provider") Provider servicingProvider,
     @JsonProperty("service_lines") java.util.List<ServiceLine> serviceLines,
     @JsonProperty("decisions") java.util.List<Decision> decisions,
+    @JsonProperty("pins") Object pins,
     @JsonProperty("created_at") java.time.Instant createdAt,
     @JsonProperty("updated_at") java.time.Instant updatedAt
 ) {}

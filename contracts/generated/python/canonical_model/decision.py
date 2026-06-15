@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict
@@ -18,6 +19,11 @@ class Outcome(StrEnum):
     not_required = 'not_required'
 
 
+class DecidedBy(StrEnum):
+    human = 'human'
+    auto = 'auto'
+
+
 class Decision(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -26,12 +32,17 @@ class Decision(BaseModel):
     tenant_id: str
     case_id: UUID
     outcome: Outcome
+    decided_by: DecidedBy
     rule_artifact_id: str
     rule_version: str
     criteria_branch: str | None = None
+    rationale_ref: str | None = None
+    rules_trace_ref: str | None = None
+    advisory_analysis_ref: str | None = None
     evidence_refs: list[str] = []
     human_signoff_required: bool
     human_signoff_actor: str | None = None
     human_signoff_at: AwareDatetime | None = None
     auto_approved: bool
     decided_at: AwareDatetime
+    pins: list[dict[str, Any]] | None = None

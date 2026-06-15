@@ -14,6 +14,7 @@ export interface Case {
   servicingProvider?: Provider;
   serviceLines: ServiceLine[];
   decisions?: Decision[];
+  pins?: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,15 +42,20 @@ export interface Decision {
   tenantId: string;
   caseId: string;
   outcome: "approved" | "denied" | "partially_denied" | "adverse_modification" | "pending" | "not_required";
+  decidedBy: "human" | "auto";
   ruleArtifactId: string;
   ruleVersion: string;
   criteriaBranch?: string;
+  rationaleRef?: unknown;
+  rulesTraceRef?: unknown;
+  advisoryAnalysisRef?: unknown;
   evidenceRefs: string[];
   humanSignoffRequired: boolean;
   humanSignoffActor?: string;
   humanSignoffAt?: string;
   autoApproved: boolean;
   decidedAt: string;
+  pins?: unknown;
 }
 
 export interface Member {

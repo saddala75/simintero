@@ -37,6 +37,11 @@
       "items": { "$ref": "decision.json" },
       "default": []
     },
+    "pins": {
+      "type": ["array", "null"],
+      "items": { "type": "object", "additionalProperties": true },
+      "default": null
+    },
     "created_at": { "type": "string", "format": "date-time" },
     "updated_at": { "type": "string", "format": "date-time" }
   },

@@ -11,7 +11,7 @@ dependencies = [
     "alembic>=1.13",
     "sqlalchemy[asyncio]>=2.0",
     "enstellar-events",
-    "canonical-model",
+    "simintero-contracts",
     "enstellar-authz",
     "enstellar-connectors",
     "minio>=7.2",
@@ -36,7 +36,7 @@ dev = [
 
 [tool.uv.sources]
 enstellar-events = { workspace = true }
-canonical-model = { workspace = true }
+simintero-contracts = { workspace = true }
 enstellar-authz = { workspace = true }
 enstellar-connectors = { workspace = true }
 
