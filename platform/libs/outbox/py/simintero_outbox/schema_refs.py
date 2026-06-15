@@ -40,8 +40,3 @@ class Topics:
     AI_INTERACTION = "sim.ai.interaction"
     ARTIFACT = "sim.artifact"
     TENANT_ADMIN = "sim.tenant.admin"
-
-
-def topic_for(schema_ref: str) -> str:
-    """Return the Kafka topic for a C-3 schema_ref (first segment before '/')."""
-    return schema_ref.split("/")[0]

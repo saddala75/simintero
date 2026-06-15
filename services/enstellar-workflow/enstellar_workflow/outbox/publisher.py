@@ -1,38 +1,37 @@
-"""OutboxPublisher — writes an event to the outbox table inside an existing DB transaction."""
-import asyncpg
+"""OutboxPublisher — thin delegate to the platform shared.outbox writer.
 
-from enstellar_events import EventEnvelope
+Construction of the platform EventEnvelope happens at the call sites via
+``simintero_outbox.make_envelope``. This publisher only persists an already
+built envelope into ``shared.outbox`` inside the caller's transaction.
+"""
+import asyncpg
+from canonical_model import EventEnvelope
+from simintero_outbox import append_event
+
+
+# Enstellar Case.lob is lowercase ("commercial"); the platform Tenant.lob enum
+# is uppercase (COMMERCIAL/MA/MEDICAID/PUBLIC). Map known values, else None.
+_LOB_MAP = {
+    "commercial": "COMMERCIAL",
+    "ma": "MA",
+    "medicare_advantage": "MA",
+    "medicaid": "MEDICAID",
+    "public": "PUBLIC",
+}
+
+
+def lob_for_envelope(lob: str | None) -> str | None:
+    """Map an Enstellar Case.lob string to the platform Tenant.lob enum value."""
+    if lob is None:
+        return None
+    return _LOB_MAP.get(lob.lower())
 
 
 class OutboxPublisher:
     async def publish(self, conn: asyncpg.Connection, event: EventEnvelope) -> None:
-        """Insert the event into the outbox table inside the caller's transaction.
+        """Append a platform EventEnvelope to shared.outbox in the caller's transaction.
 
-        Raises ValueError if tenant_id is missing (invariant #5).
-        The caller must be inside a transaction when calling this method.
+        The caller MUST already be inside a transaction (and, for tenant-scoped
+        writes, inside a tenant_conn so the row passes RLS).
         """
-        if not event.tenant_id:
-            raise ValueError("Event must carry tenant_id — invariant #5")
-
-        await conn.execute(
-            """
-            INSERT INTO outbox
-              (event_id, tenant_id, case_id, type, schema_ref, causation_id, trace_ref,
-               payload, schema_version, occurred_at, correlation_id, actor_id, actor_type)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-            ON CONFLICT (event_id) DO NOTHING
-            """,
-            event.event_id,
-            event.tenant_id,
-            event.case_id,
-            event.type,            # Kafka topic (computed from schema_ref)
-            event.schema_ref,      # C-3 schema reference
-            event.causation_id,
-            event.trace_ref,
-            __import__("json").dumps(event.payload),
-            event.schema_version,  # version from schema_ref (e.g. "v1")
-            event.occurred_at,
-            event.correlation_id,
-            event.actor.id,
-            event.actor.type.value,
-        )
+        await append_event(conn, event)

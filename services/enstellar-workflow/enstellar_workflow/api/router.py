@@ -15,6 +15,7 @@ tenant_id:
 from __future__ import annotations
 
 import uuid
+from enum import StrEnum
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,13 +24,24 @@ from enstellar_authz import AuthedRequest
 from pydantic import BaseModel
 
 from canonical_model import Case
-from enstellar_events import Actor, ActorType
 from ..cases.service import CaseService
 from ..db.connection import get_pool, tenant_conn
 from ..engine.guards import GuardError
 from ..engine.transitions import TransitionRequest
 
 router = APIRouter(prefix="/cases", tags=["cases"])
+
+
+class ActorType(StrEnum):
+    """Legacy actor-type enum kept for request validation on /escalate.
+
+    Values map to the platform actor types via make_envelope (user→human,
+    system→service, service→service).
+    """
+
+    USER = "user"
+    SYSTEM = "system"
+    SERVICE = "service"
 
 
 class TransitionBody(BaseModel):
@@ -192,9 +204,10 @@ async def escalate_case(
     Returns 200 with {'case_id': ..., 'queue': 'md_review'}.
     Returns 409 if the case is not in clinical_review or not found.
     """
-    actor = Actor(id=body.actor_id, type=body.actor_type)
     try:
-        return await service.escalate(case_id, body.tenant_id, actor, body.reason)
+        return await service.escalate(
+            case_id, body.tenant_id, body.actor_id, body.actor_type.value, body.reason
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

@@ -16,13 +16,13 @@ import asyncpg
 from typing import TYPE_CHECKING
 
 from canonical_model import Case
-from enstellar_events import Actor, ActorType, EventEnvelope, SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 
 from ..clocks.model import ClockDefinition
 from ..clocks.service import ClockService
 from ..db.connection import tenant_conn
 from ..escalation.service import EscalationService
-from ..outbox.publisher import OutboxPublisher
+from ..outbox.publisher import OutboxPublisher, lob_for_envelope
 from ..rfi.service import RfiRequest, RfiService
 from ..signoff.service import SignoffService
 from .repository import CaseRepository
@@ -87,15 +87,15 @@ class CaseService:
                     return existing  # type: ignore[return-value]
 
                 # New case — publish intake event to outbox in same transaction
-                event = EventEnvelope(
-                    event_id=uuid.uuid4(),
+                event = make_envelope(
+                    SchemaRef.CASE_INTAKE_RECEIVED,
                     tenant_id=case.tenant_id,
-                    case_id=case.case_id,
+                    actor_id="system",
+                    actor_type="system",
                     correlation_id=case.correlation_id,
-                    schema_ref=SchemaRef.CASE_INTAKE_RECEIVED,
                     occurred_at=case.created_at,
-                    actor=Actor(id="system", type=ActorType.SYSTEM),
-                    payload={"status": case.status.value},
+                    lob=lob_for_envelope(case.lob),
+                    payload={"case_id": str(case.case_id), "status": case.status.value},
                 )
                 await self._publisher.publish(conn, event)
 
@@ -214,7 +214,8 @@ class CaseService:
         self,
         case_id: uuid.UUID,
         tenant_id: str,
-        actor: Actor,
+        actor_id: str,
+        actor_type: str,
         reason: str | None = None,
         correlation_id: str | None = None,
     ) -> dict:
@@ -227,7 +228,7 @@ class CaseService:
         async with tenant_conn(self._pool, tenant_id) as conn:
             async with conn.transaction():
                 return await svc.escalate(
-                    conn, str(case_id), tenant_id, actor, reason, correlation_id
+                    conn, str(case_id), tenant_id, actor_id, actor_type, reason, correlation_id
                 )
 
     async def record_signoff(

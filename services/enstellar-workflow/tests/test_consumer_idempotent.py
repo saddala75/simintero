@@ -1,11 +1,9 @@
 """Tests for IdempotentKafkaConsumer deduplication logic."""
-import uuid
-from datetime import datetime, timezone
-
 import asyncpg
 import pytest
 
-from enstellar_events import EventEnvelope, Actor, ActorType
+from canonical_model import EventEnvelope
+from simintero_outbox import SchemaRef, make_envelope
 from enstellar_workflow.kafka.consumer import IdempotentKafkaConsumer
 
 
@@ -19,13 +17,12 @@ class _RecordingConsumer(IdempotentKafkaConsumer):
 
 
 def _make_event() -> EventEnvelope:
-    return EventEnvelope(
-        event_id=uuid.uuid4(),
+    return make_envelope(
+        SchemaRef.CASE_STATE_CHANGED,
         tenant_id="tenant-test",
+        actor_id="system",
+        actor_type="system",
         correlation_id="corr-idem",
-        schema_ref="sim.case.lifecycle/CaseStateChanged/v1",
-        occurred_at=datetime.now(timezone.utc),
-        actor=Actor(id="system", type=ActorType.SYSTEM),
         payload={},
     )
 

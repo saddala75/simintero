@@ -5,7 +5,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from enstellar_authz import AuthedRequest
-from enstellar_events import Actor, ActorType, EventEnvelope, SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 from ..db.connection import get_pool, tenant_conn
 from ..outbox.publisher import OutboxPublisher
 from .repository import SuggestionsRepository
@@ -61,15 +61,14 @@ async def suggestion_action(
 async def _emit_suggestion_reviewed_event(conn, case_id, suggestion_id, tenant_id, action, reviewer_id):
     """Emit agent.suggestion.reviewed provenance event via outbox."""
     publisher = OutboxPublisher()
-    event = EventEnvelope(
-        event_id=uuid.uuid4(),
+    event = make_envelope(
+        SchemaRef.AGENT_ASSIST_PRODUCED,
         tenant_id=tenant_id,
-        case_id=case_id,
+        actor_id=reviewer_id,
+        actor_type="user",
         correlation_id=str(uuid.uuid4()),
-        schema_ref=SchemaRef.AGENT_ASSIST_PRODUCED,
-        occurred_at=datetime.now(timezone.utc),
-        actor=Actor(id=reviewer_id, type=ActorType.USER),
         payload={
+            "case_id": str(case_id),
             "suggestion_id": str(suggestion_id),
             "action": action,
             "reviewer_id": reviewer_id,

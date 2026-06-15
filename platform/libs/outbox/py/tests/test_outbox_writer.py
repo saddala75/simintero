@@ -27,7 +27,7 @@ async def _setup(pool):
 def _envelope() -> EventEnvelope:
     return EventEnvelope.model_validate({
         "event_id": "evt_01HZ0Q9KT0R8X4M2WB7C5N3D6F",
-        "schema_ref": "sim.case.state-changed/CaseStateChanged/v1",
+        "schema_ref": "sim.case.lifecycle/CaseStateChanged/v1",
         "occurred_at": "2026-06-14T12:00:00Z",
         "tenant": {"tenant_id": "t_acme", "lob": "MA"},
         "correlation_id": "case_123",

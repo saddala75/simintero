@@ -81,23 +81,6 @@ jobs:
             echo "::notice::@sim/import-linter not yet created — skipping import rule check"
           fi
 
-  python-libs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.12' }
-      - run: python3 -m venv .ci-venv
-      - run: |
-          ./.ci-venv/bin/pip install -U pip hatchling
-          ./.ci-venv/bin/pip install -e contracts \
-            -e platform/libs/tenant-context/py \
-            -e platform/libs/outbox/py \
-            -e platform/libs/authz-client/py \
-            -e platform/conformance-kit
-          ./.ci-venv/bin/pip install pytest pytest-asyncio 'testcontainers[postgres]>=4.7' respx 'python-jose[cryptography]>=3.3' httpx
-      - run: ./.ci-venv/bin/python -m pytest platform/libs/tenant-context/py platform/libs/outbox/py platform/libs/authz-client/py platform/conformance-kit -q
-
   java-libs:
     runs-on: ubuntu-latest
     steps:
@@ -117,8 +100,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with: { python-version: '3.12' }
       - run: uv sync --all-packages --all-groups
-      - run: bash scripts/check-no-rewire.sh
-      - run: uv run pytest services/enstellar-packages/canonical-model services/enstellar-packages/event-contracts services/enstellar-packages/authz -q
+      - run: bash scripts/check-no-legacy-contracts.sh
+      - run: uv run pytest platform/libs/outbox/py platform/libs/tenant-context/py platform/libs/authz-client/py platform/conformance-kit -q
+      - run: uv run pytest services/enstellar-packages/authz -q
       - run: uv run pytest services/enstellar-connectors -q -m "not integration"
       - run: uv run pytest services/enstellar-workflow -q
       - run: uv run pytest services/enstellar-portal-bff -q

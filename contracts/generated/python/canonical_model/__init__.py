@@ -3,7 +3,7 @@
 from .case import Status, Urgency, Case
 from .common import Identifier
 from .coverage import Coverage
-from .decision import Outcome, Decision
+from .decision import Outcome, DecidedBy, Decision
 from .event_envelope_schema import Lob, Tenant, Type, Actor, EventEnvelope
 from .member import Gender, Member
 from .provider import Provider
@@ -16,6 +16,7 @@ __all__ = [
     "Identifier",
     "Coverage",
     "Outcome",
+    "DecidedBy",
     "Decision",
     "Lob",
     "Tenant",

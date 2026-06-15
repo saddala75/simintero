@@ -5,9 +5,9 @@ import asyncpg
 import pytest
 
 from canonical_model import Status
-from enstellar_events import Actor, ActorType
 from tests.conftest import make_case
 from enstellar_workflow.cases.repository import CaseRepository
+from enstellar_workflow.db.connection import tenant_conn
 from enstellar_workflow.escalation.service import EscalationService
 from enstellar_workflow.outbox.publisher import OutboxPublisher
 
@@ -22,12 +22,13 @@ async def test_escalate_from_clinical_review_updates_queue(pg_pool: asyncpg.Pool
         async with conn.transaction():
             await repo.insert(conn, case)
 
-    actor = Actor(id="user-reviewer-1", type=ActorType.USER)
     svc = EscalationService(OutboxPublisher())
 
-    async with pg_pool.acquire() as conn:
+    async with tenant_conn(pg_pool, case.tenant_id) as conn:
         async with conn.transaction():
-            result = await svc.escalate(conn, str(case.case_id), case.tenant_id, actor, reason="Needs MD")
+            result = await svc.escalate(
+                conn, str(case.case_id), case.tenant_id, "user-reviewer-1", "user", reason="Needs MD"
+            )
 
     assert result["case_id"] == str(case.case_id)
     assert result["queue"] == "md_review"
@@ -49,20 +50,20 @@ async def test_escalate_emits_case_assigned_outbox_event(pg_pool: asyncpg.Pool):
         async with conn.transaction():
             await repo.insert(conn, case)
 
-    actor = Actor(id="user-reviewer-2", type=ActorType.USER)
     svc = EscalationService(OutboxPublisher())
 
-    async with pg_pool.acquire() as conn:
+    async with tenant_conn(pg_pool, case.tenant_id) as conn:
         async with conn.transaction():
-            await svc.escalate(conn, str(case.case_id), case.tenant_id, actor)
+            await svc.escalate(conn, str(case.case_id), case.tenant_id, "user-reviewer-2", "user")
 
-    async with pg_pool.acquire() as conn:
+    async with tenant_conn(pg_pool, case.tenant_id) as conn:
         row = await conn.fetchrow(
-            "SELECT schema_ref, tenant_id, case_id FROM outbox"
-            " WHERE case_id=$1 AND schema_ref='sim.case.lifecycle/CaseAssigned/v1'",
-            case.case_id,
+            "SELECT tenant_id FROM shared.outbox"
+            " WHERE envelope->'payload'->>'case_id' = $1"
+            "   AND envelope->>'schema_ref' = 'sim.case.lifecycle/CaseAssigned/v1'",
+            str(case.case_id),
         )
-    assert row is not None, "CaseAssigned event not found in outbox"
+    assert row is not None, "CaseAssigned event not found in shared.outbox"
     assert row["tenant_id"] == case.tenant_id
 
 
@@ -74,25 +75,23 @@ async def test_escalate_raises_if_not_clinical_review(pg_pool: asyncpg.Pool):
         async with conn.transaction():
             await repo.insert(conn, case)
 
-    actor = Actor(id="user-reviewer-3", type=ActorType.USER)
     svc = EscalationService(OutboxPublisher())
 
     async with pg_pool.acquire() as conn:
         async with conn.transaction():
             with pytest.raises(ValueError, match="clinical_review"):
-                await svc.escalate(conn, str(case.case_id), case.tenant_id, actor)
+                await svc.escalate(conn, str(case.case_id), case.tenant_id, "user-reviewer-3", "user")
 
 
 async def test_escalate_raises_if_case_not_found(pg_pool: asyncpg.Pool):
     """Escalating a non-existent case_id must raise ValueError."""
-    actor = Actor(id="user-reviewer-4", type=ActorType.USER)
     svc = EscalationService(OutboxPublisher())
     missing_id = str(uuid.uuid4())
 
     async with pg_pool.acquire() as conn:
         async with conn.transaction():
             with pytest.raises(ValueError, match="not found"):
-                await svc.escalate(conn, missing_id, "tenant-esc-04", actor)
+                await svc.escalate(conn, missing_id, "tenant-esc-04", "user-reviewer-4", "user")
 
 
 async def test_escalate_tenant_isolation(pg_pool: asyncpg.Pool):
@@ -103,10 +102,9 @@ async def test_escalate_tenant_isolation(pg_pool: asyncpg.Pool):
         async with conn.transaction():
             await repo.insert(conn, case)
 
-    actor = Actor(id="user-reviewer-5", type=ActorType.USER)
     svc = EscalationService(OutboxPublisher())
 
     async with pg_pool.acquire() as conn:
         async with conn.transaction():
             with pytest.raises(ValueError, match="not found"):
-                await svc.escalate(conn, str(case.case_id), "wrong-tenant", actor)
+                await svc.escalate(conn, str(case.case_id), "wrong-tenant", "user-reviewer-5", "user")

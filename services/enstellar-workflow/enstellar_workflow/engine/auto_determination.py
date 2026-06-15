@@ -30,9 +30,9 @@ from canonical_model.decision import Decision, Outcome
 from enstellar_connectors import CircuitOpenError
 from enstellar_connectors.digicore.client import DigiCoreClient
 from enstellar_connectors.digicore.models import DecisionRequest, DecisionResponse
-from enstellar_events import Actor, ActorType, EventEnvelope, SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 
-from ..outbox.publisher import OutboxPublisher
+from ..outbox.publisher import OutboxPublisher, lob_for_envelope
 from .decision_recorder import DecisionRecorder
 from .transitions import TransitionEngine, TransitionRequest
 
@@ -167,7 +167,7 @@ class AutoDeterminator:
             payload={"decision": decision.model_dump(mode="json")},
             human_signoff_recorded=False,
         )
-        updated_case, _event_id = await self._engine.apply(conn, transition_req)
+        updated_case, transition_event_id = await self._engine.apply(conn, transition_req)
 
         # 2. Append the Decision to case_json.decisions (same transaction).
         await self._decision_recorder.append_decision(
@@ -178,15 +178,17 @@ class AutoDeterminator:
         )
 
         # 3. Emit decision.recorded event to the outbox (same transaction).
-        event = EventEnvelope(
-            event_id=uuid.uuid4(),
+        event = make_envelope(
+            SchemaRef.DECISION_RECORDED,
             tenant_id=case.tenant_id,
-            case_id=case.case_id,
+            actor_id=_ACTOR_ID,
+            actor_type=_ACTOR_TYPE,
             correlation_id=correlation_id,
-            schema_ref=SchemaRef.DECISION_RECORDED,
             occurred_at=decided_at,
-            actor=Actor(id=_ACTOR_ID, type=ActorType.SYSTEM),
+            lob=lob_for_envelope(case.lob),
+            causation_id=str(transition_event_id),
             payload={
+                "case_id": str(case.case_id),
                 "decision_id": str(decision.decision_id),
                 "outcome": decision.outcome.value,
                 "decided_by": decision.decided_by,

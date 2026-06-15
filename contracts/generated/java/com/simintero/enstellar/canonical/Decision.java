@@ -13,13 +13,18 @@ public record Decision(
     @JsonProperty("tenant_id") String tenantId,
     @JsonProperty("case_id") java.util.UUID caseId,
     @JsonProperty("outcome") String outcome,
+    @JsonProperty("decided_by") String decidedBy,
     @JsonProperty("rule_artifact_id") String ruleArtifactId,
     @JsonProperty("rule_version") String ruleVersion,
     @JsonProperty("criteria_branch") String criteriaBranch,
+    @JsonProperty("rationale_ref") Object rationaleRef,
+    @JsonProperty("rules_trace_ref") Object rulesTraceRef,
+    @JsonProperty("advisory_analysis_ref") Object advisoryAnalysisRef,
     @JsonProperty("evidence_refs") java.util.List<String> evidenceRefs,
     @JsonProperty("human_signoff_required") boolean humanSignoffRequired,
     @JsonProperty("human_signoff_actor") String humanSignoffActor,
     @JsonProperty("human_signoff_at") java.time.Instant humanSignoffAt,
     @JsonProperty("auto_approved") boolean autoApproved,
-    @JsonProperty("decided_at") java.time.Instant decidedAt
+    @JsonProperty("decided_at") java.time.Instant decidedAt,
+    @JsonProperty("pins") Object pins
 ) {}

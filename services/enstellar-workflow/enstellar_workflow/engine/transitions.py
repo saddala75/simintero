@@ -15,13 +15,13 @@ from datetime import datetime, timezone
 import asyncpg
 
 from canonical_model import Case, Status
-from enstellar_events import Actor, ActorType, EventEnvelope, SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 
 from .guards import ADVERSE_STATES, GuardError, adverse_transition_guard
 from .platform_client import PlatformCaseClient
 from .recorder import EventRecorder
 from ..cases.repository import CaseRepository
-from ..outbox.publisher import OutboxPublisher
+from ..outbox.publisher import OutboxPublisher, lob_for_envelope
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class TransitionEngine:
         platform_url = os.environ.get("PLATFORM_CASE_SERVICE_URL", "http://localhost:8091")
         self._platform_client = PlatformCaseClient(base_url=platform_url)
 
-    async def apply(self, conn: asyncpg.Connection, req: TransitionRequest) -> tuple[Case, uuid.UUID]:
+    async def apply(self, conn: asyncpg.Connection, req: TransitionRequest) -> tuple[Case, str]:
         """Evaluate guards, record event, update status, publish outbox event.
 
         All writes happen inside the caller's transaction.
@@ -90,20 +90,17 @@ class TransitionEngine:
         await self._repo.update_status(conn, case, req.to_state, occurred_at)
 
         # 5. Write an outbox event (picked up by OutboxRelay → Kafka)
-        try:
-            actor_type_enum = ActorType(req.actor_type)
-        except ValueError:
-            actor_type_enum = ActorType.SERVICE
-
-        event = EventEnvelope(
-            event_id=uuid.uuid4(),
+        lob = lob_for_envelope(case.lob)
+        event = make_envelope(
+            SchemaRef.CASE_STATE_CHANGED,
             tenant_id=req.tenant_id,
-            case_id=req.case_id,
+            actor_id=req.actor_id,
+            actor_type=req.actor_type,
             correlation_id=req.correlation_id,
-            schema_ref=SchemaRef.CASE_STATE_CHANGED,
             occurred_at=occurred_at,
-            actor=Actor(id=req.actor_id, type=actor_type_enum),
+            lob=lob,
             payload={
+                "case_id": str(req.case_id),
                 "from_state": from_state,
                 "to_state": req.to_state,
                 **req.payload,
@@ -113,15 +110,17 @@ class TransitionEngine:
 
         # 6. If adverse, emit a second structured-payload event for downstream consumers
         if req.to_state in ADVERSE_STATES:
-            structured_event = EventEnvelope(
-                event_id=uuid.uuid4(),
+            structured_event = make_envelope(
+                SchemaRef.ADVERSE_STRUCTURED,
                 tenant_id=req.tenant_id,
-                case_id=req.case_id,
+                actor_id=req.actor_id,
+                actor_type=req.actor_type,
                 correlation_id=req.correlation_id,
-                schema_ref=SchemaRef.ADVERSE_STRUCTURED,
                 occurred_at=occurred_at,
-                actor=Actor(id=req.actor_id, type=actor_type_enum),
+                lob=lob,
+                causation_id=event.event_id,
                 payload={
+                    "case_id": str(req.case_id),
                     "determination_type": req.payload.get(
                         "determination_type", req.to_state
                     ),
@@ -142,7 +141,7 @@ class TransitionEngine:
         self,
         req: TransitionRequest,
         from_state: str,
-        event_id: uuid.UUID,
+        event_id: str,
     ) -> None:
         """Call the platform case service after the Enstellar transaction has committed.
 

@@ -17,7 +17,7 @@ import asyncpg
 import pytest
 
 from canonical_model import Case, Status
-from enstellar_events import Actor, ActorType, EventEnvelope, SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 
 from enstellar_workflow.cases.repository import CaseRepository
 from enstellar_workflow.consumers.clinical_review_consumer import (
@@ -31,17 +31,19 @@ from tests.conftest import make_case
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_clinical_review_event(case: Case) -> EventEnvelope:
-    """Build a CASE_STATE_TRANSITIONED event with to_state=clinical_review."""
-    return EventEnvelope(
-        event_id=uuid.uuid4(),
+def _make_clinical_review_event(case: Case):
+    """Build a CASE_STATE_CHANGED event with to_state=clinical_review."""
+    return make_envelope(
+        SchemaRef.CASE_STATE_CHANGED,
         tenant_id=case.tenant_id,
-        case_id=case.case_id,
+        actor_id="system",
+        actor_type="system",
         correlation_id=case.correlation_id,
-        schema_ref=SchemaRef.CASE_STATE_CHANGED,
-        occurred_at=datetime.now(timezone.utc),
-        actor=Actor(id="system", type=ActorType.SYSTEM),
-        payload={"from_state": "auto_determination", "to_state": "clinical_review"},
+        payload={
+            "case_id": str(case.case_id),
+            "from_state": "auto_determination",
+            "to_state": "clinical_review",
+        },
     )
 
 
@@ -208,15 +210,17 @@ async def test_non_clinical_review_transition_is_ignored(pg_pool: asyncpg.Pool):
         async with conn.transaction():
             await CaseRepository().insert(conn, case)
 
-    event = EventEnvelope(
-        event_id=uuid.uuid4(),
+    event = make_envelope(
+        SchemaRef.CASE_STATE_CHANGED,
         tenant_id=case.tenant_id,
-        case_id=case.case_id,
+        actor_id="system",
+        actor_type="system",
         correlation_id=case.correlation_id,
-        schema_ref=SchemaRef.CASE_STATE_CHANGED,
-        occurred_at=datetime.now(timezone.utc),
-        actor=Actor(id="system", type=ActorType.SYSTEM),
-        payload={"from_state": "intake", "to_state": "md_review"},
+        payload={
+            "case_id": str(case.case_id),
+            "from_state": "intake",
+            "to_state": "md_review",
+        },
     )
 
     # Should return immediately — no HTTP calls, no DB writes

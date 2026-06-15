@@ -11,11 +11,10 @@ All writes must occur inside the caller's transaction.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
 import asyncpg
 
-from enstellar_events import Actor, EventEnvelope, SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 from enstellar_workflow.outbox.publisher import OutboxPublisher
 
 
@@ -28,7 +27,8 @@ class EscalationService:
         conn: asyncpg.Connection,
         case_id: str,
         tenant_id: str,
-        actor: Actor,
+        actor_id: str,
+        actor_type: str,
         reason: str | None = None,
         correlation_id: str | None = None,
     ) -> dict:
@@ -42,7 +42,8 @@ class EscalationService:
             conn:       asyncpg connection; the caller must be in a transaction.
             case_id:    UUID string of the case to escalate.
             tenant_id:  Tenant owning the case.
-            actor:      The Actor (id + type) performing the escalation.
+            actor_id:   The id of the principal performing the escalation.
+            actor_type: The actor type ('user' | 'system' | 'service').
             reason:         Optional human-readable escalation reason.
             correlation_id: Optional correlation ID propagated to the outbox event;
                             a new UUID is generated if not provided.
@@ -80,15 +81,17 @@ class EscalationService:
                 f"tenant_id={tenant_id!r} (not found or status was not clinical_review)"
             )
 
-        event = EventEnvelope(
-            event_id=uuid.uuid4(),
+        event = make_envelope(
+            SchemaRef.CASE_ASSIGNED,
             tenant_id=tenant_id,
-            case_id=uuid.UUID(case_id),
+            actor_id=actor_id,
+            actor_type=actor_type,
             correlation_id=correlation_id or str(uuid.uuid4()),
-            schema_ref=SchemaRef.CASE_ASSIGNED,
-            occurred_at=datetime.now(timezone.utc),
-            actor=actor,
-            payload={"queue": "md_review", "reason": reason if reason is not None else "escalation"},
+            payload={
+                "case_id": case_id,
+                "queue": "md_review",
+                "reason": reason if reason is not None else "escalation",
+            },
         )
         await self._pub.publish(conn, event)
 

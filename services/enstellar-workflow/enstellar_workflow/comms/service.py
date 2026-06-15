@@ -7,7 +7,7 @@ import asyncpg
 from jinja2.sandbox import SandboxedEnvironment
 from jinja2 import StrictUndefined
 
-from enstellar_events import Actor, EventEnvelope, SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 from enstellar_workflow.outbox.publisher import OutboxPublisher
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,8 @@ class NotificationService:
         case_id: str,
         event_type: str,
         context: dict,
-        actor: Actor,
+        actor_id: str,
+        actor_type: str,
     ) -> list[str]:
         """Render all active templates for the given event_type and persist log + outbox events.
 
@@ -75,15 +76,14 @@ class NotificationService:
             )
             await self._pub.publish(
                 conn,
-                EventEnvelope(
-                    event_id=uuid.uuid4(),
+                make_envelope(
+                    SchemaRef.NOTIFICATION_SENT,
                     tenant_id=tenant_id,
-                    case_id=uuid.UUID(case_id),
+                    actor_id=actor_id,
+                    actor_type=actor_type,
                     correlation_id=str(uuid.uuid4()),
-                    schema_ref=SchemaRef.NOTIFICATION_SENT,
-                    occurred_at=datetime.now(timezone.utc),
-                    actor=actor,
                     payload={
+                        "case_id": case_id,
                         "channel": tmpl["channel"],
                         "event_type": event_type,
                         "notification_id": str(nid),

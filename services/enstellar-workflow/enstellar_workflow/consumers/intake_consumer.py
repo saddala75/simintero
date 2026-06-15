@@ -10,8 +10,8 @@ import logging
 
 import asyncpg
 
-from canonical_model import Case
-from enstellar_events import EventEnvelope, Topics
+from canonical_model import Case, EventEnvelope
+from simintero_outbox import Topics
 
 from ..kafka.consumer import IdempotentKafkaConsumer
 from ..cases.service import CaseService
@@ -25,7 +25,7 @@ class IntakeConsumer(IdempotentKafkaConsumer):
     def __init__(self, pool: asyncpg.Pool) -> None:
         super().__init__(
             pool,
-            [Topics.CASE_INTAKE_RECEIVED],
+            [Topics.CASE_LIFECYCLE],
             group_id="workflow-engine-intake",
         )
         self._service = CaseService(pool)
@@ -37,13 +37,14 @@ class IntakeConsumer(IdempotentKafkaConsumer):
         CaseService.create_case. Idempotent: if the case already exists
         (same correlation_id), create_case returns the existing record silently.
         """
+        tenant_id = event.tenant.tenant_id
         raw_case = event.payload.get("case")
         if not raw_case:
             logger.error(
                 "intake_consumer_missing_case_payload",
                 extra={
-                    "tenant_id": event.tenant_id,
-                    "event_id": str(event.event_id),
+                    "tenant_id": tenant_id,
+                    "event_id": event.event_id,
                     "correlation_id": event.correlation_id,
                 },
             )
@@ -55,8 +56,8 @@ class IntakeConsumer(IdempotentKafkaConsumer):
             logger.exception(
                 "intake_consumer_case_validation_failed",
                 extra={
-                    "tenant_id": event.tenant_id,
-                    "event_id": str(event.event_id),
+                    "tenant_id": tenant_id,
+                    "event_id": event.event_id,
                     "correlation_id": event.correlation_id,
                 },
             )
@@ -66,7 +67,7 @@ class IntakeConsumer(IdempotentKafkaConsumer):
         logger.info(
             "intake_consumer_case_created",
             extra={
-                "tenant_id": event.tenant_id,
+                "tenant_id": tenant_id,
                 "case_id": str(created.case_id),
                 "correlation_id": created.correlation_id,
             },

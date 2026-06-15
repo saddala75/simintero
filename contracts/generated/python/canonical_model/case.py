@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
@@ -56,5 +56,6 @@ class Case(BaseModel):
     decisions: Annotated[
         list[decision.Decision] | None, Field(validate_default=True)
     ] = []
+    pins: list[dict[str, Any]] | None = None
     created_at: AwareDatetime
     updated_at: AwareDatetime

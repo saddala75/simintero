@@ -1,2 +1,16 @@
 [tool.uv.workspace]
-members = ["services/enstellar-packages/*", "services/enstellar-connectors", "services/enstellar-workflow", "services/enstellar-portal-bff", "services/enstellar-agent-layer"]
+members = [
+  "contracts",
+  "platform/libs/tenant-context/py",
+  "platform/libs/outbox/py",
+  "platform/libs/authz-client/py",
+  "platform/conformance-kit",
+  "services/enstellar-packages/authz",
+  "services/enstellar-connectors",
+  "services/enstellar-workflow",
+  "services/enstellar-portal-bff",
+  "services/enstellar-agent-layer",
+]
+
+[tool.uv.sources]
+simintero-contracts = { workspace = true }

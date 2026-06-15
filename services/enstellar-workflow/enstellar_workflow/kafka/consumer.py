@@ -10,10 +10,12 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 
+import json
+
 import asyncpg
 from aiokafka import AIOKafkaConsumer
 
-from enstellar_events import EventEnvelope, decode
+from canonical_model import EventEnvelope
 from ..config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -42,7 +44,7 @@ class IdempotentKafkaConsumer(ABC):
                 if not self._running:
                     break
                 try:
-                    event = decode(msg.value)
+                    event = EventEnvelope.model_validate(json.loads(msg.value))
                     processed = await self._mark_processed(event)
                     if processed:
                         await self.handle(event)
@@ -63,7 +65,7 @@ class IdempotentKafkaConsumer(ABC):
             try:
                 await conn.execute(
                     """
-                    INSERT INTO processed_events (event_id, consumer_group)
+                    INSERT INTO shared.processed_events (event_id, consumer_group)
                     VALUES ($1, $2)
                     """,
                     event.event_id,

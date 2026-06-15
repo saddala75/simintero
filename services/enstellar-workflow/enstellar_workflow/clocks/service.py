@@ -12,7 +12,8 @@ from typing import Any
 
 import asyncpg
 
-from enstellar_events import Actor, ActorType, EventEnvelope, SchemaRef
+from canonical_model import EventEnvelope
+from simintero_outbox import SchemaRef, make_envelope
 from ..outbox.publisher import OutboxPublisher
 from .model import ClockDefinition, ClockState
 
@@ -337,13 +338,11 @@ def _make_event(
     schema_ref: str,
     payload: dict[str, Any],
 ) -> EventEnvelope:
-    return EventEnvelope(
-        event_id=uuid.uuid4(),
+    return make_envelope(
+        schema_ref,
         tenant_id=tenant_id,
-        case_id=case_id,
+        actor_id="system",
+        actor_type="system",
         correlation_id=str(clock_id),
-        schema_ref=schema_ref,
-        occurred_at=datetime.now(timezone.utc),
-        actor=Actor(id="system", type=ActorType.SYSTEM),
-        payload=payload,
+        payload={"case_id": str(case_id), **payload},
     )

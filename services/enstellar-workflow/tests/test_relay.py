@@ -1,13 +1,9 @@
 """Integration test for OutboxRelay — requires PostgreSQL + Kafka."""
-import asyncio
-import uuid
-from datetime import datetime, timezone
-
 import asyncpg
 import pytest
 
-from enstellar_events import EventEnvelope, Actor, ActorType, decode
-from enstellar_workflow.config import get_settings
+from simintero_outbox import SchemaRef, make_envelope
+from enstellar_workflow.db.connection import tenant_conn
 from enstellar_workflow.kafka.producer import KafkaProducer
 from enstellar_workflow.outbox.publisher import OutboxPublisher
 from enstellar_workflow.outbox.relay import OutboxRelay
@@ -25,22 +21,26 @@ async def test_relay_publishes_to_kafka_and_marks_published(
     producer = KafkaProducer()
     await producer.start()
 
-    event = EventEnvelope(
-        event_id=uuid.uuid4(),
-        tenant_id="tenant-test",
-        case_id=uuid.uuid4(),
+    tenant_id = "tenant-test"
+    event = make_envelope(
+        SchemaRef.CASE_STATE_CHANGED,
+        tenant_id=tenant_id,
+        actor_id="system",
+        actor_type="system",
         correlation_id="corr-relay-test",
-        schema_ref="sim.case.lifecycle/CaseStateChanged/v1",
-        occurred_at=datetime.now(timezone.utc),
-        actor=Actor(id="system", type=ActorType.SYSTEM),
-        payload={"from_state": "intake", "to_state": "completeness_check"},
+        payload={
+            "case_id": "22222222-2222-2222-2222-222222222222",
+            "from_state": "intake",
+            "to_state": "completeness_check",
+        },
     )
 
     # Remove any unpublished rows left by earlier tests so the batch count is deterministic.
+    # The test connection is a superuser, which bypasses RLS — no role switch needed.
     async with pg_pool.acquire() as conn:
-        await conn.execute("DELETE FROM outbox WHERE published_at IS NULL")
+        await conn.execute("DELETE FROM shared.outbox WHERE published_at IS NULL")
 
-    async with pg_pool.acquire() as conn:
+    async with tenant_conn(pg_pool, tenant_id) as conn:
         async with conn.transaction():
             await publisher.publish(conn, event)
 
@@ -52,6 +52,6 @@ async def test_relay_publishes_to_kafka_and_marks_published(
 
     async with pg_pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT published_at FROM outbox WHERE event_id = $1", event.event_id
+            "SELECT published_at FROM shared.outbox WHERE event_id = $1", event.event_id
         )
     assert row["published_at"] is not None

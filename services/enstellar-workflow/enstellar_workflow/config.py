@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     outbox_poll_interval_seconds: float = 1.0
     outbox_batch_size: int = 100
 
+    # The relay reads shared.outbox across ALL tenants, so it must bypass RLS.
+    # Migration 0011 creates a BYPASSRLS role `sim_relay`; the relay SET ROLEs to
+    # it on each connection. Set to empty/None to disable the role switch (e.g.
+    # when the relay already connects as a BYPASSRLS principal via its own DSN).
+    relay_db_role: str | None = "sim_relay"
+
     agent_layer_url: str = "http://agent-layer:8000"
 
     # JWT / OIDC — required in production; absent in local/test environments

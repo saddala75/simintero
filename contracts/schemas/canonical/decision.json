@@ -12,18 +12,30 @@
       "type": "string",
       "enum": ["approved", "denied", "partially_denied", "adverse_modification", "pending", "not_required"]
     },
+    "decided_by": {
+      "type": "string",
+      "enum": ["human", "auto"]
+    },
     "rule_artifact_id":      { "type": "string" },
     "rule_version":          { "type": "string" },
     "criteria_branch":       { "type": "string" },
+    "rationale_ref":         { "type": ["string", "null"] },
+    "rules_trace_ref":       { "type": ["string", "null"] },
+    "advisory_analysis_ref": { "type": ["string", "null"] },
     "evidence_refs":         { "type": "array", "items": { "type": "string" }, "default": [] },
     "human_signoff_required":{ "type": "boolean" },
     "human_signoff_actor":   { "type": "string" },
     "human_signoff_at":      { "type": "string", "format": "date-time" },
     "auto_approved":         { "type": "boolean" },
-    "decided_at":            { "type": "string", "format": "date-time" }
+    "decided_at":            { "type": "string", "format": "date-time" },
+    "pins": {
+      "type": ["array", "null"],
+      "items": { "type": "object", "additionalProperties": true },
+      "default": null
+    }
   },
   "required": [
-    "decision_id", "tenant_id", "case_id", "outcome",
+    "decision_id", "tenant_id", "case_id", "outcome", "decided_by",
     "rule_artifact_id", "rule_version", "evidence_refs",
     "human_signoff_required", "auto_approved", "decided_at"
   ],

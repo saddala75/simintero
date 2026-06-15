@@ -4,8 +4,8 @@ import logging
 
 import asyncpg
 
-from enstellar_events.envelope import EventEnvelope
-from enstellar_events.topics import SchemaRef, Topics
+from canonical_model import EventEnvelope
+from simintero_outbox import SchemaRef, Topics
 from enstellar_workflow.comms.service import NotificationService, TERMINAL_OUTCOMES
 from enstellar_workflow.kafka.consumer import IdempotentKafkaConsumer
 
@@ -22,20 +22,22 @@ class DecisionRecordedConsumer(IdempotentKafkaConsumer):
         if event.schema_ref != SchemaRef.DECISION_RECORDED:
             return
         outcome = event.payload.get("outcome")
+        case_id = event.payload.get("case_id")
         if outcome not in TERMINAL_OUTCOMES:
-            logger.debug("Skipping non-terminal outcome %r for case %s", outcome, event.case_id)
+            logger.debug("Skipping non-terminal outcome %r for case %s", outcome, case_id)
             return
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 await self._notify.render_and_dispatch(
                     conn,
-                    event.tenant_id,
-                    str(event.case_id),
+                    event.tenant.tenant_id,
+                    str(case_id),
                     event_type=outcome,
                     context={
-                        "case_id": str(event.case_id),
+                        "case_id": str(case_id),
                         "outcome": outcome,
                         "decided_at": event.occurred_at.isoformat(),
                     },
-                    actor=event.actor,
+                    actor_id=event.actor.id,
+                    actor_type=event.actor.type.value,
                 )

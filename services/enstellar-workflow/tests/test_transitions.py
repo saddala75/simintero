@@ -72,9 +72,10 @@ async def test_engine_transition_emits_outbox_row(pg_pool: asyncpg.Pool):
 
     async with pg_pool.acquire() as conn:
         count = await conn.fetchval(
-            "SELECT COUNT(*) FROM outbox "
-            "WHERE case_id = $1 AND schema_ref = 'sim.case.lifecycle/CaseStateChanged/v1'",
-            created.case_id,
+            "SELECT COUNT(*) FROM shared.outbox "
+            "WHERE envelope->'payload'->>'case_id' = $1 "
+            "AND envelope->>'schema_ref' = 'sim.case.lifecycle/CaseStateChanged/v1'",
+            str(created.case_id),
         )
 
     assert count >= 1
@@ -227,14 +228,16 @@ async def test_adverse_transition_writes_structured_outbox_row(pg_pool: asyncpg.
 
     async with pg_pool.acquire() as conn:
         transitioned_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM outbox "
-            "WHERE case_id = $1 AND schema_ref = 'sim.case.lifecycle/CaseStateChanged/v1'",
-            created.case_id,
+            "SELECT COUNT(*) FROM shared.outbox "
+            "WHERE envelope->'payload'->>'case_id' = $1 "
+            "AND envelope->>'schema_ref' = 'sim.case.lifecycle/CaseStateChanged/v1'",
+            str(created.case_id),
         )
         structured_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM outbox "
-            "WHERE case_id = $1 AND schema_ref = 'sim.case.lifecycle/AdverseDetermination/v1'",
-            created.case_id,
+            "SELECT COUNT(*) FROM shared.outbox "
+            "WHERE envelope->'payload'->>'case_id' = $1 "
+            "AND envelope->>'schema_ref' = 'sim.case.lifecycle/AdverseDetermination/v1'",
+            str(created.case_id),
         )
 
     assert transitioned_count >= 1, "Missing CaseStateChanged outbox row"

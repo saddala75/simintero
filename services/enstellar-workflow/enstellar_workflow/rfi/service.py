@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
 import asyncpg
 
-from enstellar_events import Actor, ActorType, EventEnvelope, SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 from ..outbox.publisher import OutboxPublisher
 
 
@@ -41,16 +40,14 @@ class RfiService:
         The RFI is purely an event — no separate rfi table yet.
         The comms service subscribes to sim.case.lifecycle and handles delivery.
         """
-        now = datetime.now(timezone.utc)
-        event = EventEnvelope(
-            event_id=uuid.uuid4(),
+        event = make_envelope(
+            SchemaRef.RFI_DISPATCHED,
             tenant_id=request.tenant_id,
-            case_id=request.case_id,
+            actor_id=request.requested_by,
+            actor_type="system",
             correlation_id=str(request.request_id),
-            schema_ref=SchemaRef.RFI_DISPATCHED,
-            occurred_at=now,
-            actor=Actor(id=request.requested_by, type=ActorType.SYSTEM),
             payload={
+                "case_id": str(request.case_id),
                 "request_id": str(request.request_id),
                 "provider_npi": request.provider_npi,
                 "document_types": request.document_types,
