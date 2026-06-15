@@ -14,7 +14,6 @@ dependencies = [
     "simintero-outbox",
     "simintero-tenant-context",
     "simintero-authz",
-    "enstellar-authz",
     "enstellar-connectors",
     "minio>=7.2",
     "fastapi>=0.111",
@@ -42,7 +41,6 @@ simintero-contracts = { workspace = true }
 simintero-outbox = { workspace = true }
 simintero-tenant-context = { workspace = true }
 simintero-authz = { workspace = true }
-enstellar-authz = { workspace = true }
 enstellar-connectors = { workspace = true }
 
 [tool.pytest.ini_options]

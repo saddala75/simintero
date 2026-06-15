@@ -43,6 +43,6 @@ async def _require_ctx(
     return ctx
 
 
-# Drop-in replacement for the old `enstellar_authz.AuthedRequest` annotation —
+# Drop-in replacement for the old per-service AuthedRequest annotation —
 # handlers receive a TenantContext and read `auth.tenant_id` unchanged.
 AuthedRequest = Annotated[TenantContext, Depends(_require_ctx)]
