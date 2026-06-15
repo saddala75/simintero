@@ -1,0 +1,279 @@
+<!-- Enstellar — Utilization Management home / queue dashboard. Navigation hub. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enstellar — Utilization Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#E7E7EE; --panel:#FBFBFD; --panel-2:#F3F3F7; --ink:#14141A; --ink-mut:#5A5A66;
+    --line:rgba(20,20,26,.12); --line-2:rgba(20,20,26,.2);
+    --pine:#0F564C; --pine-deep:#093A33; --teal:#1C9C86; --aqua:#74DBC8; --pine-tint:rgba(15,86,76,.08);
+    --amber:#B5780E; --amber-tint:rgba(181,120,14,.1);
+    --red:#B23A48; --red-tint:rgba(178,58,72,.1);
+    --ok:#0F7A5A; --ok-tint:rgba(15,122,90,.1);
+    --ease:cubic-bezier(.2,.7,.2,1); --sh:0 1px 2px rgba(20,20,26,.05), 0 10px 24px -16px rgba(9,58,51,.3);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hanken Grotesk",system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+  button,a{font-family:inherit}
+  .mono{font-family:"JetBrains Mono",monospace}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-mut)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .app{display:flex;flex-direction:column;height:100vh}
+  .topbar{height:54px;flex:0 0 auto;display:flex;align-items:center;gap:18px;padding:0 18px;background:var(--ink);color:#EDEDF1;z-index:30}
+  .brand{display:flex;align-items:center;gap:9px;font-family:"Bricolage Grotesque";font-weight:800;font-size:16px;letter-spacing:-.02em}
+  .brand .mark{width:22px;height:22px}
+  .topbar .seg{color:rgba(237,237,241,.55);font-size:13px;font-weight:600}
+  .topbar .seg b{color:#EDEDF1}
+  .search{margin-left:14px;flex:1;max-width:440px;display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:7px 12px;color:rgba(237,237,241,.6);font-size:13px}
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .env{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;color:var(--aqua);border:1px solid rgba(116,219,200,.4);border-radius:999px;padding:4px 10px}
+  .ai-global{display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(237,237,241,.7)}
+  .ai-global .dot{width:7px;height:7px;border-radius:999px;background:var(--aqua);box-shadow:0 0 0 3px rgba(116,219,200,.2)}
+  .avatar{width:30px;height:30px;border-radius:999px;background:linear-gradient(135deg,var(--teal),var(--pine));display:grid;place-items:center;color:#fff;font-family:"Bricolage Grotesque";font-weight:700;font-size:12px}
+
+  .scroll{flex:1;overflow-y:auto;min-height:0}
+  .wrap{max-width:1320px;margin:0 auto;padding:30px 30px 50px}
+
+  .page-h{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:24px}
+  .page-h h1{font-family:"Bricolage Grotesque";font-weight:800;font-size:34px;letter-spacing:-.025em;margin:0}
+  .page-h .sub{color:var(--ink-mut);font-size:14.5px;margin-top:5px}
+  .page-h .date{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;color:var(--ink-mut);text-transform:uppercase}
+
+  /* stat band */
+  .stats{display:grid;grid-template-columns:repeat(5,1fr) 1.2fr;gap:14px;margin-bottom:26px}
+  @media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 17px;box-shadow:var(--sh)}
+  .stat .v{font-family:"Bricolage Grotesque";font-weight:800;font-size:32px;line-height:1;letter-spacing:-.02em}
+  .stat .l{font-size:12.5px;color:var(--ink-mut);margin-top:7px}
+  .stat.alert{border-color:rgba(178,58,72,.4);background:linear-gradient(180deg,var(--red-tint),var(--panel))}
+  .stat.alert .v{color:var(--red)}
+  .stat.warn .v{color:var(--amber)}
+  .stat .trend{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-mut);margin-top:4px}
+  .gauge-card{background:linear-gradient(150deg,var(--pine),var(--pine-deep));color:#EAF4F1;border-radius:14px;padding:16px 18px;box-shadow:var(--sh);display:flex;align-items:center;gap:16px}
+  .gauge-card svg{width:96px;height:60px;flex:0 0 auto}
+  .gauge-card .gv{font-family:"Bricolage Grotesque";font-weight:800;font-size:30px;line-height:1;color:#fff}
+  .gauge-card .gl{font-size:12px;opacity:.85;margin-top:5px;max-width:130px;line-height:1.35}
+
+  /* main grid */
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+
+  .queue{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden}
+  .queue-h{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tab{border:0;background:transparent;border-radius:9px;padding:9px 14px;font-weight:600;font-size:13px;color:var(--ink-mut);display:flex;align-items:center;gap:8px}
+  .tab .c{font-family:"JetBrains Mono",monospace;font-size:10.5px;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:1px 7px;color:var(--ink-mut)}
+  .tab:hover{background:var(--panel-2);color:var(--ink)}
+  .tab.active{background:var(--pine-tint);color:var(--pine)}
+  .tab.active .c{background:#fff;border-color:rgba(15,86,76,.3);color:var(--pine)}
+
+  table{width:100%;border-collapse:collapse}
+  thead th{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mut);text-align:left;font-weight:500;padding:11px 16px;border-bottom:1px solid var(--line)}
+  tbody tr{border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+  tbody tr:last-child{border-bottom:0}
+  tbody tr:hover{background:var(--panel-2)}
+  tbody tr.hidden{display:none}
+  td{padding:13px 16px;font-size:13px;vertical-align:middle}
+  .cid{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500}
+  .pri-dot{display:inline-block;width:7px;height:7px;border-radius:999px;margin-right:7px;vertical-align:middle}
+  .pri-dot.exp{background:var(--red)}.pri-dot.std{background:var(--line-2)}
+  .mname{font-weight:600}.mmeta{font-size:11.5px;color:var(--ink-mut)}
+  .svc{font-weight:500}
+  .ch{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-mut);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+  .stbadge{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .stbadge.review{background:var(--pine-tint);color:var(--pine)}
+  .stbadge.info{background:var(--panel-2);color:var(--ink-mut);border:1px solid var(--line)}
+  .stbadge.md{background:var(--amber-tint);color:var(--amber)}
+  .stbadge.decided{background:var(--ok-tint);color:var(--ok)}
+  .clk{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:500;padding:3px 8px;border-radius:999px}
+  .clk.ok{background:var(--ok-tint);color:var(--ok)}.clk.warn{background:var(--amber-tint);color:var(--amber)}.clk.crit{background:var(--red-tint);color:var(--red)}.clk.paused{background:var(--panel-2);color:var(--ink-mut);border:1px solid var(--line)}.clk.done{color:var(--ink-mut)}
+  .rev{display:flex;align-items:center;gap:8px}
+  .rev .ra{width:24px;height:24px;border-radius:999px;background:linear-gradient(135deg,var(--teal),var(--pine));display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700;flex:0 0 auto}
+  .rev.un .ra{background:var(--panel-2);color:var(--ink-mut);border:1px solid var(--line)}
+  .go{color:var(--ink-mut);text-align:right}
+  tr:hover .go{color:var(--pine)}
+
+  /* rail */
+  .rail-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);margin-bottom:18px;overflow:hidden}
+  .rc-h{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .rc-h .t{font-family:"Bricolage Grotesque";font-weight:700;font-size:14px}
+  .rc-h .cnt{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--amber);background:var(--amber-tint);border-radius:999px;padding:2px 8px}
+  .rc-b{padding:8px}
+  .esc{display:block;width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:10px;padding:11px 12px}
+  .esc:hover{background:var(--panel-2);border-color:var(--line)}
+  .esc .et{display:flex;align-items:center;justify-content:space-between}
+  .esc .eid{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-mut)}
+  .esc .esvc{font-weight:600;font-size:13px;margin-top:5px}
+  .esc .em{font-size:11.5px;color:var(--ink-mut);margin-top:2px}
+
+  .ai-stat{padding:14px 16px}
+  .ai-stat .row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;font-size:13px;border-bottom:1px dashed var(--line)}
+  .ai-stat .row:last-child{border-bottom:0}
+  .ai-stat .row .n{font-family:"Bricolage Grotesque";font-weight:700;font-size:16px;color:var(--pine)}
+  .ai-stat .row .k{color:var(--ink-mut)}
+  .ai-bound{margin-top:11px;font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-mut);display:flex;align-items:center;gap:7px;border-top:1px solid var(--line);padding-top:11px}
+
+  .toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .toast{background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 20px 40px -16px rgba(0,0,0,.5);opacity:0;transform:translateY(10px);transition:.3s var(--ease)}
+  .toast.on{opacity:1;transform:none}
+
+  a:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(--pine);outline-offset:2px}
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <span class="brand"><svg class="mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" stroke="#74DBC8" stroke-width="1.6"/><circle cx="12" cy="12" r="3.4" fill="#74DBC8"/></svg>Enstellar</span>
+    <span class="seg"><b>Utilization Management</b></span>
+    <div class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Search cases, members, providers…</div>
+    <div class="top-right">
+      <span class="env">TENANT · NORTHSTAR HEALTH</span>
+      <span class="ai-global"><span class="dot"></span>Governed AI · on</span>
+      <span class="avatar" title="A. Patel, RN">AP</span>
+    </div>
+  </div>
+
+  <div class="scroll">
+    <div class="wrap">
+      <div class="page-h">
+        <div>
+          <h1>Utilization Management</h1>
+          <div class="sub">Prior authorization · live review queue</div>
+        </div>
+        <div class="date">Fri · Jun 6 · 2:14 PM CT</div>
+      </div>
+
+      <!-- stat band -->
+      <div class="stats">
+        <div class="stat"><div class="v">14</div><div class="l">In queue</div></div>
+        <div class="stat warn"><div class="v">5</div><div class="l">Due today</div></div>
+        <div class="stat alert"><div class="v">1</div><div class="l">Breaching &lt; 4h</div><div class="trend">expedited · cardiac</div></div>
+        <div class="stat"><div class="v">3</div><div class="l">Awaiting info</div></div>
+        <div class="stat"><div class="v">8</div><div class="l">Decided today</div></div>
+        <div class="gauge-card">
+          <svg viewBox="0 0 120 70" fill="none" aria-hidden="true">
+            <path d="M8 64 A52 52 0 0 1 112 64" stroke="rgba(255,255,255,.25)" stroke-width="9" stroke-linecap="round" pathLength="100"/>
+            <path d="M8 64 A52 52 0 0 1 112 64" stroke="#74DBC8" stroke-width="9" stroke-linecap="round" pathLength="100" stroke-dasharray="96 100"/>
+          </svg>
+          <div><div class="gv">96%</div><div class="gl">expedited clock compliance, this period</div></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <!-- queue -->
+        <section class="queue">
+          <div class="queue-h" id="tabs">
+            <button class="tab active" data-f="all">All <span class="c">14</span></button>
+            <button class="tab" data-f="review">In review <span class="c">8</span></button>
+            <button class="tab" data-f="info">Awaiting info <span class="c">3</span></button>
+            <button class="tab" data-f="md">Pending determination <span class="c">2</span></button>
+            <button class="tab" data-f="decided">Decided today <span class="c">8</span></button>
+          </div>
+          <table>
+            <thead><tr><th>Case</th><th>Member</th><th>Service</th><th>Ch</th><th>State</th><th>Clock</th><th>Reviewer</th><th></th></tr></thead>
+            <tbody id="rows">
+              <!-- rows injected -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- rail -->
+        <aside>
+          <div class="rail-card">
+            <div class="rc-h"><span class="t">Pending MD determination</span><span class="cnt">2</span></div>
+            <div class="rc-b">
+              <button class="esc" data-href="md">
+                <div class="et"><span class="eid">PA-4471-0093</span><span class="clk warn">18:42</span></div>
+                <div class="esvc">MRI lumbar spine</div>
+                <div class="em">Jordan A. · criteria not met · from A. Patel, RN</div>
+              </button>
+              <button class="esc" data-href="md">
+                <div class="et"><span class="eid">PA-4471-0088</span><span class="clk crit">04:51</span></div>
+                <div class="esvc">Inpatient admission — cardiac</div>
+                <div class="em">M. Okafor · Medicare Adv · Expedited</div>
+              </button>
+            </div>
+          </div>
+
+          <div class="rail-card">
+            <div class="rc-h"><span class="t">Governed AI · this week</span></div>
+            <div class="ai-stat">
+              <div class="row"><span class="k">Case summaries generated</span><span class="n">311</span></div>
+              <div class="row"><span class="k">Documentation gaps flagged</span><span class="n">72</span></div>
+              <div class="row"><span class="k">Suggestions accepted</span><span class="n">68%</span></div>
+              <div class="ai-bound"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="6.5" rx="1.4" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="currentColor" stroke-width="1.3"/></svg>0 determinations made by AI</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+  const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+  const NURSE='enstellar-clinical-review-nurse.html', MD='enstellar-adverse-determination-signoff.html';
+  function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;$('#toasts').appendChild(t);requestAnimationFrame(()=>t.classList.add('on'));setTimeout(()=>{t.classList.remove('on');setTimeout(()=>t.remove(),300)},2600);}
+
+  // queue data
+  const data=[
+    {id:'PA-4471-0088',pri:'exp',name:'M. Okafor',meta:'Medicare Adv',svc:'Inpatient admission — cardiac',ch:'X12',state:'md',stl:'Pending det.',clk:'04:51',clkc:'crit',rev:'RM',f:'md'},
+    {id:'PA-4471-0090',pri:'std',name:'L. Tran',meta:'Commercial HMO',svc:'CT abdomen w/ contrast',ch:'FHIR',state:'review',stl:'In review',clk:'19:22',clkc:'warn',rev:'AP',f:'review'},
+    {id:'PA-4471-0093',pri:'std',name:'Jordan A. Rivera',meta:'Commercial PPO',svc:'MRI lumbar spine',ch:'FHIR',state:'review',stl:'In review',clk:'2d 06:14',clkc:'ok',rev:'AP',f:'review'},
+    {id:'PA-4471-0079',pri:'std',name:'R. Patel',meta:'Medicaid',svc:'Physical therapy — 12 visits',ch:'Fax',state:'info',stl:'Awaiting info',clk:'Paused',clkc:'paused',rev:'AP',f:'info'},
+    {id:'PA-4471-0095',pri:'std',name:'D. Nguyen',meta:'Commercial PPO',svc:'Sleep study — home',ch:'FHIR',state:'review',stl:'In review',clk:'3d 11:40',clkc:'ok',rev:'',f:'review'},
+    {id:'PA-4471-0084',pri:'std',name:'S. Cohen',meta:'Commercial PPO',svc:'Genetic testing panel',ch:'FHIR',state:'md',stl:'Pending det.',clk:'1d 02:10',clkc:'ok',rev:'RM',f:'md'},
+    {id:'PA-4471-0072',pri:'std',name:'B. Adeyemi',meta:'Medicaid',svc:'DME — wheelchair',ch:'Fax',state:'info',stl:'Awaiting info',clk:'Paused',clkc:'paused',rev:'AP',f:'info'},
+    {id:'PA-4471-0068',pri:'std',name:'K. Wallace',meta:'Commercial PPO',svc:'Knee arthroscopy',ch:'X12',state:'review',stl:'In review',clk:'1d 18:30',clkc:'ok',rev:'AP',f:'review'},
+    {id:'PA-4471-0061',pri:'std',name:'T. Morales',meta:'Commercial PPO',svc:'MRI brain',ch:'FHIR',state:'decided',stl:'Approved',clk:'Issued',clkc:'done',rev:'AP',f:'decided'},
+    {id:'PA-4471-0058',pri:'std',name:'H. Ito',meta:'Medicare Adv',svc:'PET scan — oncology',ch:'FHIR',state:'decided',stl:'Denied',clk:'Issued',clkc:'done',rev:'RM',f:'decided'},
+  ];
+
+  function destFor(f){ return f==='md'?MD : f==='decided'?MD : NURSE; }
+  function rowHtml(d){
+    return `<tr data-f="${d.f}" data-dest="${destFor(d.f)}" tabindex="0">
+      <td><span class="cid"><span class="pri-dot ${d.pri}"></span>${d.id}</span></td>
+      <td><div class="mname">${d.name}</div><div class="mmeta">${d.meta}</div></td>
+      <td class="svc">${d.svc}</td>
+      <td><span class="ch">${d.ch}</span></td>
+      <td><span class="stbadge ${d.state}">${d.stl}</span></td>
+      <td><span class="clk ${d.clkc}">${d.clk}</span></td>
+      <td>${d.rev?`<div class="rev"><span class="ra">${d.rev}</span></div>`:`<div class="rev un"><span class="ra">—</span></div>`}</td>
+      <td class="go">→</td></tr>`;
+  }
+  $('#rows').innerHTML=data.map(rowHtml).join('');
+
+  function nav(d){
+    if(d==='md'){location.href=MD;}
+    else if(d==='nurse'){location.href=NURSE;}
+    else location.href=d;
+  }
+  function bindRows(){
+    $$('#rows tr').forEach(tr=>{
+      const go=()=>{ const f=tr.dataset.f;
+        if(f==='decided'){toast('Determination record — read-only (demo)');return;}
+        location.href=tr.dataset.dest;
+      };
+      tr.onclick=go;
+      tr.onkeydown=e=>{if(e.key==='Enter')go();};
+    });
+  }
+  bindRows();
+
+  // tabs
+  $$('.tab').forEach(t=>t.onclick=()=>{
+    $$('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+    const f=t.dataset.f;
+    $$('#rows tr').forEach(tr=>tr.classList.toggle('hidden', f!=='all' && tr.dataset.f!==f));
+  });
+
+  // escalation rail
+  $$('.esc').forEach(b=>b.onclick=()=>location.href=MD);
+</script>

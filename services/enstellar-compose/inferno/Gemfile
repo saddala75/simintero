@@ -1,0 +1,9 @@
+# Inferno test suite image: inferno_core v2 + US Core 5.0.1 + Da Vinci PAS 2.0.1.
+# NOTE: infernocommunity/inferno-core (Docker Hub latest) is the old v1 architecture
+# (Ruby 2.7, hanami).  The test kits require inferno_core ~> 1.3 (Ruby ~> 3.3.6).
+# Base image is therefore ruby:3.3.6, matching inferno-framework/inferno-template.
+source "https://rubygems.org"
+
+gem "inferno_core",         "~> 1.3"
+gem "us_core_test_kit",     "~> 1.1.3"
+gem "davinci_pas_test_kit", "~> 0.14.1"

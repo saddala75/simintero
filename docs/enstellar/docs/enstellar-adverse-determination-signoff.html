@@ -1,0 +1,529 @@
+<!-- Enstellar — Clinical Review · Adverse Determination & Sign-off (Medical Director). -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enstellar — Determination · PA-4471-0093</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#E7E7EE; --panel:#FBFBFD; --panel-2:#F3F3F7; --ink:#14141A; --ink-mut:#5A5A66;
+    --line:rgba(20,20,26,.12); --line-2:rgba(20,20,26,.2);
+    --pine:#0F564C; --pine-deep:#093A33; --teal:#1C9C86; --aqua:#74DBC8; --pine-tint:rgba(15,86,76,.08);
+    --amber:#B5780E; --amber-tint:rgba(181,120,14,.1);
+    --red:#B23A48; --red-deep:#8E2C38; --red-tint:rgba(178,58,72,.1);
+    --ok:#0F7A5A; --ok-tint:rgba(15,122,90,.1);
+    --ease:cubic-bezier(.2,.7,.2,1); --sh:0 1px 2px rgba(20,20,26,.05), 0 10px 24px -16px rgba(9,58,51,.3);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hanken Grotesk",system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+  button{font-family:inherit;cursor:pointer}
+  .mono{font-family:"JetBrains Mono",monospace}
+  .lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-mut)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .app{display:flex;flex-direction:column;height:100vh}
+  .topbar{height:54px;flex:0 0 auto;display:flex;align-items:center;gap:18px;padding:0 18px;background:var(--ink);color:#EDEDF1;z-index:30}
+  .brand{display:flex;align-items:center;gap:9px;font-family:"Bricolage Grotesque";font-weight:800;font-size:16px;letter-spacing:-.02em}
+  .brand .mark{width:22px;height:22px}
+  .topbar .seg{color:rgba(237,237,241,.55);font-size:13px;font-weight:600}
+  .topbar .seg b{color:#EDEDF1}
+  .search{margin-left:14px;flex:1;max-width:420px;display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:7px 12px;color:rgba(237,237,241,.6);font-size:13px}
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .env{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;color:var(--aqua);border:1px solid rgba(116,219,200,.4);border-radius:999px;padding:4px 10px}
+  .role{display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(237,237,241,.85)}
+  .avatar{width:30px;height:30px;border-radius:999px;background:linear-gradient(135deg,var(--teal),var(--pine));display:grid;place-items:center;color:#fff;font-family:"Bricolage Grotesque";font-weight:700;font-size:12px}
+
+  .body{flex:1;display:flex;min-height:0}
+
+  /* command bar */
+  .case{flex:1;display:flex;flex-direction:column;min-width:0}
+  .cmd{flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--line);padding:14px 22px;display:flex;align-items:center;gap:22px}
+  .cmd-id .top{display:flex;align-items:center;gap:10px}
+  .cmd-id .cid{font-family:"Bricolage Grotesque";font-weight:800;font-size:18px;letter-spacing:-.02em}
+  .pri{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--ink-mut)}
+  .state{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:var(--amber-tint);color:var(--amber);border:1px solid rgba(181,120,14,.3)}
+  .state.issued{background:var(--red-tint);color:var(--red);border-color:rgba(178,58,72,.3)}
+  .cmd-id .sub{font-size:12.5px;color:var(--ink-mut);margin-top:3px}
+  .cmd-id .sub b{color:var(--ink);font-weight:600}
+  .clock-box{margin-left:auto;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+  .clock-box .lbl2{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mut)}
+  .clock-val{font-family:"Bricolage Grotesque";font-weight:800;font-size:24px;line-height:1;display:flex;align-items:center;gap:9px}
+  .clock-val .stat{font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:500;padding:3px 8px;border-radius:999px;background:var(--amber-tint);color:var(--amber)}
+  .iconbtn{width:38px;height:38px;border-radius:9px;border:1px solid var(--line-2);background:var(--panel);display:grid;place-items:center;color:var(--ink-mut)}
+  .iconbtn:hover{background:var(--panel-2);color:var(--ink)}
+
+  .content{flex:1;display:grid;grid-template-columns:312px 1fr 370px;min-height:0}
+  .col{overflow-y:auto;padding:18px;min-height:0}
+  .col.ctx{border-right:1px solid var(--line);background:var(--panel-2)}
+  .col.work{padding:22px 26px}
+  .col.gate{border-left:1px solid var(--line);background:var(--panel-2)}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);margin-bottom:14px;overflow:hidden}
+  .panel-h{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:1px solid var(--line)}
+  .panel-h .pt{font-family:"Bricolage Grotesque";font-weight:700;font-size:13.5px}
+  .panel-b{padding:14px 15px}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--line)}
+  .kv:last-child{border-bottom:0}.kv .k{color:var(--ink-mut)}.kv .v{font-weight:600;text-align:right}
+  .svcline{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel-2)}
+  .svcline .code{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--pine)}
+  .svcline .name{font-weight:600;margin-top:3px;font-size:13.5px}
+  .svcline .meta{font-size:12px;color:var(--ink-mut);margin-top:6px}
+  .escal{background:var(--amber-tint);border:1px solid rgba(181,120,14,.25);border-radius:11px;padding:12px 14px}
+  .escal .et{font-weight:600;font-size:12.5px;display:flex;align-items:center;gap:8px}
+  .escal .en{font-size:12.5px;color:var(--ink-mut);margin-top:7px;font-style:italic;border-left:2px solid var(--amber);padding-left:10px}
+
+  /* work column */
+  .work-head h2{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;margin:0;letter-spacing:-.02em}
+  .work-head .pin{display:inline-flex;align-items:center;gap:8px;margin-top:8px;font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+  .work-head .pin b{color:var(--ink)}
+
+  .section{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);margin-top:18px;overflow:hidden}
+  .section.locked{opacity:.55;pointer-events:none;filter:saturate(.6)}
+  .sec-h{display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .sec-h .sn{width:24px;height:24px;border-radius:999px;background:var(--pine-tint);color:var(--pine);display:grid;place-items:center;font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:500;flex:0 0 auto}
+  .sec-h .st{font-family:"Bricolage Grotesque";font-weight:700;font-size:14.5px}
+  .sec-h .req{margin-left:auto;font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);background:var(--amber-tint);padding:3px 8px;border-radius:999px}
+  .sec-h .req.done{color:var(--ok);background:var(--ok-tint)}
+  .sec-b{padding:16px}
+
+  /* determination type radios */
+  .types{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .type{border:1.5px solid var(--line-2);border-radius:11px;padding:13px;text-align:left;background:var(--panel-2);transition:border-color .15s,background .15s}
+  .type:hover{background:var(--panel)}
+  .type.sel{border-color:var(--red);background:var(--red-tint)}
+  .type .tn{font-weight:700;font-size:14px}
+  .type .td{font-size:11.5px;color:var(--ink-mut);margin-top:3px}
+  .type.sel .tn{color:var(--red-deep)}
+
+  /* criteria findings */
+  .finding{border:1px solid var(--line);border-radius:11px;margin-bottom:11px;overflow:hidden}
+  .finding-h{display:flex;align-items:center;gap:11px;padding:12px 14px;background:var(--red-tint)}
+  .finding-h .fic{width:24px;height:24px;border-radius:999px;background:#fff;border:1px solid var(--red);color:var(--red);display:grid;place-items:center;flex:0 0 auto}
+  .finding-h .ft{font-weight:600;font-size:13.5px}
+  .finding-h .fc{margin-left:auto;font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--red);background:#fff;border:1px solid var(--red);padding:3px 8px;border-radius:999px}
+  .finding-b{padding:13px 14px}
+  .finding-b .fl{font-size:12px;color:var(--ink-mut);margin-bottom:7px}
+  .met-row{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;color:var(--ink-mut)}
+  .met-row .mi{color:var(--ok)}
+
+  textarea,select{width:100%;border:1px solid var(--line-2);border-radius:10px;padding:11px 12px;font-family:inherit;font-size:13.5px;background:var(--panel-2);color:var(--ink)}
+  textarea{resize:vertical;min-height:64px}
+  textarea:focus,select:focus{outline:2px solid var(--pine);outline-offset:1px;background:var(--panel)}
+  .draft-ai{margin-top:9px;font-size:11.5px;font-weight:600;color:var(--pine);background:var(--pine-tint);border:1px solid rgba(15,86,76,.25);border-radius:8px;padding:7px 11px;display:inline-flex;align-items:center;gap:7px}
+  .ai-note{font-size:11px;color:var(--ink-mut);margin-top:7px;display:flex;align-items:center;gap:7px}
+
+  /* citations */
+  .cite-sug{font-size:12px;color:var(--ink-mut);margin-bottom:9px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip-add{font-family:"JetBrains Mono",monospace;font-size:11px;padding:7px 12px;border-radius:999px;border:1px dashed var(--line-2);background:var(--panel-2);color:var(--ink-mut);display:inline-flex;align-items:center;gap:7px}
+  .chip-add:hover{border-color:var(--pine);color:var(--pine)}
+  .chip-on{font-family:"JetBrains Mono",monospace;font-size:11px;padding:7px 12px;border-radius:999px;border:1px solid var(--pine);background:var(--pine-tint);color:var(--pine);display:inline-flex;align-items:center;gap:7px}
+
+  /* sign-off */
+  .attest{display:flex;gap:11px;align-items:flex-start;padding:13px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2);margin-bottom:14px}
+  .attest input{margin-top:3px;width:17px;height:17px;accent-color:var(--pine);flex:0 0 auto}
+  .attest label{font-size:13px;line-height:1.5}
+  .signbtn{display:inline-flex;align-items:center;gap:9px;border-radius:10px;padding:12px 18px;font-weight:700;font-size:14px;border:1px solid var(--pine);background:var(--pine);color:#fff}
+  .signbtn[disabled]{opacity:.45;cursor:not-allowed;background:var(--panel-2);color:var(--ink-mut);border-color:var(--line-2)}
+  .signed{display:none;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--ok);background:var(--ok-tint);border-radius:11px}
+  .signed.on{display:flex}
+  .signed .sg-name{font-family:"Bricolage Grotesque";font-weight:700;font-size:15px}
+  .signed .sg-meta{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--ink-mut);margin-top:2px}
+
+  /* gate column */
+  .gate-card{position:sticky;top:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden}
+  .gate-h{padding:16px 17px 14px;background:linear-gradient(180deg,var(--pine-tint),transparent);border-bottom:1px solid var(--line)}
+  .gate-h .gt{font-family:"Bricolage Grotesque";font-weight:800;font-size:16px}
+  .gate-h .gs{font-size:12px;color:var(--ink-mut);margin-top:3px}
+  .progress{height:5px;border-radius:999px;background:var(--line);margin-top:13px;overflow:hidden}
+  .progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--pine));transition:width .35s var(--ease)}
+  .gate-b{padding:14px 17px}
+  .chk{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .chk:last-child{border-bottom:0}
+  .chk .box{width:20px;height:20px;border-radius:6px;border:1.6px solid var(--line-2);display:grid;place-items:center;flex:0 0 auto;color:#fff;transition:background .2s,border-color .2s}
+  .chk.done .box{background:var(--ok);border-color:var(--ok)}
+  .chk .box svg{opacity:0;transition:opacity .2s}
+  .chk.done .box svg{opacity:1}
+  .chk .ct{color:var(--ink-mut);transition:color .2s}
+  .chk.done .ct{color:var(--ink);font-weight:600}
+  .chk .cn{margin-left:auto;font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-mut)}
+
+  .gate-f{padding:15px 17px;border-top:1px solid var(--line)}
+  .preview-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;border:1px solid var(--line-2);background:var(--panel);border-radius:10px;padding:12px;font-weight:600;font-size:13.5px;margin-bottom:11px}
+  .preview-btn:hover{background:var(--panel-2)}
+  .preview-btn.done{border-color:var(--ok);color:var(--ok)}
+  .issue-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:11px;padding:15px;font-family:"Bricolage Grotesque";font-weight:700;font-size:15px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink-mut);transition:.2s}
+  .issue-btn.ready{background:var(--red);border-color:var(--red);color:#fff;cursor:pointer}
+  .issue-btn.ready:hover{background:var(--red-deep)}
+  .issue-btn[disabled]{cursor:not-allowed}
+  .gate-note{font-size:11px;color:var(--ink-mut);margin-top:11px;line-height:1.5;display:flex;gap:8px}
+
+  /* modal + scrim */
+  .scrim{position:fixed;inset:0;background:rgba(20,20,26,.36);opacity:0;pointer-events:none;transition:opacity .25s;z-index:40}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .modal{position:fixed;inset:0;display:none;place-items:center;z-index:50;padding:20px}
+  .modal.on{display:grid}
+  .modal-card{background:var(--panel);border-radius:18px;width:600px;max-width:100%;max-height:88vh;box-shadow:0 40px 80px -30px rgba(9,58,51,.5);overflow:hidden;border:1px solid var(--line);display:flex;flex-direction:column}
+  .modal-h{padding:18px 22px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .modal-h .mt{font-family:"Bricolage Grotesque";font-weight:800;font-size:18px}
+  .modal-h .ms{font-size:12.5px;color:var(--ink-mut);margin-top:3px}
+  .modal-b{padding:22px;overflow-y:auto}
+  .modal-f{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;flex:0 0 auto}
+  .act{display:inline-flex;align-items:center;gap:8px;border-radius:9px;padding:11px 16px;font-weight:600;font-size:13.5px;border:1px solid var(--line-2);background:var(--panel);color:var(--ink)}
+  .act:hover{background:var(--panel-2)}
+  .act.primary{background:var(--pine);border-color:var(--pine);color:#fff}.act.primary:hover{background:var(--pine-deep)}
+  .act.danger{background:var(--red);border-color:var(--red);color:#fff}.act.danger:hover{background:var(--red-deep)}
+
+  /* notice letter */
+  .notice{font-size:13px;line-height:1.6}
+  .notice h4{font-family:"Bricolage Grotesque";font-weight:800;font-size:15px;margin:0 0 4px}
+  .notice .det{display:inline-block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--red);background:var(--red-tint);border:1px solid var(--red);padding:4px 10px;border-radius:999px;margin:6px 0 14px}
+  .notice .blk{margin-bottom:14px}
+  .notice .bt{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mut);margin-bottom:4px}
+  .notice .rights{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--pine);border-radius:8px;padding:13px 15px}
+  .juris{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-mut);margin-top:8px}
+
+  /* issued banner */
+  .issued-banner{display:none;align-items:center;gap:14px;background:linear-gradient(150deg,var(--pine),var(--pine-deep));color:#EAF4F1;border-radius:14px;padding:18px 20px;margin-top:18px}
+  .issued-banner.on{display:flex}
+  .issued-banner .ib-t{font-family:"Bricolage Grotesque";font-weight:800;font-size:16px;color:#fff}
+  .issued-banner .ib-s{font-size:12.5px;opacity:.85;margin-top:2px}
+
+  /* toast */
+  .toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .toast{background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 20px 40px -16px rgba(0,0,0,.5);display:flex;align-items:center;gap:10px;opacity:0;transform:translateY(10px);transition:.3s var(--ease)}
+  .toast.on{opacity:1;transform:none}.toast .tk{color:var(--aqua)}
+
+  @media(max-width:1080px){.content{grid-template-columns:1fr}.col.ctx,.col.gate{border:0;border-bottom:1px solid var(--line)}.gate-card{position:static}.clock-box{display:none}}
+  a:focus-visible,button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--pine);outline-offset:2px}
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <span class="brand"><svg class="mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" stroke="#74DBC8" stroke-width="1.6"/><circle cx="12" cy="12" r="3.4" fill="#74DBC8"/></svg>Enstellar</span>
+    <span class="seg">Utilization Mgmt &nbsp;/&nbsp; Clinical Review &nbsp;/&nbsp; <b>Determination</b></span>
+    <div class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Search cases, members, providers…</div>
+    <div class="top-right">
+      <span class="env">TENANT · NORTHSTAR HEALTH</span>
+      <span class="role">Medical Director</span>
+      <span class="avatar" title="Dr. R. Mehta, MD — Medical Director">RM</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <main class="case">
+      <!-- command bar -->
+      <div class="cmd">
+        <div class="cmd-id">
+          <div class="top">
+            <span class="cid">PA-4471-0093</span>
+            <span class="pri">Standard</span>
+            <span class="state" id="statechip">Pending determination</span>
+          </div>
+          <div class="sub">MRI lumbar spine, no contrast &nbsp;·&nbsp; <b>Jordan A. Rivera</b> <span style="color:var(--ink-mut)">(ID ····4821)</span> &nbsp;·&nbsp; Commercial PPO &nbsp;·&nbsp; Ordering: <b>Dr. M. Chen</b></div>
+        </div>
+        <div class="clock-box">
+          <span class="lbl2">Decision due in</span>
+          <span class="clock-val"><span class="num" id="clocknum">18:42:10</span><span class="stat">Running</span></span>
+        </div>
+        <button class="iconbtn" id="tlBtn" title="Case timeline" aria-label="Case timeline" style="margin-left:18px">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/></svg>
+        </button>
+      </div>
+
+      <div class="content">
+        <!-- LEFT context -->
+        <section class="col ctx">
+          <div class="panel">
+            <div class="panel-h"><span class="pt">Escalation</span></div>
+            <div class="panel-b">
+              <div class="escal">
+                <div class="et"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z" stroke="var(--amber)" stroke-width="1.4" stroke-linejoin="round"/></svg>Referred by A. Patel, RN</div>
+                <div class="en">"Conservative therapy &lt; 6 wks and no neuro exam after RFI. Criteria not met — referring for determination."</div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><span class="pt">Member &amp; coverage</span></div>
+            <div class="panel-b">
+              <div class="kv"><span class="k">Plan</span><span class="v">Commercial PPO</span></div>
+              <div class="kv"><span class="k">LOB</span><span class="v">Commercial · TX</span></div>
+              <div class="kv"><span class="k">Benefit</span><span class="v">Advanced imaging</span></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><span class="pt">Requested service</span></div>
+            <div class="panel-b">
+              <div class="svcline"><span class="code">CPT 72148</span><div class="name">MRI lumbar spine, without contrast</div><div class="meta">1 unit · outpatient · Dx M54.5</div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><span class="pt">Documentation</span><span class="lbl">3 files</span></div>
+            <div class="panel-b" style="font-size:13px;color:var(--ink-mut)">Referral note · PT notes (2 wks) · prior X-ray 2022. RFI for neuro exam returned without findings.</div>
+          </div>
+        </section>
+
+        <!-- CENTER determination composer -->
+        <section class="col work">
+          <div class="work-head">
+            <h2>Adverse determination</h2>
+            <span class="pin"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 2h6l3 3v9H4z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Plan policy <b>RAD-014 v3.2</b> · pinned at decision time</span>
+          </div>
+
+          <!-- 1 type -->
+          <div class="section" id="secType">
+            <div class="sec-h"><span class="sn">1</span><span class="st">Determination type</span><span class="req" id="reqType">Required</span></div>
+            <div class="sec-b">
+              <div class="types">
+                <button class="type" data-type="Denied"><div class="tn">Deny</div><div class="td">Not medically necessary</div></button>
+                <button class="type" data-type="Partially denied"><div class="tn">Partial</div><div class="td">Approve some lines</div></button>
+                <button class="type" data-type="Modified"><div class="tn">Modify</div><div class="td">Alternative service</div></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2 criteria findings -->
+          <div class="section" id="secCrit">
+            <div class="sec-h"><span class="sn">2</span><span class="st">Criteria findings &amp; rationale</span><span class="req" id="reqCrit">0 / 2</span></div>
+            <div class="sec-b">
+              <div class="finding">
+                <div class="finding-h"><span class="fic"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="ft">Criterion 1 · Conservative therapy ≥ 6 weeks</span><span class="fc">Not met</span></div>
+                <div class="finding-b"><div class="fl">Record shows 2 weeks of therapy. Document your rationale.</div><textarea class="critRat" placeholder="Rationale for this unmet criterion…"></textarea></div>
+              </div>
+              <div class="finding">
+                <div class="finding-h"><span class="fic"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="ft">Criterion 2 · Neurologic deficit / red flag</span><span class="fc">Not met</span></div>
+                <div class="finding-b"><div class="fl">No neurologic exam after RFI. Document your rationale.</div><textarea class="critRat" placeholder="Rationale for this unmet criterion…"></textarea></div>
+              </div>
+              <div class="met-row"><span class="mi"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Criterion 3 · No prior lumbar MRI — <b style="color:var(--ok);margin-left:4px">Met</b> (no rationale needed)</div>
+            </div>
+          </div>
+
+          <!-- 3 reason code -->
+          <div class="section" id="secReason">
+            <div class="sec-h"><span class="sn">3</span><span class="st">Reason code</span><span class="req" id="reqReason">Required</span></div>
+            <div class="sec-b">
+              <select id="reasonSel">
+                <option value="">Select a denial reason code…</option>
+                <option>MN-01 · Medical necessity not established</option>
+                <option>MN-04 · Conservative therapy not completed</option>
+                <option>MN-07 · Insufficient clinical documentation</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 4 citations -->
+          <div class="section" id="secCite">
+            <div class="sec-h"><span class="sn">4</span><span class="st">Citations</span><span class="req" id="reqCite">Required</span></div>
+            <div class="sec-b">
+              <div class="cite-sug">Attach the policy and clinical basis for this determination.</div>
+              <div class="chips" id="chips">
+                <button class="chip-add" data-cite><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>RAD-014 §3.1 (therapy)</button>
+                <button class="chip-add" data-cite><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>RAD-014 §3.2 (red flags)</button>
+                <button class="chip-add" data-cite><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>ACR Appropriateness — LBP</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5 clinical rationale -->
+          <div class="section" id="secRat">
+            <div class="sec-h"><span class="sn">5</span><span class="st">Clinical rationale</span><span class="req" id="reqRat">Required</span></div>
+            <div class="sec-b">
+              <textarea id="ratText" placeholder="Plain-language clinical rationale that will inform the member/provider notice…"></textarea>
+              <button class="draft-ai" id="draftAi"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3l2 1.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Draft with AI</button>
+              <div class="ai-note"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="6.5" rx="1.4" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="currentColor" stroke-width="1.3"/></svg>AI can draft this — you must review, edit, and sign. AI cannot issue or sign a determination.</div>
+            </div>
+          </div>
+
+          <!-- 6 sign-off -->
+          <div class="section" id="secSign">
+            <div class="sec-h"><span class="sn">6</span><span class="st">Clinician sign-off</span><span class="req" id="reqSign">Required</span></div>
+            <div class="sec-b">
+              <div class="attest">
+                <input type="checkbox" id="attestCk">
+                <label for="attestCk">I am a licensed physician reviewer. I have reviewed the record and applicable criteria, and I attest that this determination reflects my independent clinical judgment.</label>
+              </div>
+              <button class="signbtn" id="signBtn" disabled><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 13l1-3 7-7 2 2-7 7-3 1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Sign as Dr. R. Mehta, MD</button>
+              <div class="signed" id="signedBox">
+                <span style="color:var(--ok)"><svg width="22" height="22" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <div><div class="sg-name">Dr. R. Mehta, MD</div><div class="sg-meta" id="signedTs">Signed · NPI ····2207</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- issued banner -->
+          <div class="issued-banner" id="issuedBanner">
+            <span><svg width="26" height="26" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="var(--aqua)" stroke-width="1.3"/><path d="M5 8l2 2 4-4" stroke="var(--aqua)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <div><div class="ib-t">Determination issued</div><div class="ib-s">Member and provider notified with appeal rights. The case is now closed to edits and fully recorded in the timeline.</div></div>
+          </div>
+        </section>
+
+        <!-- RIGHT gate -->
+        <aside class="col gate" aria-label="Determination sign-off gate">
+          <div class="gate-card">
+            <div class="gate-h">
+              <div class="gt">Sign-off readiness</div>
+              <div class="gs">An adverse determination cannot be issued until every item is complete.</div>
+              <div class="progress"><i id="progBar"></i></div>
+            </div>
+            <div class="gate-b" id="checklist">
+              <div class="chk" data-k="type"><span class="box"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ct">Determination type</span></div>
+              <div class="chk" data-k="crit"><span class="box"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ct">Rationale per unmet criterion</span><span class="cn" id="cnCrit">0/2</span></div>
+              <div class="chk" data-k="reason"><span class="box"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ct">Reason code</span></div>
+              <div class="chk" data-k="cite"><span class="box"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ct">Citations attached</span></div>
+              <div class="chk" data-k="rat"><span class="box"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ct">Clinical rationale</span></div>
+              <div class="chk" data-k="notice"><span class="box"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ct">Member notice reviewed</span></div>
+              <div class="chk" data-k="sign"><span class="box"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 8.5l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ct">Clinician sign-off</span></div>
+            </div>
+            <div class="gate-f">
+              <button class="preview-btn" id="previewBtn"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M1 8c2-3.5 12-3.5 14 0-2 3.5-12 3.5-14 0z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>Preview member &amp; provider notice</button>
+              <button class="issue-btn" id="issueBtn" disabled><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="6.5" rx="1.4" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="currentColor" stroke-width="1.3"/></svg><span id="issueLabel">Locked · 7 remaining</span></button>
+              <div class="gate-note"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex:0 0 auto;margin-top:1px"><path d="M8 6v4M8 12h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.3"/></svg>Issuing notifies the member and provider with jurisdiction-correct appeal rights, and writes an immutable record to the timeline.</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- timeline -->
+<div class="scrim" id="scrim"></div>
+<aside class="modal" id="noticeModal" aria-label="Notice preview">
+  <div class="modal-card">
+    <div class="modal-h"><div class="mt">Notice of adverse determination — preview</div><div class="ms">Delivered to member &amp; Dr. M. Chen · member portal, mail, and provider portal</div></div>
+    <div class="modal-b">
+      <div class="notice">
+        <h4>Your request was reviewed by a physician</h4>
+        <span class="det">Determination: Not approved</span>
+        <div class="blk"><div class="bt">Service reviewed</div>MRI lumbar spine, without contrast (CPT 72148), requested by Dr. M. Chen.</div>
+        <div class="blk"><div class="bt">Why</div>Coverage criteria for advanced lumbar imaging were not met: documented conservative therapy was less than six weeks, and no neurologic deficit or red-flag finding was documented. <span id="noticeRat" style="color:var(--ink-mut)"></span></div>
+        <div class="blk rights">
+          <div class="bt">Your appeal rights</div>
+          You have the right to appeal this decision within <b>60 days</b>. You may request a <b>standard or expedited appeal</b>, submit additional information, and request a <b>peer-to-peer discussion</b> with the reviewing physician. If your appeal is denied, you may be entitled to an <b>independent external review</b>. Instructions and contacts are included in the full notice.
+          <div class="juris">Appeal rights shown reflect Commercial · TX requirements · generated from jurisdiction profile</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-f"><button class="act" id="noticeClose">Close</button><button class="act primary" id="noticeAck">I've reviewed this notice</button></div>
+  </div>
+</aside>
+
+<!-- confirm issue -->
+<aside class="modal" id="confirmModal" aria-label="Confirm issue">
+  <div class="modal-card" style="width:460px">
+    <div class="modal-h"><div class="mt">Issue adverse determination?</div><div class="ms">This action is final and cannot be edited.</div></div>
+    <div class="modal-b" style="font-size:13.5px">The member and provider will be notified with appeal rights, the decision clock will stop, and a complete, immutable record — including your sign-off and every AI interaction — is preserved in the case timeline.</div>
+    <div class="modal-f"><button class="act" id="confirmCancel">Cancel</button><button class="act danger" id="confirmIssue">Issue determination</button></div>
+  </div>
+</aside>
+
+<aside class="modal" id="tlModal" aria-label="Timeline">
+  <div class="modal-card" style="width:440px">
+    <div class="modal-h"><div class="mt">Case timeline</div><div class="ms">Immutable · every action recorded</div></div>
+    <div class="modal-b" id="tllist" style="font-size:13px">
+      <div style="color:var(--ink-mut)">06/05 09:14 — Intake normalized (FHIR PAS)<br>06/05 09:19 — AI advisory generated<br>06/05 10:40 — RFI sent (neuro exam) · clock paused<br>06/06 14:02 — RFI returned · insufficient · clock resumed<br>06/06 14:20 — Referred to medical director (A. Patel, RN)</div>
+      <div id="tlNew" style="margin-top:10px;color:var(--ink)"></div>
+    </div>
+    <div class="modal-f"><button class="act" id="tlClose2">Close</button></div>
+  </div>
+</aside>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+  const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+  function toast(m){const t=document.createElement('div');t.className='toast';t.innerHTML='<span class="tk">✓</span>'+m;$('#toasts').appendChild(t);requestAnimationFrame(()=>t.classList.add('on'));setTimeout(()=>{t.classList.remove('on');setTimeout(()=>t.remove(),300)},2600);}
+  function logEvent(txt){const d=$('#tlNew');d.innerHTML+=(d.innerHTML?'<br>':'')+txt;}
+
+  const req={type:false,crit:false,reason:false,cite:false,rat:false,notice:false,sign:false};
+  const order=['type','crit','reason','cite','rat','notice','sign'];
+
+  function update(){
+    let done=0;
+    order.forEach(k=>{
+      const row=$('.chk[data-k="'+k+'"]');
+      if(req[k]){row.classList.add('done');done++}else{row.classList.remove('done')}
+    });
+    $('#progBar').style.width=(done/7*100)+'%';
+    // mirror "Required/done" badges in composer
+    [['type','reqType'],['reason','reqReason'],['cite','reqCite'],['rat','reqRat'],['sign','reqSign']].forEach(([k,id])=>{
+      const b=$('#'+id);if(req[k]){b.classList.add('done');b.textContent='Complete'}else{b.classList.remove('done');b.textContent='Required'}
+    });
+    const issue=$('#issueBtn'),lbl=$('#issueLabel');
+    if(done===7){issue.classList.add('ready');issue.disabled=false;lbl.textContent='Issue adverse determination'}
+    else{issue.classList.remove('ready');issue.disabled=true;lbl.textContent='Locked · '+(7-done)+' remaining'}
+  }
+
+  /* 1 type */
+  $$('.type').forEach(b=>b.onclick=()=>{$$('.type').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');req.type=true;window._dtype=b.dataset.type;update();});
+
+  /* 2 criteria rationale */
+  function critCheck(){const rats=$$('.critRat');const filled=rats.filter(t=>t.value.trim().length>0).length;$('#cnCrit').textContent=filled+'/2';$('#reqCrit').textContent=filled+' / 2';if(filled===2)$('#reqCrit').classList.add('done');else $('#reqCrit').classList.remove('done');req.crit=(filled===2);update();}
+  $$('.critRat').forEach(t=>t.oninput=critCheck);
+
+  /* 3 reason */
+  $('#reasonSel').onchange=e=>{req.reason=!!e.target.value;update();};
+
+  /* 4 citations */
+  $$('[data-cite]').forEach(b=>b.onclick=()=>{
+    const on=b.classList.contains('chip-on');
+    if(on){b.classList.remove('chip-on');b.classList.add('chip-add');b.querySelector('svg path').setAttribute('d','M8 3v10M3 8h10');}
+    else{b.classList.remove('chip-add');b.classList.add('chip-on');b.querySelector('svg path').setAttribute('d','M4 8.5l2.5 2.5L12 5');}
+    req.cite=$$('.chip-on').length>0;update();
+  });
+
+  /* 5 rationale + AI draft */
+  $('#ratText').oninput=e=>{req.rat=e.target.value.trim().length>0;update();};
+  $('#draftAi').onclick=()=>{
+    $('#ratText').value="Coverage criteria for advanced lumbar imaging (RAD-014) are not met. Documented conservative management totaled approximately two weeks, below the six-week threshold, and the submitted record does not document a neurologic deficit or red-flag finding. Imaging is not indicated at this time; continued conservative therapy is recommended, with reassessment if symptoms persist or new findings emerge.";
+    req.rat=true;update();toast('AI draft inserted — review and edit before signing');logEvent('AI rationale draft inserted — pending reviewer edit/sign');
+  };
+
+  /* 6 attest + sign */
+  $('#attestCk').onchange=e=>{$('#signBtn').disabled=!e.target.checked;};
+  $('#signBtn').onclick=()=>{
+    const now=new Date();const ts=now.toLocaleString();
+    $('#signedTs').textContent='Signed '+ts+' · NPI ····2207';
+    $('#signedBox').classList.add('on');
+    $('#signBtn').style.display='none';$('#attestCk').disabled=true;
+    req.sign=true;update();toast('Determination signed');logEvent('Clinician sign-off recorded — Dr. R. Mehta, MD');
+  };
+
+  /* notice preview */
+  function openNotice(){$('#noticeRat').textContent=$('#ratText').value?('Reviewer note: '+$('#ratText').value):'';$('#noticeModal').classList.add('on');$('#scrim').classList.add('on');}
+  function closeNotice(){$('#noticeModal').classList.remove('on');$('#scrim').classList.remove('on');}
+  $('#previewBtn').onclick=openNotice;
+  $('#noticeClose').onclick=closeNotice;
+  $('#noticeAck').onclick=()=>{closeNotice();req.notice=true;$('#previewBtn').classList.add('done');$('#previewBtn').lastChild.textContent='Notice reviewed';update();toast('Member notice reviewed');};
+
+  /* issue */
+  $('#issueBtn').onclick=()=>{if($('#issueBtn').disabled)return;$('#confirmModal').classList.add('on');$('#scrim').classList.add('on');};
+  $('#confirmCancel').onclick=()=>{$('#confirmModal').classList.remove('on');$('#scrim').classList.remove('on');};
+  $('#confirmIssue').onclick=()=>{
+    $('#confirmModal').classList.remove('on');$('#scrim').classList.remove('on');
+    const t=window._dtype||'Denied';
+    $('#statechip').textContent='Determination issued · '+t;$('#statechip').classList.add('issued');
+    $$('.section').forEach(s=>s.classList.add('locked'));
+    $('#issuedBanner').classList.add('on');
+    const ib=$('#issueBtn');ib.classList.remove('ready');ib.disabled=true;ib.style.background='var(--panel-2)';ib.style.color='var(--ink-mut)';$('#issueLabel').textContent='Issued '+t.toLowerCase();
+    $('.clock-val .stat').textContent='Stopped';$('.clock-val .stat').style.background='var(--panel-2)';$('.clock-val .stat').style.color='var(--ink-mut)';window._clockOff=true;
+    toast('Adverse determination issued — member & provider notified');
+    logEvent('Adverse determination ISSUED ('+t+') — member & provider notified with appeal rights');
+    $('#issuedBanner').scrollIntoView({behavior:'smooth',block:'center'});
+  };
+
+  /* timeline modal */
+  $('#tlBtn').onclick=()=>{$('#tlModal').classList.add('on');$('#scrim').classList.add('on');};
+  $('#tlClose2').onclick=()=>{$('#tlModal').classList.remove('on');$('#scrim').classList.remove('on');};
+  $('#scrim').onclick=()=>{$$('.modal').forEach(m=>m.classList.remove('on'));$('#scrim').classList.remove('on');};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$$('.modal').forEach(m=>m.classList.remove('on'));$('#scrim').classList.remove('on');}});
+
+  /* clock */
+  let total=18*3600+42*60+10;
+  setInterval(()=>{if(window._clockOff)return;total--;const h=Math.floor(total/3600),m=Math.floor(total%3600/60),s=total%60;$('#clocknum').textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');},1000);
+
+  update();
+</script>

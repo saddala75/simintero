@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enstellar.simintero.com/schemas/required-elements.json",
+  "title": "PAS FHIR → CCEM Canonical Field Map",
+  "description": "Maps PAS FHIR IG fields (DA Vinci Prior Authorization Support, v2.0.1) to CCEM canonical model fields.",
+  "version": "1.0.0",
+  "fhir_ig": "http://hl7.org/fhir/us/davinci-pas/ImplementationGuide/hl7.fhir.us.davinci-pas",
+  "fhir_ig_version": "2.0.1",
+  "mappings": [
+    {
+      "id": "case.tenant_id",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.meta.tag[system='https://enstellar.simintero.com/tenant'].code",
+      "ccem_model": "Case",
+      "ccem_field": "tenant_id",
+      "required": true,
+      "cardinality": "1..1",
+      "notes": "Enstellar extension tag; not a PAS standard field — injected by the ingestion adapter"
+    },
+    {
+      "id": "case.correlation_id",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.id",
+      "ccem_model": "Case",
+      "ccem_field": "correlation_id",
+      "required": true,
+      "cardinality": "1..1",
+      "notes": "FHIR resource logical id used as the idempotency key"
+    },
+    {
+      "id": "case.lob",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.insurance[0].coverage.reference → Coverage.class[type=group].name",
+      "ccem_model": "Case",
+      "ccem_field": "lob",
+      "required": true,
+      "cardinality": "1..1",
+      "notes": "Line of business derived from Coverage.class group name; default 'commercial' if absent"
+    },
+    {
+      "id": "case.urgency",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.priority.coding[system='http://terminology.hl7.org/CodeSystem/processpriority'].code",
+      "ccem_model": "Case",
+      "ccem_field": "urgency",
+      "required": true,
+      "cardinality": "1..1",
+      "value_map": {
+        "normal": "standard",
+        "stat": "expedited",
+        "deferred": "standard",
+        "concurrent": "concurrent"
+      },
+      "notes": "PAS uses process-priority codes; 'concurrent' is a Simintero extension code for concurrent review"
+    },
+    {
+      "id": "member.member_id",
+      "fhir_resource": "Patient",
+      "fhir_path": "Patient.id",
+      "ccem_model": "Member",
+      "ccem_field": "member_id",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "member.first_name",
+      "fhir_resource": "Patient",
+      "fhir_path": "Patient.name[use=official].given[0]",
+      "ccem_model": "Member",
+      "ccem_field": "first_name",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "member.last_name",
+      "fhir_resource": "Patient",
+      "fhir_path": "Patient.name[use=official].family",
+      "ccem_model": "Member",
+      "ccem_field": "last_name",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "member.date_of_birth",
+      "fhir_resource": "Patient",
+      "fhir_path": "Patient.birthDate",
+      "ccem_model": "Member",
+      "ccem_field": "date_of_birth",
+      "required": true,
+      "cardinality": "1..1",
+      "notes": "ISO 8601 date (YYYY-MM-DD)"
+    },
+    {
+      "id": "member.gender",
+      "fhir_resource": "Patient",
+      "fhir_path": "Patient.gender",
+      "ccem_model": "Member",
+      "ccem_field": "gender",
+      "required": false,
+      "cardinality": "0..1",
+      "value_map": {
+        "male": "M",
+        "female": "F",
+        "other": "O",
+        "unknown": "U"
+      }
+    },
+    {
+      "id": "member.mrn",
+      "fhir_resource": "Patient",
+      "fhir_path": "Patient.identifier[system=MR].value",
+      "ccem_model": "Member",
+      "ccem_field": "mrn",
+      "required": false,
+      "cardinality": "0..1"
+    },
+    {
+      "id": "coverage.coverage_id",
+      "fhir_resource": "Coverage",
+      "fhir_path": "Coverage.id",
+      "ccem_model": "Coverage",
+      "ccem_field": "coverage_id",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "coverage.plan_id",
+      "fhir_resource": "Coverage",
+      "fhir_path": "Coverage.class[type=plan].value",
+      "ccem_model": "Coverage",
+      "ccem_field": "plan_id",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "coverage.subscriber_id",
+      "fhir_resource": "Coverage",
+      "fhir_path": "Coverage.subscriberId",
+      "ccem_model": "Coverage",
+      "ccem_field": "subscriber_id",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "coverage.payer_name",
+      "fhir_resource": "Coverage",
+      "fhir_path": "Coverage.payor[0].display",
+      "ccem_model": "Coverage",
+      "ccem_field": "payer_name",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "coverage.lob",
+      "fhir_resource": "Coverage",
+      "fhir_path": "Coverage.class[type=group].name",
+      "ccem_model": "Coverage",
+      "ccem_field": "lob",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "coverage.effective_date",
+      "fhir_resource": "Coverage",
+      "fhir_path": "Coverage.period.start",
+      "ccem_model": "Coverage",
+      "ccem_field": "effective_date",
+      "required": true,
+      "cardinality": "1..1",
+      "notes": "ISO 8601 date (YYYY-MM-DD)"
+    },
+    {
+      "id": "requesting_provider.provider_id",
+      "fhir_resource": "Practitioner",
+      "fhir_path": "Practitioner.id",
+      "ccem_model": "Provider",
+      "ccem_field": "provider_id",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "requesting_provider.npi",
+      "fhir_resource": "Practitioner",
+      "fhir_path": "Practitioner.identifier[system='http://hl7.org/fhir/sid/us-npi'].value",
+      "ccem_model": "Provider",
+      "ccem_field": "npi",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "requesting_provider.name",
+      "fhir_resource": "Practitioner",
+      "fhir_path": "Practitioner.name[0].text",
+      "ccem_model": "Provider",
+      "ccem_field": "name",
+      "required": true,
+      "cardinality": "1..1"
+    },
+    {
+      "id": "service_line.sequence",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.item[n].sequence",
+      "ccem_model": "ServiceLine",
+      "ccem_field": "sequence",
+      "required": true,
+      "cardinality": "1..*"
+    },
+    {
+      "id": "service_line.procedure_code",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.item[n].productOrService.coding[system='http://www.ama-assn.org/go/cpt'].code",
+      "ccem_model": "ServiceLine",
+      "ccem_field": "procedure_code",
+      "required": true,
+      "cardinality": "1..1",
+      "notes": "CPT or HCPCS code; HCPCS system is 'https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'"
+    },
+    {
+      "id": "service_line.service_type_code",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.item[n].category.coding[system='https://codesystem.x12.org/005010/1365'].code",
+      "ccem_model": "ServiceLine",
+      "ccem_field": "service_type_code",
+      "required": true,
+      "cardinality": "1..1",
+      "notes": "X12 service type code (loop 2000E, 2010EB)"
+    },
+    {
+      "id": "service_line.diagnosis_codes",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.diagnosis[Claim.item[n].diagnosisSequence].diagnosisCodeableConcept.coding[system='http://hl7.org/fhir/sid/icd-10-cm'].code",
+      "ccem_model": "ServiceLine",
+      "ccem_field": "diagnosis_codes",
+      "required": true,
+      "cardinality": "1..*",
+      "notes": "ICD-10-CM codes resolved via Claim.diagnosis[].sequence linkage"
+    },
+    {
+      "id": "service_line.quantity",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.item[n].quantity.value",
+      "ccem_model": "ServiceLine",
+      "ccem_field": "quantity",
+      "required": false,
+      "cardinality": "0..1"
+    },
+    {
+      "id": "service_line.units",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.item[n].quantity.unit",
+      "ccem_model": "ServiceLine",
+      "ccem_field": "units",
+      "required": false,
+      "cardinality": "0..1"
+    },
+    {
+      "id": "service_line.requested_start_date",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.item[n].servicedPeriod.start",
+      "ccem_model": "ServiceLine",
+      "ccem_field": "requested_start_date",
+      "required": false,
+      "cardinality": "0..1"
+    },
+    {
+      "id": "service_line.requested_end_date",
+      "fhir_resource": "Claim",
+      "fhir_path": "Claim.item[n].servicedPeriod.end",
+      "ccem_model": "ServiceLine",
+      "ccem_field": "requested_end_date",
+      "required": false,
+      "cardinality": "0..1"
+    }
+  ]
+}

@@ -109,3 +109,25 @@ jobs:
           cache: maven
       - run: mvn -f platform/libs/tenant-context/java/pom.xml -B test
       - run: mvn -f platform/libs/authz-client/java/pom.xml -B test
+
+  enstellar-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { python-version: '3.12' }
+      - run: uv sync --all-packages --all-groups
+      - run: bash scripts/check-no-rewire.sh
+      - run: uv run pytest services/enstellar-packages/canonical-model services/enstellar-packages/event-contracts services/enstellar-packages/authz -q
+      - run: uv run pytest services/enstellar-connectors -q -m "not integration"
+      - run: uv run pytest services/enstellar-workflow -q
+      - run: uv run pytest services/enstellar-portal-bff -q
+      - run: uv run pytest services/enstellar-agent-layer/tests -q
+
+  enstellar-interop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21', cache: gradle }
+      - run: cd services/enstellar-interop && ./gradlew test --console=plain

@@ -1,0 +1,53 @@
+[project]
+name = "enstellar-workflow"
+version = "0.1.0"
+description = "Enstellar workflow engine — deterministic case state machine"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.29",
+    "aiokafka>=0.11",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.3",
+    "alembic>=1.13",
+    "sqlalchemy[asyncio]>=2.0",
+    "enstellar-events",
+    "canonical-model",
+    "enstellar-authz",
+    "enstellar-connectors",
+    "minio>=7.2",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    # Sync DBAPI for Alembic migrations (run at container start via docker-entrypoint.sh);
+    # the app itself uses asyncpg. Must be a runtime dep so the --no-dev image includes it.
+    "psycopg2-binary>=2.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "testcontainers[postgres]>=4.7",
+    "testcontainers[kafka]>=4.7",
+    "testcontainers[minio]>=4.7",
+    "httpx>=0.27",
+    "hypothesis>=6.100",
+]
+
+[tool.uv.sources]
+enstellar-events = { workspace = true }
+canonical-model = { workspace = true }
+enstellar-authz = { workspace = true }
+enstellar-connectors = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["enstellar_workflow"]

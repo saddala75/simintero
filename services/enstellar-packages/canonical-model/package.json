@@ -1,0 +1,18 @@
+{
+  "name": "@enstellar/canonical-model",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "codegen": "python3 codegen/generate.py"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "^15.0.0",
+    "vitest": "^1.6.0",
+    "typescript": "^5.4.0"
+  },
+  "vitest": {
+    "include": ["tests/typescript/**/*.test.ts"]
+  }
+}

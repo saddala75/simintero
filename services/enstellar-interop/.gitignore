@@ -1,0 +1,5 @@
+# Gradle build output (not tracked in the monorepo)
+build/
+.gradle/
+*/build/
+*/.gradle/
