@@ -678,6 +678,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "simintero-contracts" },
     { name = "simintero-outbox" },
+    { name = "simintero-tenant-context" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -706,6 +707,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.3" },
     { name = "simintero-contracts", editable = "contracts" },
     { name = "simintero-outbox", editable = "platform/libs/outbox/py" },
+    { name = "simintero-tenant-context", editable = "platform/libs/tenant-context/py" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
