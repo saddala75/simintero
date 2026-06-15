@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from enstellar_authz import AuthedRequest
+from ..auth import AuthedRequest
 from pydantic import BaseModel
 
 from canonical_model import Case

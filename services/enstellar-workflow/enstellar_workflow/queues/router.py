@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from enstellar_authz import AuthedRequest
+from ..auth import AuthedRequest
 from enstellar_workflow.db.connection import get_pool
 from simintero_tenant_context import tenant_transaction
 

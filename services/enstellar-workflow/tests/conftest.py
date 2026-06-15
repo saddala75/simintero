@@ -1,48 +1,42 @@
 """Testcontainers fixtures for PostgreSQL + Redpanda."""
 import os
-import time
 
 import asyncpg
+import httpx
 import pytest
 import pytest_asyncio
+import respx
 from fastapi import Request
 from testcontainers.postgres import PostgresContainer
 from testcontainers.kafka import RedpandaContainer
 
-from enstellar_authz import require_auth
-from enstellar_authz.context import TenantContext, set_tenant_context
-from enstellar_authz.exceptions import AuthError
-from enstellar_authz.models import TokenClaims
+from simintero_authz import AuthError
+from simintero_tenant_context import TenantContext, set_context
+
+from enstellar_workflow.auth import require_auth
 
 
-class _FakeJWTValidator:
-    """Test-only JWT validator — treats the raw token string as the tenant_id."""
+async def _fake_require_auth(request: Request):
+    """Test replacement for the simintero-authz require_auth dependency.
 
-    _audience = "test"
-
-    async def validate(self, token: str) -> TokenClaims:
-        now = int(time.time())
-        return TokenClaims(
-            sub="test-user",
-            iss="test-issuer",
-            exp=now + 3600,
-            iat=now,
-            aud="test",
-            tenant_id=token,
-        )
-
-
-async def _fake_require_auth(request: Request) -> TenantContext:
-    """Test replacement for require_auth — reads 'Bearer <tenant_id>' from Authorization."""
+    Reads 'Bearer <tenant_id>' from the Authorization header, builds a platform
+    TenantContext, sets it as the current context (so get_context() works inside
+    handlers / the OPA gate) and returns the (ctx, token) tuple the real
+    dependency yields.
+    """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         raise AuthError("Missing Authorization header")
-    tenant_id = auth_header[len("Bearer "):]
-    if not tenant_id:
+    token = auth_header[len("Bearer "):]
+    if not token:
         raise AuthError("Empty token")
-    ctx = TenantContext(tenant_id=tenant_id, subject="test-user", scopes=frozenset())
-    set_tenant_context(ctx)
-    return ctx
+    ctx = TenantContext(
+        tenant_id=token,
+        roles=["reviewer"],
+        principal_type="human",
+    )
+    set_context(ctx)
+    return ctx, token
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -52,6 +46,27 @@ def _install_fake_auth() -> None:
     app.dependency_overrides[require_auth] = _fake_require_auth
     yield
     app.dependency_overrides.pop(require_auth, None)
+
+
+# OPA URL the workflow engine calls by default (config opa_url default).
+OPA_ALLOW_URL_RE = r".*/v1/data/sim/guards/adverse_action/allow"
+
+
+@pytest.fixture(autouse=True)
+def opa_mock():
+    """Mock the authoritative OPA adverse-action gate (respx).
+
+    Defaults to allow (result=true) so existing adverse-with-signoff tests pass.
+    Tests can flip it to deny with:
+        opa_mock.mock(return_value=httpx.Response(200, json={"result": False}))
+    All non-OPA HTTP requests pass through untouched (ASGI app traffic does not
+    use httpcore, so it is never intercepted).
+    """
+    with respx.mock(assert_all_called=False) as router:
+        route = router.route(method="POST", url__regex=OPA_ALLOW_URL_RE)
+        route.mock(return_value=httpx.Response(200, json={"result": True}))
+        router.route().pass_through()
+        yield route
 
 
 @pytest.fixture(scope="session")

@@ -676,6 +676,7 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "simintero-authz" },
     { name = "simintero-contracts" },
     { name = "simintero-outbox" },
     { name = "simintero-tenant-context" },
@@ -689,6 +690,7 @@ dev = [
     { name = "hypothesis" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "respx" },
     { name = "testcontainers", extra = ["minio"] },
 ]
 
@@ -705,6 +707,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.3" },
+    { name = "simintero-authz", editable = "platform/libs/authz-client/py" },
     { name = "simintero-contracts", editable = "contracts" },
     { name = "simintero-outbox", editable = "platform/libs/outbox/py" },
     { name = "simintero-tenant-context", editable = "platform/libs/tenant-context/py" },
@@ -718,6 +721,7 @@ dev = [
     { name = "hypothesis", specifier = ">=6.100" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
+    { name = "respx", specifier = ">=0.21" },
     { name = "testcontainers", extras = ["kafka"], specifier = ">=4.7" },
     { name = "testcontainers", extras = ["minio"], specifier = ">=4.7" },
     { name = "testcontainers", extras = ["postgres"], specifier = ">=4.7" },

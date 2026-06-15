@@ -14,7 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from enstellar_authz import AuthedRequest
+from ..auth import AuthedRequest
 from ..db.connection import get_pool
 from simintero_tenant_context import tenant_transaction
 

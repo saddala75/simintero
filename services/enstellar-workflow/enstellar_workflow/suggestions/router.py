@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from enstellar_authz import AuthedRequest
+from ..auth import AuthedRequest
 from simintero_outbox import SchemaRef, make_envelope
 from ..db.connection import get_pool
 from simintero_tenant_context import tenant_transaction

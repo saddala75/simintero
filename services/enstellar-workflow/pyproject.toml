@@ -13,6 +13,7 @@ dependencies = [
     "simintero-contracts",
     "simintero-outbox",
     "simintero-tenant-context",
+    "simintero-authz",
     "enstellar-authz",
     "enstellar-connectors",
     "minio>=7.2",
@@ -33,12 +34,14 @@ dev = [
     "testcontainers[minio]>=4.7",
     "httpx>=0.27",
     "hypothesis>=6.100",
+    "respx>=0.21",
 ]
 
 [tool.uv.sources]
 simintero-contracts = { workspace = true }
 simintero-outbox = { workspace = true }
 simintero-tenant-context = { workspace = true }
+simintero-authz = { workspace = true }
 enstellar-authz = { workspace = true }
 enstellar-connectors = { workspace = true }
 
