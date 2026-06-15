@@ -44,17 +44,23 @@ def _require_auth():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_valid_token_sets_context():
+async def test_valid_token_sets_and_clears_context():
     respx.get("https://kc/jwks").mock(return_value=httpx.Response(200, json=_JWKS))
     require_auth = _require_auth()
     token = _token({"sub": "u1", "iss": ISS, "aud": AUD, "exp": 9999999999,
                     "iat": 1, "tenant_id": "t_acme",
                     "realm_access": {"roles": ["medical_director"]}})
-    ctx, raw = await require_auth(_creds(token))
+    gen = require_auth(creds=_creds(token))
+    ctx, raw = await gen.__anext__()
     assert ctx.tenant_id == "t_acme"
     assert raw == token
-    assert get_context().tenant_id == "t_acme"
     assert ctx.roles == ["medical_director"]
+    # set during the request
+    assert get_context().tenant_id == "t_acme"
+    # FastAPI runs the teardown after the response -> context cleared
+    await gen.aclose()
+    with pytest.raises(RuntimeError):
+        get_context()
 
 
 @respx.mock
@@ -62,8 +68,9 @@ async def test_valid_token_sets_context():
 async def test_missing_creds_rejected():
     respx.get("https://kc/jwks").mock(return_value=httpx.Response(200, json=_JWKS))
     require_auth = _require_auth()
+    gen = require_auth(creds=None)
     with pytest.raises(AuthError):
-        await require_auth(None)
+        await gen.__anext__()
 
 
 @respx.mock
@@ -72,5 +79,6 @@ async def test_missing_tenant_id_rejected():
     respx.get("https://kc/jwks").mock(return_value=httpx.Response(200, json=_JWKS))
     require_auth = _require_auth()
     token = _token({"sub": "u1", "iss": ISS, "aud": AUD, "exp": 9999999999, "iat": 1})
+    gen = require_auth(creds=_creds(token))
     with pytest.raises(AuthError):
-        await require_auth(_creds(token))
+        await gen.__anext__()
