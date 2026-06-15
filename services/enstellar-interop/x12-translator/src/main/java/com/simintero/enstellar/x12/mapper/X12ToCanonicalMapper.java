@@ -61,6 +61,7 @@ public class X12ToCanonicalMapper {
                 null,                       // servicingProvider
                 serviceLines,
                 null,                       // decisions
+                null,                       // pins
                 now,
                 now
         );
