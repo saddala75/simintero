@@ -19,7 +19,8 @@ import uuid
 import asyncpg
 
 from enstellar_connectors.digicore.client import DigiCoreClient
-from enstellar_events import EventEnvelope, Topics
+from canonical_model import EventEnvelope
+from simintero_outbox import Topics
 
 from ..cases.repository import CaseRepository
 from ..engine.auto_determination import AutoDeterminator
@@ -37,7 +38,7 @@ class AutoDeterminationConsumer(IdempotentKafkaConsumer):
     def __init__(self, pool: asyncpg.Pool, digicore: DigiCoreClient) -> None:
         super().__init__(
             pool,
-            [Topics.CASE_STATE_TRANSITIONED],
+            [Topics.CASE_LIFECYCLE],
             group_id="workflow-engine-auto-determination",
         )
         self._repo = CaseRepository()
@@ -53,27 +54,30 @@ class AutoDeterminationConsumer(IdempotentKafkaConsumer):
         if to_state != _AUTO_DETERMINATION_STATE:
             return
 
-        if event.case_id is None:
+        tenant_id = event.tenant.tenant_id
+        case_id_raw = (event.payload or {}).get("case_id")
+        if case_id_raw is None:
             logger.error(
                 "auto_determination_consumer_missing_case_id",
                 extra={
-                    "tenant_id": event.tenant_id,
-                    "event_id": str(event.event_id),
+                    "tenant_id": tenant_id,
+                    "event_id": event.event_id,
                     "correlation_id": event.correlation_id,
                 },
             )
             return
+        case_id = uuid.UUID(str(case_id_raw))
 
         async with self._pool.acquire() as conn:
-            case = await self._repo.fetch_by_id(conn, event.case_id, event.tenant_id)
+            case = await self._repo.fetch_by_id(conn, case_id, tenant_id)
 
         if case is None:
             logger.error(
                 "auto_determination_consumer_case_not_found",
                 extra={
-                    "tenant_id": event.tenant_id,
-                    "case_id": str(event.case_id),
-                    "event_id": str(event.event_id),
+                    "tenant_id": tenant_id,
+                    "case_id": str(case_id),
+                    "event_id": event.event_id,
                 },
             )
             return
@@ -81,7 +85,7 @@ class AutoDeterminationConsumer(IdempotentKafkaConsumer):
         logger.info(
             "auto_determination_consumer_starting",
             extra={
-                "tenant_id": event.tenant_id,
+                "tenant_id": tenant_id,
                 "case_id": str(case.case_id),
                 "correlation_id": event.correlation_id,
             },
@@ -94,7 +98,7 @@ class AutoDeterminationConsumer(IdempotentKafkaConsumer):
         logger.info(
             "auto_determination_consumer_done",
             extra={
-                "tenant_id": event.tenant_id,
+                "tenant_id": tenant_id,
                 "case_id": str(case.case_id),
                 "to_status": updated.status.value,
             },

@@ -14,7 +14,7 @@ import uuid
 
 import asyncpg
 
-from enstellar_events import EventEnvelope
+from canonical_model import EventEnvelope
 from ..clocks.service import ClockService
 from ..db.connection import tenant_conn
 from ..engine.transitions import TransitionEngine
@@ -36,13 +36,12 @@ class RfiResponseConsumer:
         """Process one rfi.response.received event.
 
         Expected payload keys:
-          - case_id: UUID (also in event.case_id)
-          - tenant_id: str (also in event.tenant_id)
+          - case_id: UUID (in event.payload["case_id"])
           - provider_npi: str
           - document_types: list[str]
         """
-        case_id = event.case_id
-        tenant_id = event.tenant_id
+        tenant_id = event.tenant.tenant_id
+        case_id = uuid.UUID(str(event.payload["case_id"]))
 
         async with tenant_conn(self._pool, tenant_id) as conn:
             async with conn.transaction():

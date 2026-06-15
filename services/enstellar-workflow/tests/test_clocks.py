@@ -298,9 +298,10 @@ async def test_start_emits_clock_started_event_to_outbox(pg_pool: asyncpg.Pool):
         async with conn.transaction():
             await svc.start(conn, tenant_id=tid, case_id=cid, definition=defn)
             row = await conn.fetchrow(
-                "SELECT schema_ref FROM outbox WHERE tenant_id = $1 AND case_id = $2"
-                " ORDER BY created_at DESC LIMIT 1",
-                tid, cid,
+                "SELECT envelope->>'schema_ref' AS schema_ref FROM shared.outbox"
+                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+                " ORDER BY event_id DESC LIMIT 1",
+                tid, str(cid),
             )
 
     assert row is not None
@@ -323,9 +324,10 @@ async def test_pause_emits_clock_paused_event_to_outbox(pg_pool: asyncpg.Pool):
             await svc.start(conn, tenant_id=tid, case_id=cid, definition=defn)
             await svc.pause(conn, tenant_id=tid, case_id=cid, reason="rfi_sent")
             rows = await conn.fetch(
-                "SELECT schema_ref FROM outbox WHERE tenant_id = $1 AND case_id = $2"
-                " ORDER BY created_at",
-                tid, cid,
+                "SELECT envelope->>'schema_ref' AS schema_ref FROM shared.outbox"
+                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+                " ORDER BY event_id",
+                tid, str(cid),
             )
 
     schema_refs = [r["schema_ref"] for r in rows]
@@ -349,9 +351,10 @@ async def test_resume_emits_clock_resumed_event(pg_pool: asyncpg.Pool):
             await svc.pause(conn, tenant_id=tid, case_id=cid)
             await svc.resume(conn, tenant_id=tid, case_id=cid)
             rows = await conn.fetch(
-                "SELECT schema_ref FROM outbox WHERE tenant_id = $1 AND case_id = $2"
-                " ORDER BY created_at",
-                tid, cid,
+                "SELECT envelope->>'schema_ref' AS schema_ref FROM shared.outbox"
+                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+                " ORDER BY event_id",
+                tid, str(cid),
             )
 
     schema_refs = [r["schema_ref"] for r in rows]
@@ -458,10 +461,11 @@ async def test_check_breach_publishes_clock_breached_event(pg_pool: asyncpg.Pool
             )
             await svc.check_breach(conn, tenant_id=tid, case_id=cid)
             row = await conn.fetchrow(
-                "SELECT schema_ref FROM outbox WHERE tenant_id = $1 AND case_id = $2"
-                " ORDER BY created_at DESC LIMIT 1",
+                "SELECT envelope->>'schema_ref' AS schema_ref FROM shared.outbox"
+                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+                " ORDER BY event_id DESC LIMIT 1",
                 tid,
-                cid,
+                str(cid),
             )
 
     assert row is not None

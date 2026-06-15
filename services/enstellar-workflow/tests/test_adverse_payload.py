@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from enstellar_events import SchemaRef
+from simintero_outbox import SchemaRef
 from enstellar_workflow.engine.transitions import TransitionEngine, TransitionRequest
 
 
@@ -28,7 +28,7 @@ def _make_req(to_state: str, payload: dict) -> TransitionRequest:
         tenant_id="t1",
         to_state=to_state,
         actor_id="dr-001",
-        actor_type="clinician",
+        actor_type="user",
         correlation_id=str(uuid.uuid4()),
         payload=payload,
         human_signoff_recorded=True,
@@ -88,7 +88,7 @@ async def test_structured_event_payload_fields():
     assert ev.payload["reason_codes"] == ["M54.5", "M51.16"]
     assert ev.payload["citations"] == ["Policy §4.2.1"]
     assert ev.payload["finding_sections"][0]["criterion_id"] == "C-02"
-    assert ev.tenant_id == "t1"
+    assert ev.tenant.tenant_id == "t1"
 
 
 @pytest.mark.asyncio

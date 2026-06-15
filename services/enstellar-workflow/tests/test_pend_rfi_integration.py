@@ -88,13 +88,14 @@ async def test_pend_rfi_transitions_and_pauses_clock(
 
         event = await conn.fetchrow(
             """
-            SELECT payload FROM outbox
-             WHERE tenant_id = $1 AND case_id = $2
-               AND schema_ref = 'sim.case.lifecycle/RFIDispatched/v1'
-             ORDER BY created_at DESC LIMIT 1
+            SELECT envelope FROM shared.outbox
+             WHERE tenant_id = $1
+               AND envelope->'payload'->>'case_id' = $2
+               AND envelope->>'schema_ref' = 'sim.case.lifecycle/RFIDispatched/v1'
+             ORDER BY event_id DESC LIMIT 1
             """,
             case.tenant_id,
-            case.case_id,
+            str(case.case_id),
         )
         assert event is not None, "RFIDispatched outbox event not found"
 

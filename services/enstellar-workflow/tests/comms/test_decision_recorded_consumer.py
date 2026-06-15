@@ -1,10 +1,7 @@
-import asyncio
+import json
 import uuid
 import pytest
-from datetime import datetime, timezone
-from enstellar_events.envelope import EventEnvelope, Actor
-from enstellar_events.codec import encode
-from enstellar_events.topics import SchemaRef
+from simintero_outbox import SchemaRef, make_envelope
 
 
 @pytest.mark.asyncio
@@ -30,17 +27,23 @@ async def test_approved_decision_triggers_notification(pg_pool, kafka_bootstrap)
     service = NotificationService(publisher)
     consumer = DecisionRecordedConsumer(pg_pool, service)
 
-    event = EventEnvelope(
-        event_id=uuid.uuid4(), tenant_id=tenant_id, case_id=uuid.UUID(case_id),
-        correlation_id=str(uuid.uuid4()), schema_ref=SchemaRef.DECISION_RECORDED,
-        occurred_at=datetime.now(timezone.utc),
-        actor=Actor(id="system", type="system"),
-        payload={"outcome": "approved", "rule_artifact_id": "ra-001", "rule_version": "1.0"},
+    event = make_envelope(
+        SchemaRef.DECISION_RECORDED,
+        tenant_id=tenant_id,
+        actor_id="system",
+        actor_type="system",
+        correlation_id=str(uuid.uuid4()),
+        payload={
+            "case_id": case_id,
+            "outcome": "approved",
+            "rule_artifact_id": "ra-001",
+            "rule_version": "1.0",
+        },
     )
 
     producer = AIOKafkaProducer(bootstrap_servers=kafka_bootstrap)
     await producer.start()
-    await producer.send_and_wait("sim.case.lifecycle", encode(event))
+    await producer.send_and_wait("sim.case.lifecycle", event.model_dump_json().encode("utf-8"))
     await producer.stop()
 
     # Process the event directly (call handle() without the full consumer loop)
@@ -67,12 +70,13 @@ async def test_non_terminal_outcome_skipped(pg_pool, kafka_bootstrap):
     service = NotificationService(publisher)
     consumer = DecisionRecordedConsumer(pg_pool, service)
 
-    event = EventEnvelope(
-        event_id=uuid.uuid4(), tenant_id=tenant_id, case_id=uuid.UUID(case_id),
-        correlation_id=str(uuid.uuid4()), schema_ref=SchemaRef.DECISION_RECORDED,
-        occurred_at=datetime.now(timezone.utc),
-        actor=Actor(id="system", type="system"),
-        payload={"outcome": "pending"},
+    event = make_envelope(
+        SchemaRef.DECISION_RECORDED,
+        tenant_id=tenant_id,
+        actor_id="system",
+        actor_type="system",
+        correlation_id=str(uuid.uuid4()),
+        payload={"case_id": case_id, "outcome": "pending"},
     )
 
     # Call handle() directly — pending outcome should be skipped

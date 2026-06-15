@@ -32,8 +32,9 @@ async def test_create_case_emits_intake_outbox_event(pg_pool: asyncpg.Pool):
 
     async with pg_pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT schema_ref, tenant_id FROM outbox WHERE case_id = $1",
-            case.case_id,
+            "SELECT envelope->>'schema_ref' AS schema_ref, tenant_id FROM shared.outbox "
+            "WHERE envelope->'payload'->>'case_id' = $1",
+            str(case.case_id),
         )
 
     assert row is not None
@@ -68,8 +69,9 @@ async def test_create_case_idempotent_no_duplicate_outbox_event(pg_pool: asyncpg
 
     async with pg_pool.acquire() as conn:
         count = await conn.fetchval(
-            "SELECT COUNT(*) FROM outbox WHERE correlation_id = $1 "
-            "AND schema_ref = 'sim.case.lifecycle/CaseIntakeReceived/v1'",
+            "SELECT COUNT(*) FROM shared.outbox "
+            "WHERE envelope->>'correlation_id' = $1 "
+            "AND envelope->>'schema_ref' = 'sim.case.lifecycle/CaseIntakeReceived/v1'",
             correlation_id,
         )
 

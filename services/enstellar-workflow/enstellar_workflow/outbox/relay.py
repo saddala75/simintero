@@ -1,11 +1,16 @@
-"""OutboxRelay — polls the outbox table and publishes unpublished events to Kafka."""
+"""OutboxRelay — polls shared.outbox and publishes unpublished events to Kafka.
+
+The relay reads rows for EVERY tenant, so it must bypass the RLS tenant_isolation
+policy on shared.outbox. It does so by SET ROLE'ing to the BYPASSRLS `sim_relay`
+role (created by migration 0011) on each acquired connection. The Kafka payload is
+the stored envelope jsonb published verbatim to the row's topic.
+"""
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 import asyncpg
 
-from enstellar_events import EventEnvelope, Actor, ActorType
-from .models import OutboxEntry
 from ..config import get_settings
 from ..kafka.producer import KafkaProducer
 
@@ -33,48 +38,46 @@ class OutboxRelay:
     async def stop(self) -> None:
         self._running = False
 
-    async def _relay_batch(self, batch_size: int) -> int:
+    @asynccontextmanager
+    async def _relay_conn(self):
+        """Acquire a connection with the BYPASSRLS relay role set (if configured)."""
+        role = get_settings().relay_db_role
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT id, event_id, tenant_id, case_id, schema_ref, payload,
-                       occurred_at, correlation_id, actor_id, actor_type,
-                       causation_id, trace_ref
-                FROM outbox
-                WHERE published_at IS NULL
-                ORDER BY id ASC
-                LIMIT $1
-                """,
-                batch_size,
-            )
+            if role:
+                await conn.execute(f'SET ROLE "{role}"')
+            try:
+                yield conn
+            finally:
+                if role:
+                    await conn.execute("RESET ROLE")
 
+    async def _relay_batch(self, batch_size: int) -> int:
         count = 0
-        for row in rows:
-            event = _row_to_envelope(row)
-            topic = event.type  # Kafka topic derived from schema_ref
-            await self._producer.send(topic, event)
-
-            async with self._pool.acquire() as conn:
-                await conn.execute(
-                    "UPDATE outbox SET published_at = now() WHERE id = $1",
-                    row["id"],
+        async with self._relay_conn() as conn:
+            async with conn.transaction():
+                rows = await conn.fetch(
+                    """
+                    SELECT event_id, topic, key, envelope
+                    FROM shared.outbox
+                    WHERE published_at IS NULL
+                    ORDER BY event_id ASC
+                    LIMIT $1
+                    FOR UPDATE SKIP LOCKED
+                    """,
+                    batch_size,
                 )
-            count += 1
+
+                for row in rows:
+                    envelope = row["envelope"]
+                    if isinstance(envelope, str):
+                        import json as _json
+
+                        envelope = _json.loads(envelope)
+                    await self._producer.send(row["topic"], envelope, key=row["key"])
+                    await conn.execute(
+                        "UPDATE shared.outbox SET published_at = now() WHERE event_id = $1",
+                        row["event_id"],
+                    )
+                    count += 1
 
         return count
-
-
-def _row_to_envelope(row: asyncpg.Record) -> EventEnvelope:
-    import json as _json
-    return EventEnvelope(
-        event_id=row["event_id"],
-        tenant_id=row["tenant_id"],
-        case_id=row["case_id"],
-        correlation_id=row["correlation_id"],
-        schema_ref=row["schema_ref"],
-        causation_id=row["causation_id"],
-        trace_ref=row["trace_ref"],
-        occurred_at=row["occurred_at"],
-        actor=Actor(id=row["actor_id"], type=ActorType(row["actor_type"])),
-        payload=_json.loads(row["payload"]) if isinstance(row["payload"], str) else row["payload"],
-    )

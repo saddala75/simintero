@@ -1,18 +1,15 @@
-"""Dataclasses for outbox rows (not ORM — we use asyncpg raw queries for performance)."""
-import uuid
+"""Dataclasses for shared.outbox rows (not ORM — asyncpg raw queries)."""
 from dataclasses import dataclass
 from datetime import datetime
 
 
 @dataclass
-class OutboxEntry:
-    event_id: uuid.UUID
+class OutboxRow:
+    """A single shared.outbox row (the relay reads the envelope jsonb directly)."""
+
+    event_id: str
+    topic: str
+    key: str | None
+    envelope: dict
     tenant_id: str
-    case_id: uuid.UUID | None
-    type: str
-    payload: dict
-    schema_version: str
-    occurred_at: datetime
-    correlation_id: str
-    actor_id: str
-    actor_type: str
+    published_at: datetime | None = None

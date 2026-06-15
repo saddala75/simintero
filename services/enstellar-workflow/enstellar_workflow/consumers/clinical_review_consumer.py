@@ -13,13 +13,12 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
 
 import asyncpg
 import httpx
 
-from canonical_model import Case
-from enstellar_events import Actor, ActorType, EventEnvelope, SchemaRef, Topics
+from canonical_model import Case, EventEnvelope
+from simintero_outbox import SchemaRef, Topics, make_envelope
 
 from ..cases.repository import CaseRepository
 from ..config import get_settings
@@ -31,6 +30,12 @@ from ..suggestions.repository import SuggestionsRepository
 logger = logging.getLogger(__name__)
 
 _CLINICAL_REVIEW_STATE = "clinical_review"
+
+
+def _lob(case: Case) -> str | None:
+    from ..outbox.publisher import lob_for_envelope
+
+    return lob_for_envelope(case.lob)
 
 
 def _build_agent_input(case: Case, correlation_id: str) -> dict:
@@ -98,27 +103,30 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
         if to_state != _CLINICAL_REVIEW_STATE:
             return
 
-        if event.case_id is None:
+        tenant_id = event.tenant.tenant_id
+        case_id_raw = (event.payload or {}).get("case_id")
+        if case_id_raw is None:
             logger.error(
                 "clinical_review_consumer_missing_case_id",
                 extra={
-                    "tenant_id": event.tenant_id,
-                    "event_id": str(event.event_id),
+                    "tenant_id": tenant_id,
+                    "event_id": event.event_id,
                     "correlation_id": event.correlation_id,
                 },
             )
             return
+        case_id = uuid.UUID(str(case_id_raw))
 
         async with self._pool.acquire() as conn:
-            case = await self._case_repo.fetch_by_id(conn, event.case_id, event.tenant_id)
+            case = await self._case_repo.fetch_by_id(conn, case_id, tenant_id)
 
         if case is None:
             logger.error(
                 "clinical_review_consumer_case_not_found",
                 extra={
-                    "tenant_id": event.tenant_id,
-                    "case_id": str(event.case_id),
-                    "event_id": str(event.event_id),
+                    "tenant_id": tenant_id,
+                    "case_id": str(case_id),
+                    "event_id": event.event_id,
                 },
             )
             return
@@ -207,17 +215,16 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             for gap in gaps
         ]
 
-        occurred_at = datetime.now(timezone.utc)
         provenance = output.get("provenance") or {}
-        event = EventEnvelope(
-            event_id=uuid.uuid4(),
+        event = make_envelope(
+            SchemaRef.AGENT_ASSIST_PRODUCED,
             tenant_id=case.tenant_id,
-            case_id=case.case_id,
+            actor_id=output.get("agent_id", "completeness-v1"),
+            actor_type="service",
             correlation_id=correlation_id,
-            schema_ref=SchemaRef.AGENT_ASSIST_PRODUCED,
-            occurred_at=occurred_at,
-            actor=Actor(id=output.get("agent_id", "completeness-v1"), type=ActorType.SERVICE),
+            lob=_lob(case),
             payload={
+                "case_id": str(case.case_id),
                 "agent_id": output.get("agent_id", "completeness-v1"),
                 "confidence": output.get("confidence"),
                 "citations": output.get("citations", []),
@@ -307,17 +314,16 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             "citations": output.get("citations", []),
         }
 
-        occurred_at = datetime.now(timezone.utc)
         provenance = output.get("provenance") or {}
-        event = EventEnvelope(
-            event_id=uuid.uuid4(),
+        event = make_envelope(
+            SchemaRef.AGENT_ASSIST_PRODUCED,
             tenant_id=case.tenant_id,
-            case_id=case.case_id,
+            actor_id=output.get("agent_id", "triage-v1"),
+            actor_type="service",
             correlation_id=correlation_id,
-            schema_ref=SchemaRef.AGENT_ASSIST_PRODUCED,
-            occurred_at=occurred_at,
-            actor=Actor(id=output.get("agent_id", "triage-v1"), type=ActorType.SERVICE),
+            lob=_lob(case),
             payload={
+                "case_id": str(case.case_id),
                 "agent_id": output.get("agent_id", "triage-v1"),
                 "confidence": output.get("confidence"),
                 "citations": output.get("citations", []),
@@ -352,15 +358,15 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
         correlation_id: str,
     ) -> None:
         """Write an AGENT_ASSIST_FAILED outbox event in its own transaction."""
-        event = EventEnvelope(
-            event_id=uuid.uuid4(),
+        event = make_envelope(
+            SchemaRef.AGENT_ASSIST_FAILED,
             tenant_id=case.tenant_id,
-            case_id=case.case_id,
+            actor_id=agent_id,
+            actor_type="service",
             correlation_id=correlation_id,
-            schema_ref=SchemaRef.AGENT_ASSIST_FAILED,
-            occurred_at=datetime.now(timezone.utc),
-            actor=Actor(id=agent_id, type=ActorType.SERVICE),
+            lob=_lob(case),
             payload={
+                "case_id": str(case.case_id),
                 "agent_id": agent_id,
                 "reason": reason,
             },

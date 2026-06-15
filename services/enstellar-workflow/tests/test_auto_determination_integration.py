@@ -18,8 +18,9 @@ from canonical_model.decision import Outcome
 from enstellar_connectors import CircuitOpenError
 from enstellar_connectors.digicore.client import DigiCoreClient
 from enstellar_connectors.digicore.models import DecisionResponse, StructuredTrace
-from enstellar_events import SchemaRef
+from simintero_outbox import SchemaRef
 from enstellar_workflow.cases.repository import CaseRepository
+from enstellar_workflow.db.connection import tenant_conn
 from enstellar_workflow.cases.service import CaseService
 from enstellar_workflow.engine.auto_determination import AutoDeterminator
 from enstellar_workflow.engine.transitions import TransitionEngine
@@ -147,17 +148,20 @@ async def test_approve_path_emits_decision_recorded_outbox_event(pg_pool: asyncp
         async with conn.transaction():
             await auto.run(conn, case, f"corr-{uuid.uuid4()}")
 
-    async with pg_pool.acquire() as conn:
+    async with tenant_conn(pg_pool, case.tenant_id) as conn:
         row = await conn.fetchrow(
-            "SELECT payload FROM outbox WHERE case_id = $1 AND schema_ref = $2",
-            case.case_id,
+            "SELECT envelope FROM shared.outbox"
+            " WHERE envelope->'payload'->>'case_id' = $1"
+            "   AND envelope->>'schema_ref' = $2",
+            str(case.case_id),
             SchemaRef.DECISION_RECORDED,
         )
 
     assert row is not None
-    payload = row["payload"]
-    if isinstance(payload, str):
-        payload = json.loads(payload)
+    envelope = row["envelope"]
+    if isinstance(envelope, str):
+        envelope = json.loads(envelope)
+    payload = envelope["payload"]
     assert payload["outcome"] == "approved"
     assert payload["auto_approved"] is True
     assert payload["rule_artifact_id"] == _ARTIFACT

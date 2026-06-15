@@ -21,6 +21,7 @@ async def test_dispatch_rfi_returns_request_id(pg_pool: asyncpg.Pool):
     """dispatch_rfi returns the request_id embedded in the RfiRequest."""
     from enstellar_workflow.rfi.service import RfiRequest, RfiService
     from enstellar_workflow.outbox.publisher import OutboxPublisher
+    from enstellar_workflow.db.connection import tenant_conn
 
     svc = RfiService(OutboxPublisher())
     req = RfiRequest(
@@ -29,7 +30,7 @@ async def test_dispatch_rfi_returns_request_id(pg_pool: asyncpg.Pool):
         provider_npi="1234567890",
         document_types=["clinical_notes", "lab_results"],
     )
-    async with pg_pool.acquire() as conn:
+    async with tenant_conn(pg_pool, "tenant-rfi1") as conn:
         async with conn.transaction():
             rid = await svc.dispatch_rfi(conn, req)
 
@@ -37,9 +38,10 @@ async def test_dispatch_rfi_returns_request_id(pg_pool: asyncpg.Pool):
 
 
 async def test_dispatch_rfi_writes_outbox_event(pg_pool: asyncpg.Pool):
-    """dispatch_rfi writes an rfi.dispatched row to the outbox with correct payload."""
+    """dispatch_rfi writes an rfi.dispatched row to shared.outbox with correct payload."""
     from enstellar_workflow.rfi.service import RfiRequest, RfiService
     from enstellar_workflow.outbox.publisher import OutboxPublisher
+    from enstellar_workflow.db.connection import tenant_conn
 
     svc = RfiService(OutboxPublisher())
     tid = f"tenant-rfi2-{uuid.uuid4()}"
@@ -51,20 +53,22 @@ async def test_dispatch_rfi_writes_outbox_event(pg_pool: asyncpg.Pool):
         document_types=["imaging"],
         free_text="Please send CT scan report",
     )
-    async with pg_pool.acquire() as conn:
+    async with tenant_conn(pg_pool, tid) as conn:
         async with conn.transaction():
             await svc.dispatch_rfi(conn, req)
             row = await conn.fetchrow(
-                "SELECT schema_ref, payload FROM outbox"
-                " WHERE tenant_id = $1 AND case_id = $2"
-                " ORDER BY created_at DESC LIMIT 1",
+                "SELECT topic, envelope FROM shared.outbox"
+                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+                " ORDER BY event_id DESC LIMIT 1",
                 tid,
-                cid,
+                str(cid),
             )
 
     assert row is not None
-    assert row["schema_ref"] == "sim.case.lifecycle/RFIDispatched/v1"
-    payload = json.loads(row["payload"]) if isinstance(row["payload"], str) else row["payload"]
+    assert row["topic"] == "sim.case.lifecycle"
+    envelope = json.loads(row["envelope"]) if isinstance(row["envelope"], str) else row["envelope"]
+    assert envelope["schema_ref"] == "sim.case.lifecycle/RFIDispatched/v1"
+    payload = envelope["payload"]
     assert payload["provider_npi"] == "9876543210"
     assert "imaging" in payload["document_types"]
     assert payload["free_text"] == "Please send CT scan report"
@@ -113,13 +117,16 @@ async def test_pend_rfi_emits_rfi_dispatched_event(pg_pool: asyncpg.Pool):
         requested_by="reviewer2",
     )
 
-    async with pg_pool.acquire() as conn:
+    from enstellar_workflow.db.connection import tenant_conn
+
+    async with tenant_conn(pg_pool, created.tenant_id) as conn:
         row = await conn.fetchrow(
-            "SELECT schema_ref FROM outbox"
-            " WHERE tenant_id = $1 AND case_id = $2"
-            "   AND schema_ref = 'sim.case.lifecycle/RFIDispatched/v1'",
+            "SELECT event_id FROM shared.outbox"
+            " WHERE tenant_id = $1"
+            "   AND envelope->'payload'->>'case_id' = $2"
+            "   AND envelope->>'schema_ref' = 'sim.case.lifecycle/RFIDispatched/v1'",
             created.tenant_id,
-            result["case"].case_id,
+            str(result["case"].case_id),
         )
     assert row is not None
 
@@ -287,9 +294,7 @@ async def test_rfi_response_consumer_resumes_clock_and_transitions_to_clinical_r
     pg_pool: asyncpg.Pool,
 ):
     """RfiResponseConsumer: resumes clock and transitions case to clinical_review."""
-    import datetime as _dt
-
-    from enstellar_events import Actor, ActorType, EventEnvelope
+    from simintero_outbox import make_envelope
     from enstellar_workflow.consumers.rfi_response_consumer import RfiResponseConsumer
     from enstellar_workflow.cases.service import CaseService
 
@@ -312,15 +317,17 @@ async def test_rfi_response_consumer_resumes_clock_and_transitions_to_clinical_r
     )
 
     # Simulate rfi.response.received event
-    event = EventEnvelope(
-        event_id=uuid.uuid4(),
+    event = make_envelope(
+        "sim.case.lifecycle/RFIResponseReceived/v1",
         tenant_id=tid,
-        case_id=created.case_id,
+        actor_id="system",
+        actor_type="system",
         correlation_id=str(uuid.uuid4()),
-        schema_ref="sim.case.lifecycle/RFIResponseReceived/v1",
-        occurred_at=_dt.datetime.now(_dt.timezone.utc),
-        actor=Actor(id="system", type=ActorType.SYSTEM),
-        payload={"provider_npi": "1234567890", "document_types": ["chart_notes"]},
+        payload={
+            "case_id": str(created.case_id),
+            "provider_npi": "1234567890",
+            "document_types": ["chart_notes"],
+        },
     )
     await consumer.handle(event)
 

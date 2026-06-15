@@ -5,7 +5,6 @@ members = [
   "platform/libs/outbox/py",
   "platform/libs/authz-client/py",
   "platform/conformance-kit",
-  "services/enstellar-packages/event-contracts",
   "services/enstellar-packages/authz",
   "services/enstellar-connectors",
   "services/enstellar-workflow",
