@@ -1,0 +1,95 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: interop
+  datasource:
+    url: ${INTEROP_DB_URL:jdbc:postgresql://hapi-db:5432/hapi}
+    username: ${INTEROP_DB_USER:hapi}
+    password: ${INTEROP_DB_PASSWORD:hapi_secret}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8081/realms/enstellar/protocol/openid-connect/certs}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/enstellar}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: interop-decision-consumer
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+hapi:
+  fhir:
+    fhir-version: R4
+    rest:
+      server-address: http://localhost:8080/fhir
+
+enstellar:
+  security:
+    expected-audience: ${EXPECTED_AUDIENCE:enstellar-api}
+  fhir:
+    capability:
+      publisher: "Simintero Enstellar"
+      resources:
+        - type: Patient
+          profile: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient|5.0.1"
+          interactions: [read, search-type, create]
+        - type: Practitioner
+          profile: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-practitioner|5.0.1"
+          interactions: [read, search-type, create]
+        - type: Coverage
+          profile: "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-coverage-pas|2.0.1"
+          interactions: [read, search-type, create]
+        - type: Organization
+          profile: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization|5.0.1"
+          interactions: [read, search-type, create]
+        - type: DocumentReference
+          profile: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-documentreference|5.0.1"
+          interactions: [read, search-type, create]
+  pas:
+    normalization-url: ${NORMALIZATION_URL:http://localhost:8000}
+    minio:
+      endpoint: ${MINIO_ENDPOINT:localhost:9000}
+      access-key: ${MINIO_ACCESS_KEY:minioadmin}
+      secret-key: ${MINIO_SECRET_KEY:minioadmin}
+      secure: ${MINIO_SECURE:false}
+      bucket: ${MINIO_BUCKET:enstellar-raw-bundles}
+    kafka:
+      intake-topic: ${PAS_INTAKE_TOPIC:case.intake.received}
+  digicore:
+    base-url: ${DIGICORE_BASE_URL:http://mock-digicore:8000}
+
+interop:
+  hapi:
+    base-url: ${HAPI_BASE_URL:http://hapi:8080/fhir}
+    proxy-enabled: ${HAPI_PROXY_ENABLED:true}
+  conformance-test-mode: ${INTEROP_CONFORMANCE_TEST_MODE:false}
+  conformance-test-token: ${INTEROP_CONFORMANCE_TEST_TOKEN:conformance-test-token}
+
+logging:
+  level:
+    root: INFO
+    com.simintero.enstellar: DEBUG
+    ca.uhn.fhir: WARN

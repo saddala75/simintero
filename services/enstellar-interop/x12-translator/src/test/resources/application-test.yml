@@ -1,0 +1,9 @@
+minio:
+  endpoint: http://localhost:4566
+  access-key: test
+  secret-key: test
+  bucket: x12-raw-test
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
