@@ -8,13 +8,14 @@ from httpx import AsyncClient, ASGITransport, Response
 import enstellar_bff.auth as auth_module
 from enstellar_bff.main import app
 
-FIXED_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["reviewer"], "sub": "user-001"}
+from tests.conftest import make_principal
+
 CRD_BASE = "http://interop:8080/cds-services"
 
 
 @pytest.fixture(autouse=True)
 def bypass_auth():
-    app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+    app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal()
     yield
     app.dependency_overrides.clear()
 

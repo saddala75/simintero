@@ -6,8 +6,10 @@ class BffSettings(BaseSettings):
 
     workflow_engine_url: str = "http://workflow-engine:8000"
     keycloak_jwks_url: str = (
-        "http://keycloak:8180/realms/enstellar/protocol/openid-connect/certs"
+        "http://keycloak:8180/realms/simintero/protocol/openid-connect/certs"
     )
+    oidc_issuer: str = "http://keycloak:8180/realms/simintero"
+    oidc_audience: str | None = None
     fhir_api_url: str = "http://interop:8080/fhir"
     crd_api_url: str = "http://interop:8080/cds-services"
 

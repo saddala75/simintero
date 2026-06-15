@@ -12,8 +12,9 @@ router = APIRouter(prefix="/bff/crd", tags=["crd"])
 @router.post("/invoke", response_model=list[CrdCard])
 async def invoke(
     body: CrdHookRequest,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> list[CrdCard]:
+    ctx, _bearer = auth
     cds_request = {
         "hook": body.hook,
         "hookInstance": "sim-" + body.service_code,
@@ -24,7 +25,7 @@ async def invoke(
         },
     }
     try:
-        result = await crd_client.invoke(body.hook, cds_request, auth["tenant_id"])
+        result = await crd_client.invoke(body.hook, cds_request, ctx.tenant_id)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=502, detail="CRD upstream error") from exc
     return result.get("cards", [])

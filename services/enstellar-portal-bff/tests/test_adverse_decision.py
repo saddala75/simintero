@@ -16,15 +16,16 @@ from httpx import AsyncClient, ASGITransport, Response
 import enstellar_bff.auth as auth_module
 from enstellar_bff.main import app
 
+from tests.conftest import make_principal
+
 CASE_ID = "00000000-0000-0000-0000-000000000042"
 WF_BASE = "http://workflow-engine:8000"
-FIXED_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["reviewer"], "sub": "user-001"}
 
 
 @pytest.fixture(autouse=True)
 def bypass_auth():
     """Bypass JWT validation for all tests in this module; clear on teardown."""
-    app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+    app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal()
     yield
     app.dependency_overrides.clear()
 
@@ -171,7 +172,7 @@ async def test_adverse_decision_no_auth_returns_401() -> None:
             )
         assert r.status_code == 401
     finally:
-        app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+        app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal()
 
 
 async def test_adverse_decision_invalid_outcome_returns_422() -> None:

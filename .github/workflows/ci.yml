@@ -102,7 +102,6 @@ jobs:
       - run: uv sync --all-packages --all-groups
       - run: bash scripts/check-no-legacy-contracts.sh
       - run: uv run pytest platform/libs/outbox/py platform/libs/tenant-context/py platform/libs/authz-client/py platform/conformance-kit -q
-      - run: uv run pytest services/enstellar-packages/authz -q
       - run: uv run pytest services/enstellar-connectors -q -m "not integration"
       - run: uv run pytest services/enstellar-workflow -q
       - run: uv run pytest services/enstellar-portal-bff -q

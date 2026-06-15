@@ -17,25 +17,23 @@ from httpx import AsyncClient, ASGITransport, Response
 import enstellar_bff.auth as auth_module
 from enstellar_bff.main import app
 
+from tests.conftest import make_principal
+
 CASE_ID = "00000000-0000-0000-0000-000000000001"
 WF_BASE = "http://workflow-engine:8000"
-FIXED_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["reviewer"], "sub": "user-001"}
+FIXED_SUB = "user-001"
 
 
 @pytest.fixture(autouse=True)
 def bypass_auth():
     """Bypass JWT validation for all tests in this module."""
-    app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+    app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal(
+        sub=FIXED_SUB
+    )
     yield
     app.dependency_overrides.clear()
 
 
-@pytest.mark.xfail(
-    reason="Pre-existing upstream failure (KeyError 'bearer_token' in worklist router); "
-           "portal-bff auth/worklist is reworked under the platform x-sim-ctx contract in "
-           "Section C2. Quarantined to keep C1 green.",
-    strict=False,
-)
 @respx.mock
 async def test_post_rfi_proxies_and_returns_status() -> None:
     """POST /bff/cases/{id}/rfi returns 200 with status=pend_rfi."""
@@ -57,12 +55,6 @@ async def test_post_rfi_proxies_and_returns_status() -> None:
     assert resp.json()["status"] == "pend_rfi"
 
 
-@pytest.mark.xfail(
-    reason="Pre-existing upstream failure (KeyError 'bearer_token' in worklist router); "
-           "portal-bff auth/worklist is reworked under the platform x-sim-ctx contract in "
-           "Section C2. Quarantined to keep C1 green.",
-    strict=False,
-)
 @respx.mock
 async def test_post_rfi_provider_npi_from_case_not_body() -> None:
     """INVARIANT: BFF must fetch provider_npi from case, never accept from request body."""
@@ -88,12 +80,6 @@ async def test_post_rfi_provider_npi_from_case_not_body() -> None:
     )
 
 
-@pytest.mark.xfail(
-    reason="Pre-existing upstream failure (KeyError 'bearer_token' in worklist router); "
-           "portal-bff auth/worklist is reworked under the platform x-sim-ctx contract in "
-           "Section C2. Quarantined to keep C1 green.",
-    strict=False,
-)
 @respx.mock
 async def test_post_rfi_actor_id_from_auth_not_body() -> None:
     """INVARIANT: actor_id must come from auth['sub'], never be injectable via request body."""
@@ -114,9 +100,9 @@ async def test_post_rfi_actor_id_from_auth_not_body() -> None:
             json={"question": "Q", "requested_docs": []},
         )
 
-    # actor_id in the downstream call must match FIXED_PRINCIPAL["sub"]
-    assert captured["body"].get("actor_id") == FIXED_PRINCIPAL["sub"], (
-        f"actor_id must come from auth['sub'] ({FIXED_PRINCIPAL['sub']!r}), "
+    # actor_id in the downstream call must match the authenticated sub
+    assert captured["body"].get("actor_id") == FIXED_SUB, (
+        f"actor_id must come from auth['sub'] ({FIXED_SUB!r}), "
         f"got {captured['body'].get('actor_id')!r}"
     )
 
@@ -134,4 +120,6 @@ async def test_post_rfi_requires_auth() -> None:
             f"Expected 401 or 403 without auth, got {resp.status_code}"
         )
     finally:
-        app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+        app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal(
+            sub=FIXED_SUB
+        )

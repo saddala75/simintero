@@ -3,7 +3,7 @@ import asyncpg
 import pytest
 
 from simintero_outbox import SchemaRef, make_envelope
-from enstellar_workflow.db.connection import tenant_conn
+from simintero_tenant_context import tenant_transaction
 from enstellar_workflow.kafka.producer import KafkaProducer
 from enstellar_workflow.outbox.publisher import OutboxPublisher
 from enstellar_workflow.outbox.relay import OutboxRelay
@@ -40,9 +40,8 @@ async def test_relay_publishes_to_kafka_and_marks_published(
     async with pg_pool.acquire() as conn:
         await conn.execute("DELETE FROM shared.outbox WHERE published_at IS NULL")
 
-    async with tenant_conn(pg_pool, tenant_id) as conn:
-        async with conn.transaction():
-            await publisher.publish(conn, event)
+    async with tenant_transaction(pg_pool, tenant_id) as conn:
+        await publisher.publish(conn, event)
 
     relay = OutboxRelay(pg_pool, producer)
     published = await relay._relay_batch(10)

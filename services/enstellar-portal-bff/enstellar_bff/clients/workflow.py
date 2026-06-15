@@ -14,7 +14,14 @@ class WorkflowClient:
         )
 
     def _auth(self, bearer_token: str) -> dict[str, str]:
-        return {"Authorization": bearer_token}
+        # bearer_token is the raw JWT forwarded from the request; normalise to a
+        # full Authorization header value (idempotent if already prefixed).
+        value = (
+            bearer_token
+            if bearer_token.lower().startswith("bearer ")
+            else f"Bearer {bearer_token}"
+        )
+        return {"Authorization": value}
 
     async def get_case(self, case_id: str, bearer_token: str) -> dict:
         r = await self._http.get(

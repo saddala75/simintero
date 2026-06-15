@@ -40,4 +40,6 @@ class DecisionRecordedConsumer(IdempotentKafkaConsumer):
                     },
                     actor_id=event.actor.id,
                     actor_type=event.actor.type.value,
+                    correlation_id=event.correlation_id,
+                    causation_id=event.event_id,
                 )

@@ -12,9 +12,9 @@ from httpx import AsyncClient, ASGITransport, Response
 import enstellar_bff.auth as auth_module
 from enstellar_bff.main import app
 
+from tests.conftest import make_principal
+
 CASE_ID = "00000000-0000-0000-0000-000000000099"
-FIXED_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["reviewer"], "sub": "user-001"}
-NON_REVIEWER_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["admin"], "sub": "user-002"}
 
 
 def _case_payload(status: str = "clinical_review") -> dict:
@@ -33,17 +33,11 @@ def _case_payload(status: str = "clinical_review") -> dict:
 
 @pytest.fixture(autouse=True)
 def bypass_auth(monkeypatch):
-    app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+    app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal()
     yield
     app.dependency_overrides.clear()
 
 
-@pytest.mark.xfail(
-    reason="Pre-existing upstream failure (KeyError 'bearer_token' in worklist router); "
-           "portal-bff auth/worklist is reworked under the platform x-sim-ctx contract in "
-           "Section C2. Quarantined to keep C1 green.",
-    strict=False,
-)
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_case_returns_case_detail() -> None:
@@ -149,4 +143,4 @@ async def test_non_reviewer_role_returns_403(monkeypatch) -> None:
         assert r.status_code == 403
     finally:
         app.dependency_overrides.clear()
-        app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+        app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal()

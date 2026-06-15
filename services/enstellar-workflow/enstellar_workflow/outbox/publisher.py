@@ -32,6 +32,6 @@ class OutboxPublisher:
         """Append a platform EventEnvelope to shared.outbox in the caller's transaction.
 
         The caller MUST already be inside a transaction (and, for tenant-scoped
-        writes, inside a tenant_conn so the row passes RLS).
+        writes, inside a tenant_transaction so the row passes RLS).
         """
         await append_event(conn, event)

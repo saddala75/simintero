@@ -11,12 +11,14 @@ import sys
 from contextlib import asynccontextmanager
 
 import asyncpg
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
-from enstellar_authz import JWTValidator, validate_jwt_config
+from simintero_authz import AuthError, ForbiddenError
 from enstellar_connectors.digicore.client import DigiCoreClient
 from enstellar_workflow.api.router import router as cases_router
 from enstellar_workflow.api.worklist_router import router as worklist_router
+from enstellar_workflow.auth import jwt_validator
 from enstellar_workflow.config import get_settings
 from enstellar_workflow.consumers import AutoDeterminationConsumer, ClinicalReviewConsumer
 from enstellar_workflow.criteria.router import router as criteria_router
@@ -37,21 +39,27 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
 
-    # --- Auth ---
-    if settings.jwks_uri and settings.oidc_issuer:
-        jwt_validator = JWTValidator(
-            jwks_uri=settings.jwks_uri,
-            issuer=settings.oidc_issuer,
-            audience=settings.expected_audience,
+    # --- Auth (simintero-authz, realm `simintero`) ---
+    # The validator + require_auth dependency are constructed in
+    # enstellar_workflow.auth at import; expose the validator on app.state.
+    app.state.jwt_validator = jwt_validator
+
+    # Fail fast if JWT audience verification is disabled in a non-local deploy.
+    # When oidc_audience is None the validator does NOT enforce `aud`, so tokens
+    # minted for OTHER simintero-realm services would be accepted. Allow this
+    # only for local/test/dev where an audience is commonly unset.
+    if not settings.oidc_audience and settings.env not in ("local", "test", "dev"):
+        raise RuntimeError(
+            "WORKFLOW_OIDC_AUDIENCE (oidc_audience) is not set — JWT audience verification "
+            "would be disabled, accepting tokens minted for other simintero-realm services. "
+            "Set the expected audience, or run with env=local/test/dev."
         )
-        validate_jwt_config(jwt_validator)  # fails fast if audience not configured
-        app.state.jwt_validator = jwt_validator
-        logger.info("JWT validator configured (issuer=%s)", settings.oidc_issuer)
-    else:
-        logger.warning(
-            "WORKFLOW_JWKS_URI / WORKFLOW_OIDC_ISSUER not set — "
-            "JWT validation is disabled; set these in production"
-        )
+
+    logger.info(
+        "JWT validator configured (issuer=%s, opa_url=%s)",
+        settings.oidc_issuer,
+        settings.opa_url,
+    )
 
     # --- DB pool + consumers ---
     # Convert SQLAlchemy-style URL to plain asyncpg URL if needed.
@@ -97,6 +105,23 @@ app.include_router(criteria_router)
 app.include_router(suggestions_router)
 app.include_router(worklist_router)
 app.include_router(queues_router)
+
+
+# --- simintero-authz exception → HTTP status mapping -------------------------
+# simintero_authz raises plain exceptions (not HTTPException); translate them
+# into the canonical 401 / 403 responses.
+@app.exception_handler(AuthError)
+async def _auth_error_handler(request: Request, exc: AuthError) -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        content={"detail": str(exc) or "Unauthorized"},
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+@app.exception_handler(ForbiddenError)
+async def _forbidden_handler(request: Request, exc: ForbiddenError) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc) or "Forbidden"})
 
 
 @app.get("/health")

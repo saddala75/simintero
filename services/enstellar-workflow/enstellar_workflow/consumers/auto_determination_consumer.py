@@ -93,7 +93,9 @@ class AutoDeterminationConsumer(IdempotentKafkaConsumer):
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                updated = await self._auto.run(conn, case, event.correlation_id)
+                updated = await self._auto.run(
+                    conn, case, event.correlation_id, causation_id=event.event_id
+                )
 
         logger.info(
             "auto_determination_consumer_done",

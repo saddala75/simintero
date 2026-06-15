@@ -1,96 +1,104 @@
-"""Tests for require_reviewer dependency.
+"""Tests for the require_reviewer dependency (simintero-authz adoption).
 
 Scenarios:
-1. No Authorization header → 401 (HTTPBearer returns 401 when header absent in FastAPI >=0.111)
+1. No Authorization header → 401
 2. Expired token → 401
 3. Valid token but role is 'admin' (not 'reviewer') → 403
-4. Valid token but missing tenant_id claim → 403
-5. Valid token with reviewer role and tenant_id → 200, principal dict returned
+4. Valid token but missing tenant_id claim → 401
+5. Valid token with reviewer role and tenant_id → 200, context returned
+
+The require_reviewer dependency validates the Keycloak JWT via the singleton
+JWTValidator (realm ``simintero``). We patch the validator's JWKS fetch so no
+network call is made; the issuer is the one in BffSettings.oidc_issuer.
 """
 import pytest
+from fastapi import Depends, FastAPI
+from fastapi.responses import JSONResponse
+from httpx import ASGITransport, AsyncClient
+from simintero_authz import AuthError, ForbiddenError
+
 import enstellar_bff.auth as auth_module
-from httpx import AsyncClient, ASGITransport
-from fastapi import FastAPI, Depends
+from enstellar_bff.auth import BffContext, require_reviewer
 
-from enstellar_bff.auth import require_reviewer
-
-
-# Build a minimal app that exposes a single route protected by require_reviewer
+# Minimal app protected by the real require_reviewer dependency, wired with the
+# same AuthError/ForbiddenError → 401/403 handlers the BFF registers in main.py.
 _test_app = FastAPI()
 
 
+@_test_app.exception_handler(AuthError)
+async def _auth_error_handler(_, exc: AuthError) -> JSONResponse:
+    return JSONResponse(status_code=401, content={"detail": str(exc)})
+
+
+@_test_app.exception_handler(ForbiddenError)
+async def _forbidden_error_handler(_, exc: ForbiddenError) -> JSONResponse:
+    return JSONResponse(
+        status_code=getattr(exc, "status", 403), content={"detail": str(exc)}
+    )
+
+
 @_test_app.get("/protected")
-async def protected(principal: dict = Depends(require_reviewer)) -> dict:
-    return principal
+async def protected(auth: tuple = Depends(require_reviewer)) -> dict:
+    ctx, _bearer = auth
+    assert isinstance(ctx, BffContext)
+    return {"tenant_id": ctx.tenant_id, "roles": ctx.roles, "sub": ctx.sub}
+
+
+@pytest.fixture(autouse=True)
+def patch_jwks(monkeypatch, jwks):
+    """Serve the public JWKS from the singleton validator without a network call."""
+
+    async def _fake_fetch_jwks() -> dict:
+        return jwks
+
+    monkeypatch.setattr(auth_module.validator, "_fetch_jwks", _fake_fetch_jwks)
+    # Force a cache refresh on the next validate() call.
+    monkeypatch.setattr(auth_module.validator, "_cache_expires_at", 0.0)
 
 
 @pytest.fixture
-def client_factory(rsa_public_pem, monkeypatch):
-    """Returns an async context-manager factory that patches _load_jwks."""
-
-    async def _patched_load_jwks() -> dict:
-        # python-jose accepts PEM directly when passed as the key to jwt.decode
-        # but _load_jwks is expected to return a raw JWKS dict.
-        # We store the PEM string in cache under a sentinel key so that
-        # require_reviewer can pass it straight to jwt.decode.
-        return {"_pem": rsa_public_pem.decode()}
-
-    monkeypatch.setattr(auth_module, "_load_jwks", _patched_load_jwks)
-    # Also patch jwt.decode to accept PEM from our fake JWKS
-    original_decode = auth_module.jwt.decode
-
-    def _patched_decode(token, key, algorithms):
-        # key is the fake JWKS dict; extract PEM and decode
-        pem = key.get("_pem", key)
-        return original_decode(token, pem, algorithms=algorithms)
-
-    monkeypatch.setattr(auth_module.jwt, "decode", _patched_decode)
-
-    async def make_client():
-        return AsyncClient(transport=ASGITransport(app=_test_app), base_url="http://test")
-
-    return make_client
+def client():
+    return AsyncClient(transport=ASGITransport(app=_test_app), base_url="http://test")
 
 
 @pytest.mark.asyncio
-async def test_no_token_returns_401(client_factory) -> None:
-    async with await client_factory() as client:
-        r = await client.get("/protected")
-    assert r.status_code == 401  # FastAPI >=0.111 HTTPBearer returns 401 when header absent
-
-
-@pytest.mark.asyncio
-async def test_expired_token_returns_401(client_factory, make_token) -> None:
-    token = make_token(expired=True)
-    async with await client_factory() as client:
-        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+async def test_no_token_returns_401(client) -> None:
+    async with client as c:
+        r = await c.get("/protected")
     assert r.status_code == 401
-    assert "expired" in r.json()["detail"]
 
 
 @pytest.mark.asyncio
-async def test_wrong_role_returns_403(client_factory, make_token) -> None:
+async def test_expired_token_returns_401(client, make_token) -> None:
+    token = make_token(expired=True)
+    async with client as c:
+        r = await c.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_wrong_role_returns_403(client, make_token) -> None:
     token = make_token(roles=["admin"])
-    async with await client_factory() as client:
-        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    async with client as c:
+        r = await c.get("/protected", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 403
     assert "reviewer role required" in r.json()["detail"]
 
 
 @pytest.mark.asyncio
-async def test_missing_tenant_id_returns_403(client_factory, make_token) -> None:
+async def test_missing_tenant_id_returns_401(client, make_token) -> None:
     token = make_token(tenant_id=None)
-    async with await client_factory() as client:
-        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
-    assert r.status_code == 403
+    async with client as c:
+        r = await c.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 401
     assert "tenant_id" in r.json()["detail"]
 
 
 @pytest.mark.asyncio
-async def test_valid_reviewer_token_returns_principal(client_factory, make_token) -> None:
+async def test_valid_reviewer_token_returns_principal(client, make_token) -> None:
     token = make_token(tenant_id="tenant-abc", roles=["reviewer"], sub="user-001")
-    async with await client_factory() as client:
-        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    async with client as c:
+        r = await c.get("/protected", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
     body = r.json()
     assert body["tenant_id"] == "tenant-abc"

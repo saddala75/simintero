@@ -4,9 +4,10 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from enstellar_authz import AuthedRequest
+from ..auth import AuthedRequest
 from simintero_outbox import SchemaRef, make_envelope
-from ..db.connection import get_pool, tenant_conn
+from ..db.connection import get_pool
+from simintero_tenant_context import tenant_transaction
 from ..outbox.publisher import OutboxPublisher
 from .repository import SuggestionsRepository
 
@@ -26,7 +27,7 @@ async def get_suggestions(
     tenant_id = auth.tenant_id
     pool = await get_pool()
     repo = SuggestionsRepository()
-    async with tenant_conn(pool, tenant_id) as conn:
+    async with tenant_transaction(pool, tenant_id) as conn:
         return await repo.list_by_case(conn, case_id, tenant_id)
 
 
@@ -40,21 +41,20 @@ async def suggestion_action(
     tenant_id = auth.tenant_id
     pool = await get_pool()
     repo = SuggestionsRepository()
-    async with tenant_conn(pool, tenant_id) as conn:
-        async with conn.transaction():
-            found = await repo.record_action(
-                conn,
-                suggestion_id=suggestion_id,
-                case_id=case_id,
-                tenant_id=tenant_id,
-                action=body.action,
-                reviewer_id=body.reviewer_id,
-            )
-            if not found:
-                raise HTTPException(status_code=404, detail="Suggestion not found")
-            await _emit_suggestion_reviewed_event(
-                conn, case_id, suggestion_id, tenant_id, body.action, body.reviewer_id
-            )
+    async with tenant_transaction(pool, tenant_id) as conn:
+        found = await repo.record_action(
+            conn,
+            suggestion_id=suggestion_id,
+            case_id=case_id,
+            tenant_id=tenant_id,
+            action=body.action,
+            reviewer_id=body.reviewer_id,
+        )
+        if not found:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        await _emit_suggestion_reviewed_event(
+            conn, case_id, suggestion_id, tenant_id, body.action, body.reviewer_id
+        )
     return {"suggestion_id": str(suggestion_id), "status": body.action}
 
 

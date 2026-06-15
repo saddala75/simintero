@@ -143,8 +143,11 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             },
         )
 
-        await self._run_completeness(case, agent_input, correlation_id)
-        await self._run_triage(case, agent_input, correlation_id)
+        # Carry the triggering event's id as causation_id so derived
+        # AGENT_ASSIST_PRODUCED / AGENT_ASSIST_FAILED events record lineage.
+        causation_id = event.event_id
+        await self._run_completeness(case, agent_input, correlation_id, causation_id)
+        await self._run_triage(case, agent_input, correlation_id, causation_id)
 
     # ------------------------------------------------------------------
     # Completeness agent
@@ -155,6 +158,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
         case: Case,
         agent_input: dict,
         correlation_id: str,
+        causation_id: str | None = None,
     ) -> None:
         """POST to /assist/completeness and write criteria gap rows.
 
@@ -178,7 +182,9 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
                     "correlation_id": correlation_id,
                 },
             )
-            await self._emit_failed_event(case, "completeness-v1", str(exc), correlation_id)
+            await self._emit_failed_event(
+                case, "completeness-v1", str(exc), correlation_id, causation_id
+            )
             return
 
         output = resp.json()
@@ -198,6 +204,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
                 output.get("agent_id", "completeness-v1"),
                 output.get("abstention_reason") or "abstained",
                 correlation_id,
+                causation_id,
             )
             return
 
@@ -222,6 +229,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             actor_id=output.get("agent_id", "completeness-v1"),
             actor_type="service",
             correlation_id=correlation_id,
+            causation_id=causation_id,
             lob=_lob(case),
             payload={
                 "case_id": str(case.case_id),
@@ -257,6 +265,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
         case: Case,
         agent_input: dict,
         correlation_id: str,
+        causation_id: str | None = None,
     ) -> None:
         """POST to /assist/triage and write one routing suggestion row.
 
@@ -280,7 +289,9 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
                     "correlation_id": correlation_id,
                 },
             )
-            await self._emit_failed_event(case, "triage-v1", str(exc), correlation_id)
+            await self._emit_failed_event(
+                case, "triage-v1", str(exc), correlation_id, causation_id
+            )
             return
 
         output = resp.json()
@@ -300,6 +311,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
                 output.get("agent_id", "triage-v1"),
                 output.get("abstention_reason") or "abstained",
                 correlation_id,
+                causation_id,
             )
             return
 
@@ -321,6 +333,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             actor_id=output.get("agent_id", "triage-v1"),
             actor_type="service",
             correlation_id=correlation_id,
+            causation_id=causation_id,
             lob=_lob(case),
             payload={
                 "case_id": str(case.case_id),
@@ -356,6 +369,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
         agent_id: str,
         reason: str,
         correlation_id: str,
+        causation_id: str | None = None,
     ) -> None:
         """Write an AGENT_ASSIST_FAILED outbox event in its own transaction."""
         event = make_envelope(
@@ -364,6 +378,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             actor_id=agent_id,
             actor_type="service",
             correlation_id=correlation_id,
+            causation_id=causation_id,
             lob=_lob(case),
             payload={
                 "case_id": str(case.case_id),

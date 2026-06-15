@@ -44,11 +44,10 @@ async def get_worklist(
     queue_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> WorklistPage:
-    data = await workflow_client.get_worklist(
-        auth["bearer_token"], queue_id, page, page_size
-    )
+    _ctx, bearer = auth
+    data = await workflow_client.get_worklist(bearer, queue_id, page, page_size)
     items: list[WorklistItem] = []
     for c in data.get("items", []):
         sla = _compute_rag(c.get("sla_deadline"))

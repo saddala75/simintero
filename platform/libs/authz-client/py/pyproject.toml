@@ -3,7 +3,10 @@ name = "simintero-authz"
 version = "1.0.0"
 description = "Platform authz: Keycloak JWT (realm simintero) validation + OPA decision client"
 requires-python = ">=3.12"
-dependencies = ["python-jose[cryptography]>=3.3", "httpx>=0.27", "pydantic>=2.9"]
+dependencies = ["python-jose[cryptography]>=3.3", "httpx>=0.27", "pydantic>=2.9", "simintero-tenant-context", "fastapi>=0.111"]
+
+[tool.uv.sources]
+simintero-tenant-context = { workspace = true }
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "respx>=0.21"]

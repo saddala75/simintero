@@ -12,13 +12,14 @@ router = APIRouter(prefix="/bff/queues", tags=["queues"])
 @router.get("/{queue_id}/stats", response_model=QueueStats)
 async def get_queue_stats(
     queue_id: str,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> JSONResponse:
     """Return rolling 30-day governance aggregates for a queue.
 
     Response is cacheable for 60 s (private, per-user).
     """
-    data = await workflow_client.queue_stats(queue_id, auth["bearer_token"])
+    _ctx, bearer = auth
+    data = await workflow_client.queue_stats(queue_id, bearer)
     return JSONResponse(
         content=data,
         headers={"Cache-Control": "max-age=60, private"},

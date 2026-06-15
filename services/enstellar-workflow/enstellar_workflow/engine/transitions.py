@@ -15,8 +15,11 @@ from datetime import datetime, timezone
 import asyncpg
 
 from canonical_model import Case, Status
+from simintero_authz import authorize
 from simintero_outbox import SchemaRef, make_envelope
+from simintero_tenant_context import get_context
 
+from ..config import get_settings
 from .guards import ADVERSE_STATES, GuardError, adverse_transition_guard
 from .platform_client import PlatformCaseClient
 from .recorder import EventRecorder
@@ -24,6 +27,43 @@ from ..cases.repository import CaseRepository
 from ..outbox.publisher import OutboxPublisher, lob_for_envelope
 
 logger = logging.getLogger(__name__)
+
+# Map the legacy actor_type carried on a TransitionRequest to a platform
+# principal_type. Only a human ('user') actor can satisfy the OPA adverse-action
+# policy; system/service actors map to 'service' and are denied by the policy.
+_ACTOR_TO_PRINCIPAL_TYPE = {
+    "user": "human",
+    "system": "service",
+    "service": "service",
+}
+
+
+def _adverse_principal(req: "TransitionRequest") -> dict:
+    """Build the OPA principal for an adverse determination.
+
+    Prefer the request-scoped TenantContext (set by the auth dependency); fall
+    back to deriving the principal from the TransitionRequest's actor when there
+    is no request context (e.g. a consumer/event-driven path). A consumer path
+    that carries a non-human actor will correctly be denied by the OPA policy.
+    """
+    try:
+        ctx = get_context()
+        return {
+            "tenant_id": ctx.tenant_id,
+            "roles": ctx.roles,
+            "principal_type": ctx.principal_type,
+        }
+    except RuntimeError:
+        # Consumer/event path: the principal's actor comes from the validated internal
+        # Kafka event, not a user request. The adverse-action gate (in-process guard + OPA
+        # principal_type==human) therefore trusts event-producer integrity here. No current
+        # consumer emits adverse states (they route to clinical_review for a human), so a
+        # non-human actor is denied; revisit this trust boundary if that changes.
+        return {
+            "tenant_id": req.tenant_id,
+            "roles": [],
+            "principal_type": _ACTOR_TO_PRINCIPAL_TYPE.get(req.actor_type, "service"),
+        }
 
 
 @dataclass
@@ -36,6 +76,11 @@ class TransitionRequest:
     correlation_id: str
     payload: dict = field(default_factory=dict)
     human_signoff_recorded: bool = False
+    # Event lineage (set by consumer/event-driven paths). When this transition is
+    # driven by a triggering Kafka event, callers pass the triggering event's
+    # correlation_id and its event_id (as causation_id) so emitted events preserve
+    # the causal chain. Synchronous/API paths leave these None.
+    causation_id: str | None = None
 
 
 class TransitionEngine:
@@ -64,10 +109,25 @@ class TransitionEngine:
 
         from_state = case.status.value
 
-        # 2. Evaluate the adverse-transition guard (INVARIANT #1 — non-bypassable)
+        # 2. Evaluate the adverse-transition guard (INVARIANT #1 — non-bypassable,
+        #    in-process defense-in-depth). MUST pass before the OPA gate.
         guard_result = adverse_transition_guard(req.to_state, req.human_signoff_recorded)
         if not guard_result.passed:
             raise GuardError(guard_result.reason)  # type: ignore[arg-type]
+
+        # 2b. OPA adverse-action gate (AUTHORITATIVE). For any transition into an
+        #     adverse state, OPA must also allow the recording. Raises
+        #     ForbiddenError (→ 403) on result != true; the caller's transaction
+        #     then rolls back and nothing is persisted. The in-process guard above
+        #     remains — BOTH must pass for an adverse determination.
+        if req.to_state in ADVERSE_STATES:
+            settings = get_settings()
+            await authorize(
+                {"action": "decision.record", "resource": {"outcome": req.to_state}},
+                principal=_adverse_principal(req),
+                policy="sim/guards/adverse_action/allow",
+                opa_url=settings.opa_url,
+            )
 
         occurred_at = datetime.now(timezone.utc)
 
@@ -99,6 +159,7 @@ class TransitionEngine:
             correlation_id=req.correlation_id,
             occurred_at=occurred_at,
             lob=lob,
+            causation_id=req.causation_id,
             payload={
                 "case_id": str(req.case_id),
                 "from_state": from_state,

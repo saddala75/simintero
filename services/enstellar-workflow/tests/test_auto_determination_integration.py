@@ -20,7 +20,7 @@ from enstellar_connectors.digicore.client import DigiCoreClient
 from enstellar_connectors.digicore.models import DecisionResponse, StructuredTrace
 from simintero_outbox import SchemaRef
 from enstellar_workflow.cases.repository import CaseRepository
-from enstellar_workflow.db.connection import tenant_conn
+from simintero_tenant_context import tenant_transaction
 from enstellar_workflow.cases.service import CaseService
 from enstellar_workflow.engine.auto_determination import AutoDeterminator
 from enstellar_workflow.engine.transitions import TransitionEngine
@@ -148,7 +148,7 @@ async def test_approve_path_emits_decision_recorded_outbox_event(pg_pool: asyncp
         async with conn.transaction():
             await auto.run(conn, case, f"corr-{uuid.uuid4()}")
 
-    async with tenant_conn(pg_pool, case.tenant_id) as conn:
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
         row = await conn.fetchrow(
             "SELECT envelope FROM shared.outbox"
             " WHERE envelope->'payload'->>'case_id' = $1"

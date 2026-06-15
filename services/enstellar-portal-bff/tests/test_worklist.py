@@ -12,24 +12,15 @@ from httpx import AsyncClient, ASGITransport, Response
 from enstellar_bff.main import app
 import enstellar_bff.auth as auth_module
 
-pytestmark = pytest.mark.xfail(
-    reason="Pre-existing upstream failure (KeyError 'bearer_token' in worklist router); "
-           "portal-bff auth/worklist is reworked under the platform x-sim-ctx contract in "
-           "Section C2. Quarantined to keep C1 green.",
-    strict=False,
-)
-
-FIXED_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["reviewer"], "sub": "user-001"}
+from tests.conftest import make_principal
 
 
 @pytest.fixture(autouse=True)
 def bypass_auth(monkeypatch):
-    """Replace require_reviewer with a no-op that returns the fixed principal."""
-    from enstellar_bff import routers  # noqa: F401
-    from enstellar_bff.routers import worklist as worklist_router
+    """Replace require_reviewer with a no-op yielding (BffContext, bearer)."""
 
     async def _fake_reviewer():
-        return FIXED_PRINCIPAL
+        return make_principal()
 
     # Override the dependency on the app
     app.dependency_overrides[auth_module.require_reviewer] = _fake_reviewer

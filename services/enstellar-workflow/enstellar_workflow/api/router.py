@@ -20,12 +20,13 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from enstellar_authz import AuthedRequest
+from ..auth import AuthedRequest
 from pydantic import BaseModel
 
 from canonical_model import Case
 from ..cases.service import CaseService
-from ..db.connection import get_pool, tenant_conn
+from ..db.connection import get_pool
+from simintero_tenant_context import tenant_transaction
 from ..engine.guards import GuardError
 from ..engine.transitions import TransitionRequest
 
@@ -108,7 +109,7 @@ async def get_case(
     pool = await get_pool()
     from ..cases.repository import CaseRepository
 
-    async with tenant_conn(pool, tenant_id) as conn:
+    async with tenant_transaction(pool, tenant_id) as conn:
         case = await CaseRepository().fetch_by_id(conn, case_id, tenant_id)
 
     if case is None:

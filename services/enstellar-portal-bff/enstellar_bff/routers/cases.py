@@ -30,9 +30,10 @@ router = APIRouter(tags=["cases"])
 @router.get("/cases/{case_id}", response_model=CaseDetail)
 async def get_case(
     case_id: UUID,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> CaseDetail:
-    data = await workflow_client.get_case(str(case_id), auth["bearer_token"])
+    _ctx, bearer = auth
+    data = await workflow_client.get_case(str(case_id), bearer)
     return CaseDetail(
         case_id=data["case_id"],
         tenant_id=data["tenant_id"],
@@ -51,17 +52,18 @@ async def get_case(
 async def submit_decision(
     case_id: UUID,
     body: DecisionSubmission,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> dict:
+    ctx, _bearer = auth
     # Map reviewer outcomes to valid non-adverse workflow states.
     # ADVERSE_STATES are never reachable from this endpoint by design.
     to_state = "approved" if body.outcome == "approved" else "clinical_review"
 
     result = await workflow_client.transition(
         case_id=str(case_id),
-        tenant_id=auth["tenant_id"],
+        tenant_id=ctx.tenant_id,
         to_state=to_state,
-        actor_id=auth["sub"],
+        actor_id=ctx.sub,
         actor_type="user",
         correlation_id=str(uuid_module.uuid4()),
         payload={"reason": body.reason} if body.reason else {},
@@ -74,7 +76,7 @@ async def submit_decision(
 async def submit_adverse_decision(
     case_id: UUID,
     body: AdverseDecisionRequest,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> dict:
     """Record clinician sign-off and apply an adverse state transition.
 
@@ -88,6 +90,7 @@ async def submit_adverse_decision(
     human (clinician) sign-off. This endpoint is the sole BFF path to an
     adverse state; the workflow-engine transition guard is the final backstop.
     """
+    ctx, _bearer = auth
     if not body.sign_off_confirmed:
         raise HTTPException(
             status_code=400,
@@ -102,7 +105,7 @@ async def submit_adverse_decision(
     # or a verified MD/DO requires a dedicated identity validation step (future work).
     await workflow_client.record_signoff(
         case_id=str(case_id),
-        tenant_id=auth["tenant_id"],  # still sent in body for audit trail
+        tenant_id=ctx.tenant_id,  # still sent in body for audit trail
         actor_id=body.clinician_id,
         actor_type="clinician",
         outcome_context=body.outcome,
@@ -121,9 +124,9 @@ async def submit_adverse_decision(
 
     return await workflow_client.transition(
         case_id=str(case_id),
-        tenant_id=auth["tenant_id"],
+        tenant_id=ctx.tenant_id,
         to_state=body.outcome,
-        actor_id=auth["sub"],
+        actor_id=ctx.sub,
         actor_type="user",
         correlation_id=correlation_id,
         payload=payload,
@@ -135,17 +138,17 @@ async def submit_adverse_decision(
 async def post_rfi(
     case_id: UUID,
     body: RfiRequest,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> dict:
     """Proxy RFI request to workflow-engine pend-rfi endpoint.
 
     Invariant: provider_npi is fetched from the case by BFF — never
     accepted from the reviewer's request body.
-    Invariant: actor_id comes from auth["sub"] — never from request body.
+    Invariant: actor_id comes from the authenticated sub — never from request body.
     Both invariants are enforced by the BFF and asserted by tests.
     """
-    bearer_token: str = auth["bearer_token"]
-    actor_id: str = auth["sub"]  # INVARIANT: always from auth, never from body
+    ctx, bearer_token = auth
+    actor_id: str = ctx.sub  # INVARIANT: always from auth, never from body
     case = await workflow_client.get_case(str(case_id), bearer_token)
     # INVARIANT: provider_npi fetched from case, never accepted from request body
     provider_npi: str = (
@@ -168,15 +171,15 @@ async def post_rfi(
 @router.get("/cases/{case_id}/documents", response_model=list[DocumentItem])
 async def get_documents(
     case_id: str,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> list[DocumentItem]:
     """Return BFF-proxied DocumentItems for a case.
 
     Security invariant: the url field is always the BFF proxy path —
     no raw HAPI or MinIO URLs are returned to the browser.
     """
-    tenant_id: str = auth["tenant_id"]
-    raw_docs = await fhir_client.documents(case_id, tenant_id)
+    ctx, _bearer = auth
+    raw_docs = await fhir_client.documents(case_id, ctx.tenant_id)
     return [
         DocumentItem(
             id=d["id"],
@@ -194,7 +197,7 @@ async def get_documents(
 async def proxy_document_content(
     case_id: str,
     doc_id: str,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> RedirectResponse:
     """Proxy document content — redirects to the underlying attachment URL.
 
@@ -202,8 +205,8 @@ async def proxy_document_content(
     this endpoint fetches the DocumentReference from HAPI and issues a
     redirect to the attachment URL (e.g., MinIO presigned URL).
     """
-    tenant_id: str = auth["tenant_id"]
-    resource = await fhir_client.document_by_id(doc_id, tenant_id)
+    ctx, _bearer = auth
+    resource = await fhir_client.document_by_id(doc_id, ctx.tenant_id)
     content = (resource.get("content") or [{}])[0]
     attachment_url = (content.get("attachment") or {}).get("url")
     if not attachment_url:
@@ -214,10 +217,11 @@ async def proxy_document_content(
 @router.get("/cases/{case_id}/criteria", response_model=list[CriterionItem])
 async def get_case_criteria(
     case_id: UUID,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> list[CriterionItem]:
+    _ctx, bearer = auth
     try:
-        data = await workflow_client.criteria(str(case_id), auth["bearer_token"])
+        data = await workflow_client.criteria(str(case_id), bearer)
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
             raise HTTPException(status_code=404, detail="Case not found")
@@ -228,10 +232,11 @@ async def get_case_criteria(
 @router.get("/cases/{case_id}/suggestions", response_model=list[SuggestionItem])
 async def get_case_suggestions(
     case_id: UUID,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> list[SuggestionItem]:
+    _ctx, bearer = auth
     try:
-        data = await workflow_client.suggestions(str(case_id), auth["bearer_token"])
+        data = await workflow_client.suggestions(str(case_id), bearer)
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
             raise HTTPException(status_code=404, detail="Case not found")
@@ -244,15 +249,16 @@ async def post_suggestion_action(
     case_id: UUID,
     suggestion_id: UUID,
     body: SuggestionActionRequest,
-    auth: dict = Depends(require_reviewer),
+    auth: tuple = Depends(require_reviewer),
 ) -> dict:
+    ctx, bearer = auth
     try:
         return await workflow_client.suggestion_action(
             case_id=str(case_id),
             suggestion_id=str(suggestion_id),
-            bearer_token=auth["bearer_token"],
+            bearer_token=bearer,
             action=body.action,
-            reviewer_id=auth["sub"],
+            reviewer_id=ctx.sub,
         )
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:

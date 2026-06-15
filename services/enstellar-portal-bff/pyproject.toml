@@ -9,7 +9,11 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.3",
     "python-jose[cryptography]>=3.3",
+    "simintero-authz",
 ]
+
+[tool.uv.sources]
+simintero-authz = { workspace = true }
 
 [dependency-groups]
 dev = [

@@ -4,8 +4,9 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from enstellar_authz import AuthedRequest
-from enstellar_workflow.db.connection import get_pool, tenant_conn
+from ..auth import AuthedRequest
+from enstellar_workflow.db.connection import get_pool
+from simintero_tenant_context import tenant_transaction
 
 router = APIRouter(prefix="/queues", tags=["queues"])
 
@@ -19,7 +20,7 @@ async def get_queue_stats(
     pool = await get_pool()
     period_end = date.today()
     period_start = period_end - timedelta(days=30)
-    async with tenant_conn(pool, tenant_id) as conn:
+    async with tenant_transaction(pool, tenant_id) as conn:
         ai_det = await _ai_determinations(conn, tenant_id, queue_id, period_start)
         adverse_pct = await _adverse_human_signed_pct(conn, tenant_id, period_start)
         sla_pct = await _sla_compliance_expedited_pct(conn, tenant_id, period_start)

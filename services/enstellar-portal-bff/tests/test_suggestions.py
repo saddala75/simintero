@@ -14,16 +14,11 @@ from httpx import AsyncClient, ASGITransport, Response
 import enstellar_bff.auth as auth_module
 from enstellar_bff.main import app
 
-pytestmark = pytest.mark.xfail(
-    reason="Pre-existing upstream failure (KeyError 'bearer_token' in worklist router); "
-           "portal-bff auth/worklist is reworked under the platform x-sim-ctx contract in "
-           "Section C2. Quarantined to keep C1 green.",
-    strict=False,
-)
+from tests.conftest import make_principal
 
 CASE_ID = "00000000-0000-0000-0000-000000000099"
 SUGGESTION_ID = "11111111-1111-1111-1111-111111111111"
-FIXED_PRINCIPAL = {"tenant_id": "tenant-abc", "roles": ["reviewer"], "sub": "user-001"}
+FIXED_SUB = "user-001"
 
 SUGGESTION_ITEM = {
     "id": SUGGESTION_ID,
@@ -40,7 +35,9 @@ SUGGESTION_ITEM = {
 
 @pytest.fixture(autouse=True)
 def bypass_auth():
-    app.dependency_overrides[auth_module.require_reviewer] = lambda: FIXED_PRINCIPAL
+    app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal(
+        sub=FIXED_SUB
+    )
     yield
     app.dependency_overrides.clear()
 
@@ -92,7 +89,7 @@ async def test_post_suggestion_action_accept() -> None:
     # anything supplied by the client.
     sent_body = json.loads(action_route.calls[-1].request.content)
     assert sent_body["action"] == "accepted"
-    assert sent_body["reviewer_id"] == FIXED_PRINCIPAL["sub"]
+    assert sent_body["reviewer_id"] == FIXED_SUB
 
 
 @pytest.mark.asyncio
