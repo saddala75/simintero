@@ -603,8 +603,8 @@ services:
 
   portal-bff:
     build:
-      context: services/enstellar-portal-bff
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/enstellar-portal-bff/Dockerfile
     expose: ["8001"]
     ports:
       - "8001:8001"
