@@ -61,12 +61,22 @@ echo "── 6. PAS \$submit round-trip ──"
 # minimal-valid PAS bundle (Claim use=preauthorization + Patient/Practitioner/
 # Coverage) and assert a ClaimResponse Bundle comes back. The token from step 3
 # carries the reviewer identity; interop requires auth for $submit.
+#
+# KNEE CASE (I1 real-digicore proof): the Claim line uses CPT 27447 (total knee
+# arthroplasty). interop's PasBundleMapper maps Claim.item.productOrService CPT
+# → ServiceLine.procedure_code, which workflow's auto-determination sends to the
+# REAL digicore-runtime as DecisionRequest.service_code. digicore-runtime's C-1
+# stub (CoverageDiscoveryController/EvaluateController) keys auto-determination on
+# procedure_code=="27447" (or service_code containing "knee"), so 27447 exercises
+# the real coverage-discovery + evaluate path — NOT the retired mock-digicore.
+# The $submit response is synchronous QUEUED; the digicore evaluate happens async
+# in workflow-engine, so this step asserts only the accepted round-trip.
 # NOTE: the canonical-model normalizer (PasBundleMapper) hard-requires a couple
 # of fields the bare PAS shape doesn't: Patient.birthDate, and an NPI identifier
 # (system http://hl7.org/fhir/sid/us-npi) on the requesting Practitioner. Without
 # them interop's $submit returns 400 "Normalization rejected bundle". They're
 # included below so this is a real, accepted round-trip.
-PAS_BUNDLE='{"resourceType":"Bundle","id":"smoke-pas-bundle-001","type":"collection","entry":[{"resource":{"resourceType":"Claim","id":"claim-001","use":"preauthorization","status":"active","patient":{"reference":"Patient/pat-001"},"provider":{"reference":"Practitioner/pract-001"},"insurance":[{"sequence":1,"focal":true,"coverage":{"reference":"Coverage/cov-001"}}],"diagnosis":[{"sequence":1,"diagnosisCodeableConcept":{"coding":[{"system":"http://hl7.org/fhir/sid/icd-10-cm","code":"M54.5","display":"Low back pain"}]}}],"item":[{"sequence":1,"productOrService":{"coding":[{"system":"http://www.ama-assn.org/go/cpt","code":"97110","display":"Therapeutic Exercise"}]},"diagnosisSequence":[1]}]}},{"resource":{"resourceType":"Patient","id":"pat-001","name":[{"family":"Smith","given":["Jane"]}],"gender":"female","birthDate":"1980-01-15"}},{"resource":{"resourceType":"Practitioner","id":"pract-001","identifier":[{"system":"http://hl7.org/fhir/sid/us-npi","value":"1234567893"}],"name":[{"family":"Jones","given":["Bob"]}]}},{"resource":{"resourceType":"Coverage","id":"cov-001","payor":[{"display":"ACME Health Plan"}]}}]}'
+PAS_BUNDLE='{"resourceType":"Bundle","id":"smoke-pas-bundle-001","type":"collection","entry":[{"resource":{"resourceType":"Claim","id":"claim-001","use":"preauthorization","status":"active","patient":{"reference":"Patient/pat-001"},"provider":{"reference":"Practitioner/pract-001"},"insurance":[{"sequence":1,"focal":true,"coverage":{"reference":"Coverage/cov-001"}}],"diagnosis":[{"sequence":1,"diagnosisCodeableConcept":{"coding":[{"system":"http://hl7.org/fhir/sid/icd-10-cm","code":"M54.5","display":"Low back pain"}]}}],"item":[{"sequence":1,"productOrService":{"coding":[{"system":"http://www.ama-assn.org/go/cpt","code":"27447","display":"Total knee arthroplasty"}]},"diagnosisSequence":[1]}]}},{"resource":{"resourceType":"Patient","id":"pat-001","name":[{"family":"Smith","given":["Jane"]}],"gender":"female","birthDate":"1980-01-15"}},{"resource":{"resourceType":"Practitioner","id":"pract-001","identifier":[{"system":"http://hl7.org/fhir/sid/us-npi","value":"1234567893"}],"name":[{"family":"Jones","given":["Bob"]}]}},{"resource":{"resourceType":"Coverage","id":"cov-001","payor":[{"display":"ACME Health Plan"}]}}]}'
 SUBMIT_RESP=$(curl -sf -X POST "$INTEROP/fhir/Claim/\$submit" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/fhir+json" \

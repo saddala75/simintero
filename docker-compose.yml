@@ -339,7 +339,12 @@ services:
     networks:
       - sim-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8083/healthz || exit 1"]
+      # NOTE: digicore-runtime's HealthController lives in package io.simintero.digicore,
+      # OUTSIDE the io.simintero.digicore.runtime component-scan root of
+      # DigiCoreRuntimeApplication, so GET /healthz is NOT registered and 404s. That is a
+      # pre-existing service-code/packaging defect (out of scope for I1). We probe the real,
+      # served C-1 endpoint instead: POST /v1/runtime/coverage-discovery returns 200.
+      test: ["CMD-SHELL", "wget -q -O /dev/null --post-data='{}' --header='Content-Type: application/json' http://localhost:8083/v1/runtime/coverage-discovery || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
