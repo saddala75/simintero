@@ -6,12 +6,15 @@ volumes:
   postgres-data:
   redpanda-data:
   temporal-data:
+  minio-data:
+  opensearch-data:
+  ollama-data:
 
 services:
   # ── Infrastructure ─────────────────────────────────────────────────────────
 
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: simintero
       POSTGRES_USER: sim
@@ -20,6 +23,7 @@ services:
       - "15432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - sim-net
     healthcheck:
@@ -45,21 +49,34 @@ services:
       - sim-net
 
   redpanda:
-    image: redpandadata/redpanda:latest
+    image: redpandadata/redpanda:v24.1.7
     command:
       - redpanda
       - start
       - --smp=1
+      - --memory=512M
       - --reserve-memory=0M
       - --overprovisioned
-      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
-      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:19092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092,OUTSIDE://localhost:19092
+      - --pandaproxy-addr=0.0.0.0:8082
+      - --advertise-pandaproxy-addr=localhost:8082
     ports:
       - "9092:9092"
+      - "19092:19092"
+      - "8082:8082"
     volumes:
       - redpanda-data:/var/lib/redpanda/data
     networks:
       - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   temporal:
     image: temporalio/auto-setup:1.24
@@ -151,10 +168,10 @@ services:
       DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
-      KEYCLOAK_URL: "${KEYCLOAK_URL:-}"
-      KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:-}"
+      KEYCLOAK_URL: "${KEYCLOAK_URL:-http://keycloak:8080}"
       KEYCLOAK_REALM: "${KEYCLOAK_REALM:-simintero}"
       KEYCLOAK_CLIENT_ID: "${KEYCLOAK_CLIENT_ID:-control-plane}"
+      KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:-control-plane-secret}"
       NODE_ENV: development
       PORT: "3012"
     ports:
@@ -321,3 +338,309 @@ services:
         condition: service_healthy
     networks:
       - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8083/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ── Shared infra (Enstellar) ───────────────────────────────────────────────
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.4
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak_secret}"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+      KC_HOSTNAME_URL: http://localhost:8081
+      TEST_CLIENT_SECRET: "${TEST_CLIENT_SECRET:-test-secret}"
+      E2E_PASSWORD: "${E2E_PASSWORD:-e2e-pass}"
+      TEST_REVIEWER_PASSWORD: "${TEST_REVIEWER_PASSWORD:-reviewer-password}"
+      CONTROL_PLANE_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:-control-plane-secret}"
+    ports:
+      - "8081:8080"
+    volumes:
+      # Only the self-contained base realm is mounted into the import dir: it already folds
+      # in the CI test client (enstellar-test-client) + the CI/E2E reviewer users, so no
+      # separate overlay file is needed (the former ci-overlay was a redundant subset and
+      # has been retired).
+      - ./infra/keycloak/simintero-realm.json:/opt/keycloak/data/import/simintero-realm.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; printf 'GET /realms/master HTTP/1.0\\r\\nHost: 127.0.0.1\\r\\n\\r\\n' >&3; read -t 5 line <&3; [[ \"$$line\" == *200* ]]"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  minio:
+    image: minio/minio:RELEASE.2024-06-04T19-20-08Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "mc alias set local http://127.0.0.1:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD --api S3v4 > /dev/null 2>&1 && mc ready local"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - sim-net
+
+  # ── Enstellar app services (C4a) ───────────────────────────────────────────
+
+  hapi:
+    image: hapiproject/hapi:v7.4.0
+    expose: ["8080"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      spring.datasource.url: jdbc:postgresql://postgres:5432/hapi
+      spring.datasource.username: hapi
+      spring.datasource.password: "${HAPI_DB_PASSWORD:-hapi_secret}"
+      spring.datasource.driverClassName: org.postgresql.Driver
+      spring.jpa.properties.hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgres94Dialect
+      hapi.fhir.fhir_version: R4
+      hapi.fhir.allow_multiple_delete: "true"
+      hapi.fhir.allow_external_references: "true"
+      hapi.fhir.validation.requests_enabled: "true"
+      hapi.fhir.validation.responses_enabled: "false"
+      hapi.fhir.implementationguides[0].name: hl7.fhir.us.core
+      hapi.fhir.implementationguides[0].version: 5.0.1
+      hapi.fhir.implementationguides[0].reloadExisting: "false"
+      hapi.fhir.implementationguides[1].name: hl7.fhir.us.davinci-pas
+      hapi.fhir.implementationguides[1].version: 2.0.1
+      hapi.fhir.implementationguides[1].reloadExisting: "false"
+    volumes:
+      - ./services/enstellar-compose/healthcheck/healthcheck.jar:/healthcheck.jar:ro
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "java", "-jar", "/healthcheck.jar", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+
+  mock-digicore:
+    build:
+      context: services/enstellar-compose/mocks/digicore
+      dockerfile: Dockerfile
+    expose: ["8000"]
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mock-revital:
+    build:
+      context: services/enstellar-compose/mocks/revital
+      dockerfile: Dockerfile
+    expose: ["8000"]
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  interop:
+    build:
+      context: services/enstellar-interop
+      dockerfile: Dockerfile
+    expose: ["8080"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hapi:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      mock-digicore:
+        condition: service_healthy
+    environment:
+      INTEROP_DB_URL: jdbc:postgresql://postgres:5432/hapi
+      INTEROP_DB_USER: hapi
+      INTEROP_DB_PASSWORD: "${HAPI_DB_PASSWORD:-hapi_secret}"
+      DIGICORE_BASE_URL: http://mock-digicore:8000
+      HAPI_BASE_URL: http://hapi:8080/fhir
+      HAPI_PROXY_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+      MINIO_SECURE: "false"
+      MINIO_BUCKET: enstellar-raw-bundles
+      NORMALIZATION_URL: http://workflow-engine:8000
+      KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/simintero
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
+      EXPECTED_AUDIENCE: enstellar-api
+    volumes:
+      - ./services/enstellar-compose/healthcheck/healthcheck.jar:/healthcheck.jar:ro
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "java", "-jar", "/healthcheck.jar", "http://localhost:8080/fhir/metadata"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+
+  agent-layer:
+    build:
+      context: services/enstellar-agent-layer
+      dockerfile: Dockerfile
+    expose: ["8000"]
+    environment:
+      ENSTELLAR_MODEL_PROVIDER: "${ENSTELLAR_MODEL_PROVIDER:-ollama}"
+      ENSTELLAR_MODEL_NAME: "${ENSTELLAR_MODEL_NAME:-llama3}"
+      ENSTELLAR_OLLAMA_BASE_URL: http://ollama:11434
+      ENSTELLAR_ANTHROPIC_API_KEY: "${ENSTELLAR_ANTHROPIC_API_KEY:-}"
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  workflow-engine:
+    build:
+      context: services/enstellar-workflow
+      dockerfile: Dockerfile
+    expose: ["8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      agent-layer:
+        condition: service_healthy
+    environment:
+      WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@postgres:5432/workflow
+      WORKFLOW_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      WORKFLOW_AGENT_LAYER_URL: http://agent-layer:8000
+      WORKFLOW_OIDC_ISSUER: http://localhost:8081/realms/simintero
+      WORKFLOW_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
+      WORKFLOW_OPA_URL: http://opa:8181
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+      MINIO_SECURE: "false"
+      MINIO_BUCKET: enstellar-raw-bundles
+      DIGICORE_BASE_URL: http://mock-digicore:8000
+      REVITAL_BASE_URL: http://mock-revital:8000
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  portal-bff:
+    build:
+      context: services/enstellar-portal-bff
+      dockerfile: Dockerfile
+    expose: ["8001"]
+    ports:
+      - "8001:8001"
+    depends_on:
+      workflow-engine:
+        condition: service_healthy
+      interop:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    environment:
+      BFF_WORKFLOW_ENGINE_URL: http://workflow-engine:8000
+      BFF_FHIR_API_URL: http://interop:8080/fhir
+      BFF_CRD_API_URL: http://interop:8080/cds-services
+      BFF_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build:
+      context: services/enstellar-portal
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      portal-bff:
+        condition: service_healthy
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
