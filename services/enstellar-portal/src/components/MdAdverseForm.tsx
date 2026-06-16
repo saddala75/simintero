@@ -96,15 +96,12 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
     <div className="en-md-adverse-form" data-testid="md-adverse-form">
 
       {criteriaLoading && (
-        <div style={{ fontSize: 12, color: 'var(--ink-mut)', marginBottom: 12 }}>
+        <div className="en-guard" style={{ marginTop: 0, marginBottom: 12 }}>
           Loading criteria…
         </div>
       )}
       {criteriaError && (
-        <div
-          role="alert"
-          style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 12, fontWeight: 600 }}
-        >
+        <div role="alert" className="en-guard" style={{ marginTop: 0, marginBottom: 12, color: 'var(--amber)', fontWeight: 600 }}>
           Could not load criteria — findings section may be incomplete. You may still submit.
         </div>
       )}
@@ -112,59 +109,22 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
       {/* Gap findings — pre-populated, MD confirms or deselects */}
       {gapCriteria.length > 0 && (
         <div className="en-field">
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: '.06em',
-              textTransform: 'uppercase',
-              color: 'var(--ink-mut)',
-              fontFamily: 'var(--mono)',
-              marginBottom: 8,
-            }}
-          >
-            Gap findings driving this determination
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="en-fl">Gap findings driving this determination</div>
+          <div className="en-finding-list">
             {gapCriteria.map(c => (
               <label
                 key={c.id}
                 className="en-finding-toggle"
-                style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}
                 data-testid={`finding-toggle-${c.criterion_id}`}
               >
                 <input
                   type="checkbox"
                   checked={!deselectedIds.has(c.id)}
                   onChange={() => toggleFinding(c.id)}
-                  style={{ marginTop: 2 }}
                 />
-                <span
-                  style={{
-                    fontFamily: 'var(--mono)',
-                    fontSize: 10,
-                    background: 'var(--amber-tint)',
-                    color: 'var(--amber)',
-                    padding: '1px 6px',
-                    borderRadius: 4,
-                    flexShrink: 0,
-                  }}
-                >
-                  {c.criterion_id}
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--ink)', flex: 1 }}>
-                  {c.text}
-                </span>
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: 'var(--amber)',
-                    flexShrink: 0,
-                    fontFamily: 'var(--mono)',
-                  }}
-                >
-                  {c.status}
-                </span>
+                <span className="fcode">{c.criterion_id}</span>
+                <span className="ftext">{c.text}</span>
+                <span className="fstat">{c.status}</span>
               </label>
             ))}
           </div>
@@ -173,19 +133,7 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
 
       {/* Reason codes */}
       <div className="en-field" style={{ marginTop: 14 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: '.06em',
-            textTransform: 'uppercase',
-            color: 'var(--ink-mut)',
-            fontFamily: 'var(--mono)',
-            marginBottom: 6,
-          }}
-        >
-          Clinical reason codes (ICD / CPT)
-        </div>
+        <div className="en-fl">Clinical reason codes (ICD / CPT)</div>
         <div style={{ display: 'flex', gap: 6 }}>
           <input
             type="text"
@@ -215,14 +163,14 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
         {reasonCodes.length > 0 && (
           <div className="en-chips" style={{ marginTop: 6 }}>
             {reasonCodes.map(code => (
-              <span key={code} className="en-chip-on" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span key={code} className="en-chip-on">
                 {code}
                 <button
                   type="button"
                   onClick={() => setReasonCodes(prev => prev.filter(c => c !== code))}
                   data-testid={`remove-code-${code}`}
                   aria-label={`Remove reason code ${code}`}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                  className="en-chip-x"
                 >
                   ×
                 </button>
@@ -234,19 +182,7 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
 
       {/* Citations */}
       <div className="en-field" style={{ marginTop: 14 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: '.06em',
-            textTransform: 'uppercase',
-            color: 'var(--ink-mut)',
-            fontFamily: 'var(--mono)',
-            marginBottom: 6,
-          }}
-        >
-          Supporting citations
-        </div>
+        <div className="en-fl">Supporting citations</div>
         <div style={{ display: 'flex', gap: 6 }}>
           <input
             type="text"
@@ -276,14 +212,14 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
         {citations.length > 0 && (
           <div className="en-chips" style={{ marginTop: 6 }}>
             {citations.map(cit => (
-              <span key={cit} className="en-chip-on" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span key={cit} className="en-chip-on">
                 {cit}
                 <button
                   type="button"
                   onClick={() => setCitations(prev => prev.filter(c => c !== cit))}
                   data-testid={`remove-citation-${cit}`}
                   aria-label={`Remove citation ${cit}`}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                  className="en-chip-x"
                 >
                   ×
                 </button>
@@ -295,19 +231,7 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
 
       {/* Clinical rationale */}
       <div className="en-field" style={{ marginTop: 14 }}>
-        <label
-          htmlFor="md-rationale"
-          style={{
-            display: 'block',
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: '.06em',
-            textTransform: 'uppercase',
-            color: 'var(--ink-mut)',
-            fontFamily: 'var(--mono)',
-            marginBottom: 6,
-          }}
-        >
+        <label htmlFor="md-rationale">
           Clinical rationale <span style={{ color: 'var(--red)' }}>*</span>
         </label>
         <textarea
@@ -323,19 +247,7 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
 
       {/* Clinician ID */}
       <div className="en-field" style={{ marginTop: 10 }}>
-        <label
-          htmlFor="md-clinician-id"
-          style={{
-            display: 'block',
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: '.06em',
-            textTransform: 'uppercase',
-            color: 'var(--ink-mut)',
-            fontFamily: 'var(--mono)',
-            marginBottom: 6,
-          }}
-        >
+        <label htmlFor="md-clinician-id">
           Clinician ID (NPI or internal) <span style={{ color: 'var(--red)' }}>*</span>
         </label>
         <input
@@ -382,7 +294,6 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
           disabled={!canSubmit || mut.isPending}
           data-testid="btn-submit-md-adverse"
           className="en-act danger"
-          style={!canSubmit ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
         >
           {mut.isPending ? 'Recording…' : 'Issue adverse determination'}
         </button>

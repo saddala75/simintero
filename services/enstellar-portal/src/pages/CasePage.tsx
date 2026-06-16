@@ -48,15 +48,13 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 function statusCls(status: string): string {
-  if (status === 'md_review') return 'md'
-  if (
-    ['approved', 'denied', 'partially_denied', 'adverse_modification'].includes(
-      status,
-    )
-  )
-    return 'done'
-  if (status === 'pend_rfi') return 'rfi'
-  return ''
+  if (status === 'md_review') return 'pending-info'
+  if (status === 'approved') return 'approved'
+  if (status === 'denied' || status === 'partially_denied') return 'denied'
+  if (status === 'adverse_modification') return 'modified'
+  if (status === 'pend_rfi' || status === 'completeness_check')
+    return 'pending-info'
+  return 'in-review'
 }
 
 function memberName(member: Record<string, unknown>): string {
@@ -1548,12 +1546,8 @@ export function CasePage() {
             <div className="en-cmd-id">
               <div className="top">
                 <span className="cid">{shortId(caseId)}</span>
-                <span className="en-pri">{urgencyLabel}</span>
-                <span
-                  className={`en-state${stCls ? ` ${stCls}` : ''}`}
-                >
-                  {stateLabel}
-                </span>
+                <span className="en-pri-badge std">{urgencyLabel}</span>
+                <span className={`en-state-chip ${stCls}`}>{stateLabel}</span>
               </div>
               <div className="sub">
                 {serviceDesc && <>{serviceDesc} &nbsp;·&nbsp; </>}

@@ -11,7 +11,7 @@ export function EventsTimeline({ events }: Props) {
       {events.length === 0 ? (
         <p>No events.</p>
       ) : (
-        <ol style={{ listStyle: 'none', padding: 0 }}>
+        <ol className="en-timeline">
           {events.map((ev, idx) => {
             const eventType =
               typeof ev['event_type'] === 'string' ? ev['event_type'] : 'unknown'
@@ -20,18 +20,8 @@ export function EventsTimeline({ events }: Props) {
                 ? new Date(ev['occurred_at']).toLocaleString()
                 : ''
             return (
-              <li
-                key={idx}
-                style={{
-                  padding: '6px 0',
-                  borderBottom: '1px solid #f3f4f6',
-                  display: 'flex',
-                  gap: 12,
-                }}
-              >
-                <span style={{ color: '#6b7280', fontSize: 12, whiteSpace: 'nowrap' }}>
-                  {occurredAt}
-                </span>
+              <li key={idx} className="en-timeline-item">
+                <span className="ts">{occurredAt}</span>
                 <span>{eventType.replace(/_/g, ' ')}</span>
               </li>
             )

@@ -674,3 +674,36 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, select:focus-visi
 .en-stbadge.received { background: var(--panel-2); color: var(--ink-mut); border: 1px solid var(--line); }
 .en-stbadge.denied { background: var(--red-tint); color: var(--red); }
 .en-stbadge.modified { background: var(--amber-tint); color: var(--amber); }
+
+/* standalone events timeline (EventsTimeline component) */
+.en-timeline { list-style: none; padding: 0; margin: 0; }
+.en-timeline-item { display: flex; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.en-timeline-item:last-child { border-bottom: 0; }
+.en-timeline-item .ts { color: var(--ink-mut); font-size: 12px; white-space: nowrap; }
+
+/* md adverse form — field label + gap-finding toggle */
+.en-fl {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-mut);
+  margin-bottom: 6px;
+}
+.en-fl .req { color: var(--red); }
+.en-finding-toggle { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.en-finding-toggle input { margin-top: 2px; }
+.en-finding-toggle .fcode {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--amber-tint);
+  color: var(--amber);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.en-finding-toggle .ftext { font-size: 12px; color: var(--ink); flex: 1; }
+.en-finding-toggle .fstat { font-size: 10px; color: var(--amber); flex-shrink: 0; font-family: var(--mono); }
+.en-finding-list { display: flex; flex-direction: column; gap: 6px; }
+.en-chip-x { background: none; border: none; cursor: pointer; padding: 0; line-height: 1; }
