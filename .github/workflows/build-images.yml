@@ -80,9 +80,6 @@ jobs:
             context: modules/digicore/runtime
             dockerfile: modules/digicore/runtime/Dockerfile
             maven: modules/digicore/runtime
-          - name: reviewer-workspace
-            context: .
-            dockerfile: apps/web/reviewer-workspace/Dockerfile
           - name: saas-admin
             context: .
             dockerfile: apps/web/saas-admin/Dockerfile

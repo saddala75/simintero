@@ -55,9 +55,6 @@ spec:
             chart: enstellar-clock-worker
             cell: pooled
           # ── Pooled cell — Web apps ─────────────────────────────────────────
-          - service: reviewer-workspace
-            chart: reviewer-workspace
-            cell: pooled
           - service: saas-admin
             chart: saas-admin
             cell: pooled
