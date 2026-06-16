@@ -113,4 +113,5 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21', cache: gradle }
+      - run: mvn -f platform/libs/tenant-context/java/pom.xml install -DskipTests
       - run: cd services/enstellar-interop && ./gradlew test --console=plain
