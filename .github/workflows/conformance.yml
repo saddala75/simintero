@@ -13,9 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - name: Start FHIR facade
-        run: docker compose up -d fhir-facade
-        continue-on-error: true
+      # C3a: fhir-facade retired; FHIR conformance is covered by interop ITs (PasSubmitIT/CdsServicesIT/DtrLaunchIT)
       - name: Run Inferno US Core conformance
         run: npx --yes inferno-program-suite --base-url http://localhost:8080/fhir
       - name: Run Inferno SMART App Launch
