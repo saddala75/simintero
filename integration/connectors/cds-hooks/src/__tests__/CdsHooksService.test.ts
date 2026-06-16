@@ -10,7 +10,7 @@ import { fetch } from 'undici';
 
 const cfg = {
   controlPlaneUrl: 'http://localhost:3000',
-  fhirFacadeUrl: 'http://localhost:8080',
+  interopFhirBaseUrl: 'http://localhost:8080/fhir',
 };
 
 function buildApp() {
@@ -109,6 +109,37 @@ describe('CdsHooksService', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.cards).toHaveLength(0);
+  });
+
+  it('POST /cds-services/coverage-check fetches Coverage from interop FHIR base and returns info card', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ resourceType: 'Bundle', type: 'searchset', total: 1 }),
+    } as unknown as Response);
+
+    const app = buildApp();
+    const cdsReq = {
+      hookInstance: 'instance-003',
+      hook: 'order-select',
+      context: {
+        patientId: 'patient-cov-1',
+        userId: 'practitioner-456',
+      },
+    };
+
+    const res = await request(app)
+      .post('/cds-services/coverage-check')
+      .send(cdsReq);
+
+    expect(res.status).toBe(200);
+    expect(res.body.cards).toHaveLength(1);
+    expect(res.body.cards[0].indicator).toBe('info');
+    expect(res.body.cards[0].summary).toBe('Active coverage verified');
+
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+      'http://localhost:8080/fhir/Coverage?patient=patient-cov-1&status=active',
+    );
   });
 
   it('GET /health returns 404 from router (health is on server app, not router)', async () => {

@@ -5,7 +5,6 @@ import { pollUntil } from './case.steps';
 import { fetch } from 'undici';
 
 const MODEL_GATEWAY_URL = process.env['MODEL_GATEWAY_URL'] ?? 'http://localhost:3011';
-const BFF_URL = process.env['BFF_URL'] ?? 'http://localhost:3021';
 
 // ── Model Gateway mock configuration ──
 
@@ -79,32 +78,8 @@ Given(
   },
 );
 
-When(
-  'the FHIR facade receives {string} with the ClaimBundle',
-  async function (this: SimWorld, httpVerb: string) {
-    const path = httpVerb.split(' ')[1] ?? '/fhir/ClaimResponse/$submit';
-    const claimBundle = {
-      resourceType: 'Bundle',
-      type: 'collection',
-      entry: [
-        {
-          resource: {
-            resourceType: 'ClaimResponse',
-            status: 'active',
-            patient: { reference: `Patient/${this.vars.get('pas_member_id')}` },
-            item: [
-              {
-                serviceCategory: this.vars.get('pas_service_category'),
-                urgency: this.vars.get('pas_urgency'),
-              },
-            ],
-          },
-        },
-      ],
-    };
-    await this.post('fhirFacade', path, claimBundle, this.currentTenantId);
-  },
-);
+// C3a: removed "the FHIR facade receives ... with the ClaimBundle" — drove the retired
+// fhir-facade (:8081); PAS submission coverage now in interop's PasSubmitIT.
 
 Then('the response status is {int}', async function (this: SimWorld, expectedStatus: number) {
   assert.equal(
@@ -362,27 +337,9 @@ Then(
   },
 );
 
-// ── BFF GraphQL ──
-
-When(
-  'the reviewer workspace GraphQL query {string} is executed',
-  async function (this: SimWorld, queryTemplate: string) {
-    const resolvedQuery = this.resolve(queryTemplate);
-    const gql = `query { ${resolvedQuery} { status result { classification summary { assertions { citations { trace_ref } } } } } }`;
-
-    const res = await fetch(`${BFF_URL}/graphql`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-sim-tenant-id': this.currentTenantId,
-        'x-sim-user-id': 'user_test_01',
-      },
-      body: JSON.stringify({ query: gql }),
-    });
-    this.lastResponse = res;
-    this.lastResponseBody = await res.json().catch(() => null);
-  },
-);
+// C3a: removed "the reviewer workspace GraphQL query ... is executed" — drove the retired
+// TS workspace-bff (:4010) reviewer-workspace GraphQL; advisory surfacing now covered by
+// portal-bff tests + portal Playwright.
 
 Then(
   'the response contains field {string} equal to {string}',
@@ -523,31 +480,8 @@ Then(
   },
 );
 
-Then(
-  'the reviewer workspace BFF advisory query for {string} returns status {string}',
-  async function (this: SimWorld, caseRefVar: string, expectedStatus: string) {
-    const caseRef =
-      (this.vars.get(caseRefVar) as string | undefined) ?? caseRefVar;
-    const gql = `query { advisory(caseId: "${caseRef}") { status } }`;
-    const res = await fetch(`${BFF_URL}/graphql`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-sim-tenant-id': this.currentTenantId,
-        'x-sim-user-id': 'user_test_01',
-      },
-      body: JSON.stringify({ query: gql }),
-    });
-    const body = (await res.json()) as {
-      data?: { advisory?: { status?: string } };
-    };
-    const status = body.data?.advisory?.status;
-    assert.ok(
-      status === expectedStatus || status === 'partial' || status === 'failed',
-      `Advisory status '${String(status)}' does not satisfy expected '${expectedStatus}'`,
-    );
-  },
-);
+// C3a: removed "the reviewer workspace BFF advisory query for ... returns status" — drove
+// the retired TS workspace-bff (:4010) GraphQL advisory resolver; covered by portal-bff tests.
 
 Then(
   'the advisory result status is {string} or {string}',

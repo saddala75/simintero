@@ -55,9 +55,6 @@ spec:
             chart: enstellar-clock-worker
             cell: pooled
           # ── Pooled cell — Web apps ─────────────────────────────────────────
-          - service: reviewer-workspace
-            chart: reviewer-workspace
-            cell: pooled
           - service: saas-admin
             chart: saas-admin
             cell: pooled
@@ -71,12 +68,6 @@ spec:
             chart: ai-ops-console
             cell: pooled
           # ── Enclave cell — Java services (FedRAMP) ─────────────────────────
-          - service: fhir-facade
-            chart: fhir-facade
-            cell: enclave
-          - service: x12-translator
-            chart: x12-translator
-            cell: enclave
           - service: digicore-runtime
             chart: digicore-runtime
             cell: enclave

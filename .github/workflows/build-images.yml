@@ -68,21 +68,10 @@ jobs:
           - name: enstellar-clock
             context: .
             dockerfile: modules/enstellar/clock/Dockerfile
-          - name: fhir-facade
-            context: integration/fhir-facade
-            dockerfile: integration/fhir-facade/Dockerfile
-            maven: integration/fhir-facade
-          - name: x12-translator
-            context: integration/x12-translator
-            dockerfile: integration/x12-translator/Dockerfile
-            maven: integration/x12-translator
           - name: digicore-runtime
             context: modules/digicore/runtime
             dockerfile: modules/digicore/runtime/Dockerfile
             maven: modules/digicore/runtime
-          - name: reviewer-workspace
-            context: .
-            dockerfile: apps/web/reviewer-workspace/Dockerfile
           - name: saas-admin
             context: .
             dockerfile: apps/web/saas-admin/Dockerfile

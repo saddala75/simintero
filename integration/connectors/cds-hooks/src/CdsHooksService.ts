@@ -85,7 +85,7 @@ export function createCdsHooksRouter(cfg: CdsHooksConfig): Router {
       const { patientId } = cdsReq.context;
 
       const coverageRes = await fetch(
-        `${cfg.fhirFacadeUrl}/fhir/R4/Coverage?patient=${encodeURIComponent(patientId)}&status=active`,
+        `${cfg.interopFhirBaseUrl}/Coverage?patient=${encodeURIComponent(patientId)}&status=active`,
         { headers: { 'Accept': 'application/fhir+json' } },
       );
 

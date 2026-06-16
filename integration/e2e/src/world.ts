@@ -6,9 +6,6 @@ export const SERVICE_BASE: Record<string, string> = {
   document:      process.env['DOCUMENT_URL']       ?? 'http://localhost:3010',
   modelGateway:  process.env['MODEL_GATEWAY_URL']  ?? 'http://localhost:3011',
   controlPlane:  process.env['CONTROL_PLANE_URL']  ?? 'http://localhost:3012',
-  enstellarCase: process.env['ENSTELLAR_CASE_URL'] ?? 'http://localhost:3013',
-  enstellarIntake: process.env['ENSTELLAR_INTAKE_URL'] ?? 'http://localhost:3003',
-  workspaceBff:   process.env['WORKSPACE_BFF_URL']    ?? 'http://localhost:4010',
   revital:       process.env['REVITAL_URL']        ?? 'http://localhost:3014',
   qualitron:     process.env['QUALITRON_URL']      ?? 'http://localhost:3015',
   claims:        process.env['CLAIMS_URL']         ?? 'http://localhost:3016',
@@ -17,7 +14,6 @@ export const SERVICE_BASE: Record<string, string> = {
   search:        process.env['SEARCH_URL']         ?? 'http://localhost:3019',
   analytics:     process.env['ANALYTICS_URL']      ?? 'http://localhost:3020',
   bff:           process.env['BFF_URL']            ?? 'http://localhost:3021',
-  fhirFacade:    process.env['FHIR_FACADE_URL']    ?? 'http://localhost:8081',
 };
 
 export class SimWorld extends World {

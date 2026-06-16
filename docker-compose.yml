@@ -375,49 +375,17 @@ services:
       dockerfile: integration/connectors/cds-hooks/Dockerfile
     environment:
       CONTROL_PLANE_URL: http://control-plane:3012
-      FHIR_FACADE_URL: http://fhir-facade:8081
+      # interop runs in services/enstellar-compose; unified into this stack in C4
+      INTEROP_FHIR_BASE_URL: http://interop:8080/fhir
       PORT: "3050"
     ports:
       - "3050:3050"
     depends_on:
       - control-plane
-      - fhir-facade
     networks:
       - sim-net
 
   # ── Java services ──────────────────────────────────────────────────────────
-
-  fhir-facade:
-    build:
-      context: integration/fhir-facade
-      dockerfile: Dockerfile
-    environment:
-      SERVER_PORT: "8081"
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/simintero
-      SPRING_DATASOURCE_USERNAME: sim
-      SPRING_DATASOURCE_PASSWORD: devpassword
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - sim-net
-
-  x12-translator:
-    build:
-      context: integration/x12-translator
-      dockerfile: Dockerfile
-    environment:
-      SERVER_PORT: "8082"
-      POSTGRES_URL: jdbc:postgresql://postgres:5432/simintero
-    ports:
-      - "8082:8082"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - sim-net
 
   digicore-runtime:
     build:

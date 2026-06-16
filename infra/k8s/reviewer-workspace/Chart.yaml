@@ -1,6 +1,0 @@
-apiVersion: v2
-name: reviewer-workspace
-description: Reviewer-Workspace SPA (Nginx)
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

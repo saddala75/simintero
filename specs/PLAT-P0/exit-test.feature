@@ -24,23 +24,5 @@ Feature: Phase 0 exit — synthetic tenant provision and case lifecycle
     And the ctrl.tenant table contains a row with tenant_id "t_synth_ma" and status "active"
     And the ctrl.tenant table contains a row with tenant_id "t_synth_medicaid" and status "active"
 
-  Scenario: Create and replay a skeletal case event
-    When an actor with role "um_nurse_reviewer" in tenant "t_synth_ma" appends a CaseCreated event for case "case_exit_test_01"
-      """
-      {
-        "case_id": "case_exit_test_01",
-        "channel": "PAS",
-        "lob": "MA",
-        "urgency": "standard",
-        "service_category": "orthopedic"
-      }
-      """
-    And the outbox relay publishes the event to the "sim.case.lifecycle" Kafka topic
-    And the case consumer replays the event log for case "case_exit_test_01"
-    Then the replayed case matches the original payload with all fields preserved
-    And the event appears in the audit log with:
-      | field          | value                |
-      | actor_type     | human                |
-      | tenant_id      | t_synth_ma           |
-      | schema_ref     | sim.case.created/v1  |
-    And the RLS harness confirms tenant "t_synth_medicaid" cannot read case "case_exit_test_01"
+  # C3a: removed — drove the retired TS enstellar-case service (event append/replay/GET);
+  # case lifecycle + audit coverage now in interop ITs + portal Playwright.

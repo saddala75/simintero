@@ -7,7 +7,6 @@ const ALL_HEALTH_CHECKS: Array<{ label: string; url: string }> = [
   { label: 'document',      url: `${SERVICE_BASE['document']}/health` },
   { label: 'modelGateway',  url: `${SERVICE_BASE['modelGateway']}/health` },
   { label: 'controlPlane',  url: `${SERVICE_BASE['controlPlane']}/health` },
-  { label: 'enstellarCase', url: `${SERVICE_BASE['enstellarCase']}/health` },
   { label: 'revital',       url: `${SERVICE_BASE['revital']}/health` },
   { label: 'qualitron',     url: `${SERVICE_BASE['qualitron']}/health` },
   { label: 'claims',        url: `${SERVICE_BASE['claims']}/health` },

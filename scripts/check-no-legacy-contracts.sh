@@ -21,3 +21,18 @@ if [ -f services/enstellar-interop/src/main/java/com/simintero/enstellar/interop
   echo "C2c INVARIANT VIOLATED: interop should use io.simintero.tenant.TenantContext, not its own." >&2; exit 1
 fi
 echo "C2a/C2b/C2c invariant OK: contract + tenancy/authz cutover complete."
+# C3a invariant: the platform's parallel Enstellar seam + reviewer console are retired.
+# Check TRACKED state and retired PATHS (not bare names — breadcrumb comments and the
+# bundled services/enstellar-interop/x12-translator subproject legitimately remain).
+for p in integration/fhir-facade integration/x12-translator apps/web/reviewer-workspace infra/k8s/fhir-facade infra/k8s/x12-translator ; do
+  if [ -n "$(git ls-files "$p")" ]; then
+    echo "C3a INVARIANT VIOLATED: $p is still tracked (should be deleted)." >&2; exit 1
+  fi
+done
+if git grep -lI "integration/fhir-facade\|integration/x12-translator\|apps/web/reviewer-workspace\|infra/k8s/fhir-facade\|infra/k8s/x12-translator" -- ':!docs/' ':!*.md' ':!scripts/check-no-legacy-contracts.sh' ; then
+  echo "C3a INVARIANT VIOLATED: a tracked file references a retired path above." >&2; exit 1
+fi
+if git grep -nI "enstellarIntake\|enstellarCase\|workspaceBff\|fhirFacade" -- integration/e2e/src/world.ts ; then
+  echo "C3a INVARIANT VIOLATED: a retired dead-path service key reappeared in e2e world.ts." >&2; exit 1
+fi
+echo "C3a invariant OK: parallel seam + reviewer console retired."
