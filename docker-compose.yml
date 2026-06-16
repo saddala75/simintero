@@ -6,12 +6,15 @@ volumes:
   postgres-data:
   redpanda-data:
   temporal-data:
+  minio-data:
+  opensearch-data:
+  ollama-data:
 
 services:
   # ── Infrastructure ─────────────────────────────────────────────────────────
 
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: simintero
       POSTGRES_USER: sim
@@ -20,6 +23,7 @@ services:
       - "15432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - sim-net
     healthcheck:
@@ -45,21 +49,34 @@ services:
       - sim-net
 
   redpanda:
-    image: redpandadata/redpanda:latest
+    image: redpandadata/redpanda:v24.1.7
     command:
       - redpanda
       - start
       - --smp=1
+      - --memory=512M
       - --reserve-memory=0M
       - --overprovisioned
-      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
-      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:19092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092,OUTSIDE://localhost:19092
+      - --pandaproxy-addr=0.0.0.0:8082
+      - --advertise-pandaproxy-addr=localhost:8082
     ports:
       - "9092:9092"
+      - "19092:19092"
+      - "8082:8082"
     volumes:
       - redpanda-data:/var/lib/redpanda/data
     networks:
       - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   temporal:
     image: temporalio/auto-setup:1.24
@@ -319,5 +336,97 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - sim-net
+
+  # ── Shared infra (Enstellar) ───────────────────────────────────────────────
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.4
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak_secret}"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+      KC_HOSTNAME_URL: http://localhost:8081
+      TEST_CLIENT_SECRET: "${TEST_CLIENT_SECRET:-test-secret}"
+      E2E_PASSWORD: "${E2E_PASSWORD:-e2e-pass}"
+      TEST_REVIEWER_PASSWORD: "${TEST_REVIEWER_PASSWORD:-reviewer-password}"
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./infra/keycloak/simintero-realm.json:/opt/keycloak/data/import/simintero-realm.json:ro
+      - ./infra/keycloak/simintero-realm-ci-overlay.json:/opt/keycloak/data/import/simintero-realm-ci-overlay.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; printf 'GET /realms/master HTTP/1.0\\r\\nHost: 127.0.0.1\\r\\n\\r\\n' >&3; read -t 5 line <&3; [[ \"$$line\" == *200* ]]"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  minio:
+    image: minio/minio:RELEASE.2024-06-04T19-20-08Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "mc alias set local http://127.0.0.1:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD --api S3v4 > /dev/null 2>&1 && mc ready local"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
     networks:
       - sim-net
