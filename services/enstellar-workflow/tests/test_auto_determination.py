@@ -36,7 +36,7 @@ from tests.conftest import make_case
 MOCK_TRACE = StructuredTrace(
     artifact="mock-policy-stub-v1",
     version="1.0.0",
-    source="mock-digicore",
+    source="digicore-runtime",
     logic_branch="auto-approve-stub",
 )
 

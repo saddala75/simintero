@@ -28,7 +28,7 @@ def make_decision(case_id: uuid.UUID, tenant_id: str) -> Decision:
         rule_artifact_id="policy-stub-v1",
         rule_version="1.0.0",
         criteria_branch="auto-approve",
-        evidence_refs=["mock-digicore"],
+        evidence_refs=["digicore-runtime"],
         human_signoff_required=False,
         human_signoff_actor=None,
         human_signoff_at=None,

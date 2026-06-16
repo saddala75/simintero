@@ -14,7 +14,7 @@ class ConnectorSettings(BaseSettings):
     """All settings for integration-connectors.
 
     Environment variable prefix: DIGICORE_
-    Example: DIGICORE_BASE_URL=http://mock-digicore:8000
+    Example: DIGICORE_BASE_URL=http://digicore-runtime:8083
 
     Pydantic-settings converts env var names to lowercase field names
     after stripping the prefix. DIGICORE_BASE_URL → base_url.

@@ -130,8 +130,8 @@ def test_circuit_breaker_failure_count_resets_on_success():
 @pytest.mark.asyncio
 @respx.mock
 async def test_evaluate_request_approved(monkeypatch):
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
     )
 
@@ -156,8 +156,8 @@ async def test_evaluate_request_approved(monkeypatch):
 @pytest.mark.asyncio
 @respx.mock
 async def test_evaluate_request_pending_review(monkeypatch):
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(200, json=EVAL_MEETS_SOME_RESPONSE)
     )
 
@@ -191,8 +191,8 @@ async def test_evaluate_request_pending_review(monkeypatch):
 @respx.mock
 async def test_evaluate_request_sends_correct_body(monkeypatch):
     """Verify the request body includes all required fields including tenant_id."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    route = respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
     )
 
@@ -221,8 +221,8 @@ async def test_evaluate_request_sends_correct_body(monkeypatch):
 @respx.mock
 async def test_successful_call_resets_circuit_breaker(monkeypatch):
     """A successful call after failures must reset the failure counter."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
     )
 
@@ -245,9 +245,9 @@ async def test_successful_call_resets_circuit_breaker(monkeypatch):
 @respx.mock
 async def test_retries_on_503_then_succeeds(monkeypatch):
     """Client retries on 503 and succeeds on the second attempt."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
     # First call returns 503, second returns 200
-    respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         side_effect=[
             httpx.Response(503, json={"detail": "service unavailable"}),
             httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE),
@@ -266,8 +266,8 @@ async def test_retries_on_503_then_succeeds(monkeypatch):
 @respx.mock
 async def test_retries_on_502_then_succeeds(monkeypatch):
     """Client retries on 502."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         side_effect=[
             httpx.Response(502, json={}),
             httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE),
@@ -285,8 +285,8 @@ async def test_retries_on_502_then_succeeds(monkeypatch):
 @respx.mock
 async def test_does_not_retry_on_400(monkeypatch):
     """400 Bad Request is not transient — must not be retried."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    route = respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(400, json={"detail": "bad request"})
     )
 
@@ -303,8 +303,8 @@ async def test_does_not_retry_on_400(monkeypatch):
 @respx.mock
 async def test_does_not_retry_on_500(monkeypatch):
     """500 Internal Server Error is not in the transient set — must not be retried."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    route = respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(500, json={"detail": "server error"})
     )
 
@@ -325,9 +325,9 @@ async def test_does_not_retry_on_500(monkeypatch):
 @respx.mock
 async def test_circuit_opens_after_5_consecutive_failures(monkeypatch):
     """INVARIANT: after 5 consecutive failing calls, the circuit opens."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
     monkeypatch.setenv("DIGICORE_RETRY_MAX_ATTEMPTS", "1")  # 1 attempt = no retry delay
-    respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(503, json={})
     )
 
@@ -345,8 +345,8 @@ async def test_circuit_opens_after_5_consecutive_failures(monkeypatch):
 @respx.mock
 async def test_circuit_open_raises_circuit_open_error_without_http_call(monkeypatch):
     """When circuit is open, evaluate_request raises CircuitOpenError immediately."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    route = respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
     )
 
@@ -366,9 +366,9 @@ async def test_circuit_open_raises_circuit_open_error_without_http_call(monkeypa
 @respx.mock
 async def test_circuit_does_not_open_on_4_failures(monkeypatch):
     """4 consecutive failures must not open the circuit (threshold is 5)."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
     monkeypatch.setenv("DIGICORE_RETRY_MAX_ATTEMPTS", "1")
-    respx.post("http://mock-digicore-test" + EVALUATE_PATH).mock(
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(503, json={})
     )
 
@@ -384,9 +384,9 @@ async def test_circuit_does_not_open_on_4_failures(monkeypatch):
 @respx.mock
 async def test_successful_call_after_4_failures_does_not_open_circuit(monkeypatch):
     """A success at failure_count=4 resets counter; subsequent failure won't open immediately."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
     monkeypatch.setenv("DIGICORE_RETRY_MAX_ATTEMPTS", "1")
-    route = respx.post("http://mock-digicore-test" + EVALUATE_PATH)
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH)
     route.mock(
         side_effect=[
             httpx.Response(503, json={}),
