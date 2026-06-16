@@ -502,8 +502,8 @@ services:
 
   interop:
     build:
-      context: services/enstellar-interop
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/enstellar-interop/Dockerfile
     expose: ["8080"]
     ports:
       - "8080:8080"
