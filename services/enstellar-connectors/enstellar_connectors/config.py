@@ -25,8 +25,8 @@ class ConnectorSettings(BaseSettings):
         case_sensitive=False,
     )
 
-    base_url: str = "http://localhost:8090"
-    """Base URL for the Digicore API. Override with DIGICORE_BASE_URL."""
+    base_url: str = "http://digicore-runtime:8083"
+    """Base URL for the digicore-runtime API. Override with DIGICORE_BASE_URL."""
 
     circuit_breaker_threshold: int = 5
     """Number of consecutive call failures before the circuit opens."""

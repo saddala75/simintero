@@ -24,7 +24,14 @@ from tenacity import (
 
 from ..circuit_breaker import CircuitBreaker, CircuitOpenError
 from ..config import get_settings
-from .models import DecisionRequest, DecisionResponse
+from .models import (
+    DecisionRequest,
+    DecisionResponse,
+    EvaluationRequest,
+    EvaluationResponse,
+    Pin,
+    StructuredTrace,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +72,10 @@ class DigiCoreClient:
         )
 
     async def evaluate_request(self, req: DecisionRequest) -> DecisionResponse:
-        """Call POST /api/v1/decisions. Retries on transient errors.
+        """Call POST /v1/runtime/evaluate (digicore-runtime C-1). Retries on transient errors.
+
+        The EvaluationResponse is mapped back to DecisionResponse inside the client
+        so the return type is unchanged for callers.
 
         Raises:
             CircuitOpenError: if the circuit is open (too many recent failures).
@@ -103,14 +113,59 @@ class DigiCoreClient:
         raise RuntimeError("Unreachable: tenacity loop exited without return or raise")
 
     async def _single_call(self, req: DecisionRequest) -> DecisionResponse:
-        """Execute a single HTTP POST with no retry logic."""
+        """Execute a single HTTP POST against digicore-runtime C-1, mapped to DecisionResponse.
+
+        Calls POST /v1/runtime/evaluate (the real digicore-runtime), then maps the
+        EvaluationResponse back to the existing DecisionResponse shape so callers
+        (auto_determination.py) are unaffected.
+        """
+        eval_req = EvaluationRequest(
+            caseId=req.case_id,
+            evidence={},
+            pins=[p.pin_id for p in req.pins],
+            serviceCode=req.service_code,
+        )
         async with httpx.AsyncClient(
             base_url=self._base_url,
             timeout=self._timeout,
         ) as client:
             resp = await client.post(
-                "/api/v1/decisions",
-                json=req.model_dump(),
+                "/v1/runtime/evaluate",
+                json=eval_req.model_dump(),
             )
             resp.raise_for_status()
-            return DecisionResponse.model_validate(resp.json())
+            ev = EvaluationResponse.model_validate(resp.json())
+        return self._map_evaluation(ev)
+
+    @staticmethod
+    def _map_evaluation(ev: EvaluationResponse) -> DecisionResponse:
+        """Map a digicore-runtime EvaluationResponse to the legacy DecisionResponse.
+
+        INVARIANT #1: never produce decision="denied" from this mapping. A
+        non-"meets_all" outcome maps to "pending_review" (human review), never denial.
+        """
+        decision = "approved" if ev.outcome == "meets_all" else "pending_review"
+        requirements = [
+            str(g.get("display") or g.get("requirement_id") or g)
+            for g in ev.requirementGaps
+        ]
+        structured_trace = StructuredTrace(
+            artifact=(ev.pins[0] if ev.pins else "digicore-runtime"),
+            version="",
+            source="digicore-runtime",
+            logic_branch=ev.outcome,
+            governing_artifacts=list(ev.pins),
+            inputs=[],
+            logic_path=[str(x) for x in ev.logicPath],
+            actors=[],
+        )
+        pins = [
+            Pin(pin_id=p, criterion_id=p, text=p, status="met")
+            for p in ev.pins
+        ]
+        return DecisionResponse(
+            decision=decision,
+            requirements=requirements,
+            structured_trace=structured_trace,
+            pins=pins,
+        )

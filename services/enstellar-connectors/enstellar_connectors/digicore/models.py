@@ -66,3 +66,28 @@ class DecisionResponse(BaseModel):
     requirements: list[str]
     structured_trace: StructuredTrace
     pins: list[Pin] = []
+
+
+# ---------------------------------------------------------------------------
+# digicore-runtime C-1 models — POST /v1/runtime/evaluate
+# ---------------------------------------------------------------------------
+
+
+class EvaluationRequest(BaseModel):
+    """Outbound request body for the digicore-runtime C-1 evaluate endpoint."""
+
+    caseId: str
+    evidence: dict = {}
+    pins: list[str] = []
+    serviceCode: str
+
+
+class EvaluationResponse(BaseModel):
+    """Response from POST /v1/runtime/evaluate (digicore-runtime C-1)."""
+
+    outcome: str
+    requirementGaps: list[dict] = []
+    logicPath: list[dict] = []
+    autoDetermination: dict = {}
+    pins: list[str] = []
+    traceRef: str | None = None
