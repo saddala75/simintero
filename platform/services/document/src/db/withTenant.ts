@@ -16,11 +16,16 @@ export async function withTenant<T>(
     await client.query(`SELECT set_config('sim.tenant_id', $1, true)`, [tenantId]);
     const result = await fn(client);
     await client.query('COMMIT');
+    client.release();
     return result;
   } catch (err) {
-    await client.query('ROLLBACK');
+    let destroy = false;
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      destroy = true;
+    }
+    client.release(destroy);
     throw err;
-  } finally {
-    client.release();
   }
 }

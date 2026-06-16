@@ -46,4 +46,21 @@ describe('withTenant', () => {
     expect(calls).toContain('ROLLBACK');
     expect(client.release).toHaveBeenCalledOnce();
   });
+
+  it('preserves the original error and evicts the connection when ROLLBACK also fails', async () => {
+    const client = {
+      query: vi.fn().mockImplementation(async (sql: string) => {
+        if (sql === 'ROLLBACK') throw new Error('rollback failed');
+        return { rows: [] };
+      }),
+      release: vi.fn(),
+    } as unknown as import('pg').PoolClient;
+    const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as import('pg').Pool;
+
+    await expect(
+      withTenant(pool, 't_abc', async () => { throw new Error('original'); }),
+    ).rejects.toThrow('original');
+
+    expect(client.release).toHaveBeenCalledWith(true);
+  });
 });
