@@ -589,7 +589,7 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, select:focus-visi
 .lp-pill { font-family: "JetBrains Mono", monospace; font-size: 11.5px; letter-spacing: .04em; border: 1px solid rgba(27,26,22,.26); padding: 7px 13px; border-radius: 999px; color: #1B1A16; background: rgba(252,250,244,.6); }
 .lp-inline-link { color: #0F564C; font-weight: 600; text-decoration: none; border-bottom: 1px solid #0F564C; }
 
-/* ── Grafted from reviewer-workspace app.css (C3a) — case-review depth ── */
+/* ── Grafted from the retired reviewer console (C3a) — case-review depth ── */
 
 /* case-review wrapper + left rail */
 .en-case-shell { flex: 1; display: flex; min-height: 0; }
