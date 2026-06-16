@@ -24,6 +24,7 @@ import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -87,13 +88,22 @@ class PasSubmitIT extends FhirTestBase {
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Pre-existing flaky Kafka decision-consumer timing (expected 'complete' got 'queued'); identical upstream. Revisit when the Kafka/decision path is conformed in Section C2.")
-    void submit_validBundle_returns200WithApprovedClaimResponse() {
+    void submit_validBundle_returns200WithApprovedClaimResponse() throws Exception {
+        // The PAS decision is ASYNC: $submit durably records the case and returns a
+        // QUEUED ClaimResponse immediately; the final `complete` outcome only appears
+        // after the DecisionEventConsumer processes a `decision.recorded` Kafka event,
+        // observed by re-$inquire-ing GET /fhir/Claim/{correlationId}/$inquire.
+        // Asserting `complete` on the $submit response directly is a race (was the source
+        // of the prior flakiness). We award determinism by awaiting the $inquire outcome.
         String tenantId = "tenant-submit-200";
-        stubNormalize(tenantId, "pas-test-bundle-001");
+        String correlationId = "pas-test-bundle-001";
+        // The stub returns this fixed case_id; the consumer matches on case_id + tenant_id.
+        String caseId = "550e8400-e29b-41d4-a716-446655440000";
+        stubNormalize(tenantId, correlationId);
 
         String bundleJson = PasTestBundles.validPasBundleJson();
-        HttpHeaders headers = pasFhirHeaders(mintJwt(tenantId, "patient/*.read patient/*.write"));
+        String submitToken = mintJwt(tenantId, "patient/*.read patient/*.write");
+        HttpHeaders headers = pasFhirHeaders(submitToken);
 
         ResponseEntity<String> response = restTemplate.exchange(
             "http://localhost:" + port + "/fhir/Claim/$submit",
@@ -105,17 +115,79 @@ class PasSubmitIT extends FhirTestBase {
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
 
         ObjectMapper json = new ObjectMapper();
-        JsonNode body;
-        try {
-            body = json.readTree(response.getBody());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        JsonNode body = json.readTree(response.getBody());
         assertThat(body.path("resourceType").asText()).isEqualTo("Bundle");
         JsonNode claimResponse = body.path("entry").path(0).path("resource");
         assertThat(claimResponse.path("resourceType").asText()).isEqualTo("ClaimResponse");
-        assertThat(claimResponse.path("outcome").asText()).isEqualTo("complete");
         assertThat(claimResponse.path("use").asText()).isEqualTo("preauthorization");
+        // $submit is async — the immediate outcome is QUEUED, not COMPLETE.
+        assertThat(claimResponse.path("outcome").asText()).isEqualTo("queued");
+
+        // Drive the async decision: publish a decision.recorded event (outcome=approved).
+        // The DecisionEventConsumer consumes it and flips the DecisionRecord to decided.
+        publishDecisionEvent(tenantId, caseId, correlationId,
+                "approved", "policy-v2-2026-q2", "2.1.0");
+
+        // AWAIT the deterministic final condition: re-$inquire until outcome flips to
+        // `complete` (mapped from "approved"). Re-fetch the resource inside the poll —
+        // never assert the async outcome instantly.
+        HttpHeaders inquireHeaders = new HttpHeaders();
+        inquireHeaders.setBearerAuth(submitToken);
+        inquireHeaders.setAccept(List.of(MediaType.valueOf("application/fhir+json")));
+
+        org.awaitility.Awaitility.await()
+                .atMost(java.time.Duration.ofSeconds(20))
+                .pollInterval(java.time.Duration.ofMillis(250))
+                .untilAsserted(() -> {
+                    ResponseEntity<String> inquireResp = restTemplate.exchange(
+                        "http://localhost:" + port + "/fhir/Claim/" + correlationId + "/$inquire",
+                        HttpMethod.GET,
+                        new HttpEntity<>(inquireHeaders),
+                        String.class
+                    );
+                    assertThat(inquireResp.getStatusCode().is2xxSuccessful()).isTrue();
+                    JsonNode inquireBody = new ObjectMapper().readTree(inquireResp.getBody());
+                    JsonNode cr = inquireBody.path("entry").path(0).path("resource");
+                    assertThat(cr.path("resourceType").asText()).isEqualTo("ClaimResponse");
+                    assertThat(cr.path("use").asText()).isEqualTo("preauthorization");
+                    // The SAME final condition the original test asserted — now awaited.
+                    assertThat(cr.path("outcome").asText()).isEqualTo("complete");
+                });
+    }
+
+    private void publishDecisionEvent(String tenantId, String caseId, String corrId,
+            String outcome, String artifact, String version) throws Exception {
+        Map<String, Object> payload = Map.of(
+                "decision_id", UUID.randomUUID().toString(),
+                "outcome", outcome,
+                "auto_approved", true,
+                "rule_artifact_id", artifact,
+                "rule_version", version
+        );
+        Map<String, Object> envelope = new HashMap<>();
+        envelope.put("event_id", UUID.randomUUID().toString());
+        envelope.put("tenant_id", tenantId);
+        envelope.put("case_id", caseId);
+        envelope.put("correlation_id", corrId);
+        envelope.put("type", "decision.recorded");
+        envelope.put("occurred_at", Instant.now().toString());
+        envelope.put("actor", Map.of("id", "auto-determination", "type", "system"));
+        envelope.put("payload", payload);
+        envelope.put("schema_version", "1.0.0");
+        String eventJson = new ObjectMapper().writeValueAsString(envelope);
+
+        Map<String, Object> props = new HashMap<>();
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                KAFKA.getBootstrapServers());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                org.apache.kafka.common.serialization.StringSerializer.class);
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                org.apache.kafka.common.serialization.StringSerializer.class);
+        org.springframework.kafka.core.KafkaTemplate<String, String> producer =
+                new org.springframework.kafka.core.KafkaTemplate<>(
+                        new org.springframework.kafka.core.DefaultKafkaProducerFactory<>(props));
+        producer.send("decision.recorded", tenantId, eventJson)
+                .get(10, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     @Test

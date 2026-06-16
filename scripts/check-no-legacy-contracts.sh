@@ -15,4 +15,9 @@ fi
 for d in services/enstellar-packages/canonical-model services/enstellar-packages/event-contracts services/enstellar-packages/authz ; do
   if [ -d "$d" ]; then echo "INVARIANT VIOLATED: $d should be deleted." >&2; exit 1; fi
 done
-echo "C2a/C2b invariant OK: contract + tenancy/authz cutover complete."
+# C2c invariant: interop is conformed to the platform TenantContext — it must NOT
+# carry its own auth.TenantContext (should use io.simintero.tenant.TenantContext).
+if [ -f services/enstellar-interop/src/main/java/com/simintero/enstellar/interop/auth/TenantContext.java ]; then
+  echo "C2c INVARIANT VIOLATED: interop should use io.simintero.tenant.TenantContext, not its own." >&2; exit 1
+fi
+echo "C2a/C2b/C2c invariant OK: contract + tenancy/authz cutover complete."

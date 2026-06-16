@@ -34,16 +34,34 @@ class SmartAuthIT extends FhirTestBase {
     @Test
     void authenticated_GET_Patient_with_valid_token_returns_200() {
         String token = mintJwt("test-tenant", "patient/*.read");
+        ResponseEntity<String> response = callPatientWithToken(token);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void token_missing_aud_claim_is_rejected_401() {
+        // Audit requirement: a token with NO `aud` claim must be rejected by the
+        // audience validator (realm simintero), not silently accepted.
+        String token = mintJwt("test-tenant", "patient/*.read", null);
+        ResponseEntity<String> response = callPatientWithToken(token);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void token_with_wrong_aud_is_rejected_401() {
+        String token = mintJwt("test-tenant", "patient/*.read", List.of("some-other-api"));
+        ResponseEntity<String> response = callPatientWithToken(token);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    private ResponseEntity<String> callPatientWithToken(String token) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         headers.setAccept(List.of(MediaType.valueOf("application/fhir+json")));
-
-        ResponseEntity<String> response = restTemplate.exchange(
+        return restTemplate.exchange(
                 "http://localhost:" + port + "/fhir/Patient",
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 }

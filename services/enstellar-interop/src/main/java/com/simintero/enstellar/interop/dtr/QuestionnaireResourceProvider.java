@@ -6,8 +6,8 @@ import ca.uhn.fhir.rest.annotation.RequiredParam;
 import ca.uhn.fhir.rest.annotation.Search;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
-import com.simintero.enstellar.interop.auth.TenantContext;
 import com.simintero.enstellar.interop.crd.DigicoreClient;
+import io.simintero.tenant.TenantContextHolder;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Questionnaire;
 
@@ -40,7 +40,7 @@ public class QuestionnaireResourceProvider implements IResourceProvider {
     public List<Questionnaire> search(
             @RequiredParam(name = "context") StringParam context,
             @OptionalParam(name = "plan") StringParam plan) {
-        String tenant = TenantContext.require();
+        String tenant = TenantContextHolder.get().tenantId();
         String planId = plan != null ? plan.getValue() : "unknown";
         String json = digicore.getQuestionnaire(context.getValue(), planId, tenant);
         Questionnaire q = fhirContext.newJsonParser().parseResource(Questionnaire.class, json);

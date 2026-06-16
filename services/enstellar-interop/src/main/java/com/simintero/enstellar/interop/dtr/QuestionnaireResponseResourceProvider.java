@@ -5,8 +5,8 @@ import ca.uhn.fhir.rest.annotation.ResourceParam;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException;
-import com.simintero.enstellar.interop.auth.TenantContext;
 import com.simintero.enstellar.interop.pas.PasClaimSubmitProvider;
+import io.simintero.tenant.TenantContextHolder;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
@@ -41,7 +41,7 @@ public class QuestionnaireResponseResourceProvider implements IResourceProvider 
 
     @Create
     public MethodOutcome create(@ResourceParam QuestionnaireResponse qr) {
-        String tenant = TenantContext.require();
+        String tenant = TenantContextHolder.get().tenantId();
         if (qr.getStatus() == null || !qr.hasQuestionnaire()) {
             throw new UnprocessableEntityException(
                     "QuestionnaireResponse must have status and a questionnaire reference");

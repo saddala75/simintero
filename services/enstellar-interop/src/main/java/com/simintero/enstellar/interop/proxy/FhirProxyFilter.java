@@ -1,7 +1,7 @@
 package com.simintero.enstellar.interop.proxy;
 
-import com.simintero.enstellar.interop.auth.TenantContext;
 import com.simintero.enstellar.interop.config.HapiProperties;
+import io.simintero.tenant.TenantContextHolder;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -109,7 +109,7 @@ public class FhirProxyFilter extends OncePerRequestFilter {
         }
 
         // Tenant context is required for all requests except unauthenticated /metadata.
-        String tenantId = isMetadata ? null : TenantContext.require();
+        String tenantId = isMetadata ? null : TenantContextHolder.get().tenantId();
 
         // Append _security query param for GET searches only (not POST creates).
         String qs = request.getQueryString();

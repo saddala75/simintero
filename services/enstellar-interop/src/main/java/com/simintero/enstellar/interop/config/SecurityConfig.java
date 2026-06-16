@@ -96,9 +96,12 @@ public class SecurityConfig {
         }
         OAuth2TokenValidator<Jwt> defaults = JwtValidators.createDefaultWithIssuer(issuerUri);
 
+        // A token MISSING the `aud` claim must be rejected (audit requirement): when the
+        // claim is absent JwtClaimValidator passes null to this predicate, and an empty
+        // `aud` array passes an empty list — both must FAIL so the audience is enforced.
         OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<List<String>>(
             JwtClaimNames.AUD,
-            aud -> aud != null && aud.contains(expectedAudience)
+            aud -> aud != null && !aud.isEmpty() && aud.contains(expectedAudience)
         );
 
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(defaults, audienceValidator));

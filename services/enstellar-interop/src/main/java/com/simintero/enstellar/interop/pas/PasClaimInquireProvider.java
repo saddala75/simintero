@@ -4,8 +4,8 @@ import ca.uhn.fhir.rest.annotation.IdParam;
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
-import com.simintero.enstellar.interop.auth.TenantContext;
 import com.simintero.enstellar.interop.decision.ClaimResponseBuilder;
+import io.simintero.tenant.TenantContextHolder;
 import com.simintero.enstellar.interop.decision.DecisionRecord;
 import com.simintero.enstellar.interop.decision.DecisionStore;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -61,7 +61,7 @@ public class PasClaimInquireProvider implements IResourceProvider {
      */
     @Operation(name = "$inquire", idempotent = true, type = Claim.class)
     public Bundle inquire(@IdParam IdType correlationId) {
-        String tenantId = TenantContext.require();
+        String tenantId = TenantContextHolder.get().tenantId();
         String corrId = correlationId.getIdPart();
 
         log.info("pas_inquire tenant={} correlation_id={}", tenantId, corrId);
