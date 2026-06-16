@@ -79,7 +79,7 @@ enstellar:
     kafka:
       intake-topic: ${PAS_INTAKE_TOPIC:case.intake.received}
   digicore:
-    base-url: ${DIGICORE_BASE_URL:http://mock-digicore:8000}
+    base-url: ${DIGICORE_BASE_URL:http://digicore-runtime:8083}
 
 interop:
   hapi:

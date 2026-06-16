@@ -48,8 +48,21 @@ class DigicoreQuestionnaireIT extends FhirTestBase {
 
     @Test
     void get_questionnaire_returns_parseable_artifact() {
-        DIGICORE_MOCK.stubFor(get(urlPathEqualTo("/api/v1/questionnaire")).willReturn(okJson("""
-                {"resourceType":"Questionnaire","id":"dtr-svc-1","status":"active",
+        String packageRef = "urn:sim:dtr:knee-arthroscopy:1.0.0";
+        // WebClient percent-encodes the path variable, so the colons arrive as %3A.
+        String encodedRef = "urn%3Asim%3Adtr%3Aknee-arthroscopy%3A1.0.0";
+        DIGICORE_MOCK.stubFor(post(urlPathEqualTo("/v1/runtime/coverage-discovery"))
+                .withRequestBody(matchingJsonPath("$.service_code", equalTo("knee-arthroscopy")))
+                .willReturn(okJson("""
+                        {
+                          "pa_required": true,
+                          "governing_rules": [{"rule_id": "sim-knee-pa", "version": "1.0.0"}],
+                          "pins": [],
+                          "dtr_package_ref": "%s"
+                        }
+                        """.formatted(packageRef))));
+        DIGICORE_MOCK.stubFor(get(urlPathEqualTo("/v1/runtime/dtr-packages/" + encodedRef)).willReturn(okJson("""
+                {"resourceType":"Questionnaire","id":"dtr-knee","status":"active",
                  "item":[
                    {"linkId":"indication","text":"Clinical indication","type":"string"},
                    {"linkId":"tried-conservative","text":"Conservative therapy?","type":"boolean"},
@@ -57,13 +70,12 @@ class DigicoreQuestionnaireIT extends FhirTestBase {
                  ]}
                 """)));
 
-        String json = client.getQuestionnaire("svc-1", "plan-1", "t1");
+        String json = client.getQuestionnaire("knee-arthroscopy", "plan-1", "t1");
         Questionnaire q = FhirContext.forR4().newJsonParser().parseResource(Questionnaire.class, json);
 
         assertThat(q.getItem()).hasSize(3);
         assertThat(q.getStatus()).isEqualTo(Enumerations.PublicationStatus.ACTIVE);
-        DIGICORE_MOCK.verify(getRequestedFor(urlPathEqualTo("/api/v1/questionnaire"))
-                .withQueryParam("service_code", equalTo("svc-1"))
-                .withQueryParam("tenant_id", equalTo("t1")));
+        DIGICORE_MOCK.verify(postRequestedFor(urlPathEqualTo("/v1/runtime/coverage-discovery")));
+        DIGICORE_MOCK.verify(getRequestedFor(urlPathEqualTo("/v1/runtime/dtr-packages/" + encodedRef)));
     }
 }

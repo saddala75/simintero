@@ -55,9 +55,15 @@ class CdsServicesIT extends FhirTestBase {
 
     @Test
     void order_sign_pa_required_returns_dtr_launch_card() throws Exception {
-        DIGICORE_MOCK.stubFor(get(urlPathEqualTo("/api/v1/crd")).willReturn(okJson("""
-                {"pa_required": true, "documentation_requirements": ["clinical-notes"],
-                 "rule_reference": "rule-1", "dtr_launch_url": "http://localhost:8080/dtr/launch"}
+        DIGICORE_MOCK.stubFor(post(urlPathEqualTo("/v1/runtime/coverage-discovery")).willReturn(okJson("""
+                {"pa_required": true,
+                 "governing_rules": [{"rule_id": "rule-1", "version": "1.0.0"}],
+                 "pins": [],
+                 "dtr_package_ref": "urn:sim:dtr:knee-arthroscopy:1.0.0"}
+                """)));
+        DIGICORE_MOCK.stubFor(post(urlPathEqualTo("/v1/runtime/evidence-requirements:resolve")).willReturn(okJson("""
+                {"service_code": "svc-1",
+                 "requirements": [{"requirement_id": "r1", "display": "clinical-notes", "required": true}]}
                 """)));
 
         HttpHeaders headers = new HttpHeaders();
@@ -80,11 +86,11 @@ class CdsServicesIT extends FhirTestBase {
             }
         }
         assertThat(hasSmartLink).as("a DTR smart launch link is present").isTrue();
-        // tenant + member are propagated to Digicore (invariant: tenant-scoped)
-        DIGICORE_MOCK.verify(getRequestedFor(urlPathEqualTo("/api/v1/crd"))
-                .withQueryParam("tenant_id", equalTo("t1"))
-                .withQueryParam("member_id", equalTo("p1"))
-                .withQueryParam("service_code", equalTo("svc-1")));
+        // the CRD invoke fans out to the C-1 coverage-discovery + evidence-requirements endpoints
+        DIGICORE_MOCK.verify(postRequestedFor(urlPathEqualTo("/v1/runtime/coverage-discovery"))
+                .withRequestBody(matchingJsonPath("$.service_code", equalTo("svc-1"))));
+        DIGICORE_MOCK.verify(postRequestedFor(urlPathEqualTo("/v1/runtime/evidence-requirements:resolve"))
+                .withRequestBody(matchingJsonPath("$.service_code", equalTo("svc-1"))));
         // /cds-services is NOT a FHIR path — the proxy must never intercept it (regression guard).
         HAPI_MOCK.verify(0, anyRequestedFor(anyUrl()));
     }
