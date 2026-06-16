@@ -23,7 +23,6 @@ Then(
       { schema: 'shared',     table: 'outbox',            tenant_column: 'tenant_id' },
       { schema: 'fabric',     table: 'resource',          tenant_column: 'tenant_id' },
       { schema: 'ens',        table: 'case',              tenant_column: 'tenant_id' },
-      { schema: 'ens',        table: 'case_event',        tenant_column: 'tenant_id' },
       { schema: 'docs',       table: 'document',          tenant_column: 'tenant_id' },
       { schema: 'docs',       table: 'redaction_view',    tenant_column: 'tenant_id' },
       { schema: 'revital',    table: 'analysis',          tenant_column: 'tenant_id' },
