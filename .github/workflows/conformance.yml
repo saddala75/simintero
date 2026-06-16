@@ -14,7 +14,13 @@ jobs:
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       # C3a: fhir-facade retired; FHIR conformance is covered by interop ITs (PasSubmitIT/CdsServicesIT/DtrLaunchIT)
+      # C4a: stack unified — Inferno runs against the unified-stack interop (host-exposed at :8080).
+      - name: Bring up interop + deps (unified stack)
+        run: docker compose up -d --wait postgres keycloak hapi redpanda minio mock-digicore interop
       - name: Run Inferno US Core conformance
         run: npx --yes inferno-program-suite --base-url http://localhost:8080/fhir
       - name: Run Inferno SMART App Launch
         run: npx --yes inferno-program-suite --suite smart-app-launch --base-url http://localhost:8080/fhir
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

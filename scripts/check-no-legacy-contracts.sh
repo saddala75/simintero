@@ -50,3 +50,13 @@ if git grep -lI "enstellar-case\|enstellar-comms\|enstellar-clock-worker\|enstel
   echo "C3b INVARIANT VIOLATED: a deleted TS-twin service reappeared in deploy/CI config." >&2; exit 1
 fi
 echo "C3b invariant OK: TS Enstellar twin deleted (N-001 resolved)."
+# C4a invariant: the stack is unified — the separate enstellar-compose stack is retired,
+# and no DEPLOY config references Keycloak realm `enstellar` (the kept `enstellar-api`
+# AUDIENCE is a client/API id, not the realm; test fixtures are excluded).
+if [ -e services/enstellar-compose/docker-compose.yml ]; then
+  echo "C4a INVARIANT VIOLATED: services/enstellar-compose/docker-compose.yml must be deleted (merged into root)." >&2; exit 1
+fi
+if git grep -lI "realms/enstellar" -- docker-compose.yml infra .github/workflows ':!*.md' ; then
+  echo "C4a INVARIANT VIOLATED: deploy config still references Keycloak realm 'enstellar' (should be 'simintero')." >&2; exit 1
+fi
+echo "C4a invariant OK: stack unified on realm simintero; enstellar-compose retired."

@@ -365,12 +365,10 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      # Keycloak's --import-realm never MERGES two files that declare the same realm:
-      # the single-file phase imports exactly one and the rest are skipped (IGNORE_EXISTING),
-      # and which one "wins" is not controllable by filename. So only the self-contained
-      # base realm is mounted into the import dir (it already folds in the CI test client +
-      # users). The ci-overlay file is kept on disk as a CI-parity artifact that the CI/smoke
-      # task applies out-of-band (e.g. via kcadm), NOT through the import dir.
+      # Only the self-contained base realm is mounted into the import dir: it already folds
+      # in the CI test client (enstellar-test-client) + the CI/E2E reviewer users, so no
+      # separate overlay file is needed (the former ci-overlay was a redundant subset and
+      # has been retired).
       - ./infra/keycloak/simintero-realm.json:/opt/keycloak/data/import/simintero-realm.json:ro
     depends_on:
       postgres:
