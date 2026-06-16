@@ -6,8 +6,6 @@
   "scripts": {
     "test": "cucumber-js --config cucumber.yml",
     "test:p0": "cucumber-js --config cucumber.yml --tags '@phase0'",
-    "test:p1": "cucumber-js --config cucumber.yml --tags '@phase1'",
-    "test:p2": "cucumber-js --config cucumber.yml --tags '@phase2'",
     "test:p3": "cucumber-js --config cucumber.yml --tags '@phase3'",
     "test:p4a": "cucumber-js --config cucumber.yml --tags '@phase4a'",
     "test:p4b": "cucumber-js --config cucumber.yml --tags '@phase4b'",
