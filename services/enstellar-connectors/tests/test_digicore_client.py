@@ -39,12 +39,17 @@ EVAL_MEETS_ALL_RESPONSE = {
 }
 
 # outcome="meets_some" → DecisionResponse(decision="pending_review")
+# requirementGaps carry the criterion-level results (C-1: requirement_id +
+# description). The ev.pins are ARTIFACT-VERSION URNs and must NOT leak into
+# DecisionResponse.pins (they belong in structured_trace.governing_artifacts).
 EVAL_MEETS_SOME_RESPONSE = {
     "outcome": "meets_some",
-    "requirementGaps": [{"requirement_id": "clinical-notes", "display": "Clinical notes required"}],
+    "requirementGaps": [
+        {"requirement_id": "clinical-notes", "description": "Clinical notes required"}
+    ],
     "logicPath": [],
     "autoDetermination": {"eligible": False},
-    "pins": ["urn:digicore:policy:stub:v1"],
+    "pins": ["urn:sim:policy:knee-arthroscopy:1.0.0"],
     "traceRef": "trc-2",
 }
 
@@ -142,7 +147,10 @@ async def test_evaluate_request_approved(monkeypatch):
     assert resp.structured_trace.source == "digicore-runtime"
     assert resp.structured_trace.logic_branch == "meets_all"
     assert resp.structured_trace.governing_artifacts == ["urn:digicore:policy:stub:v1"]
-    assert [p.pin_id for p in resp.pins] == ["urn:digicore:policy:stub:v1"]
+    # meets_all → no requirementGaps → pins must be empty (the honest "no unmet
+    # criteria" state). Artifact URNs must NOT leak into pins as fake "met"
+    # criteria — they live only in structured_trace.governing_artifacts above.
+    assert resp.pins == []
 
 
 @pytest.mark.asyncio
@@ -159,6 +167,24 @@ async def test_evaluate_request_pending_review(monkeypatch):
     # meets_some (anything != meets_all) → pending_review, never denied (invariant #1)
     assert resp.decision == "pending_review"
     assert "Clinical notes required" in resp.requirements
+
+    # DecisionResponse.pins must be the CRITERION pins built from requirementGaps,
+    # NOT the artifact URNs in ev.pins.
+    assert len(resp.pins) == 1
+    gap_pin = resp.pins[0]
+    assert gap_pin.pin_id == "clinical-notes"
+    assert gap_pin.criterion_id == "clinical-notes"
+    assert gap_pin.text == "Clinical notes required"
+    assert gap_pin.status == "gap"
+
+    # The artifact-version URNs stay in structured_trace.governing_artifacts and
+    # must NOT appear among the criterion pins.
+    assert resp.structured_trace.governing_artifacts == [
+        "urn:sim:policy:knee-arthroscopy:1.0.0"
+    ]
+    assert all(
+        p.pin_id != "urn:sim:policy:knee-arthroscopy:1.0.0" for p in resp.pins
+    )
 
 
 @pytest.mark.asyncio

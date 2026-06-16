@@ -58,7 +58,7 @@ class DigiCoreClient:
             member_id="...", plan_id="...", tenant_id="tenant-1",
         )
         resp = await client.evaluate_request(req)
-        print(resp.decision)  # 'approved' | 'pending_review' | 'denied'
+        print(resp.decision)  # 'approved' | 'pending_review' (never 'denied' — invariant #1)
     """
 
     def __init__(self) -> None:
@@ -146,7 +146,7 @@ class DigiCoreClient:
         """
         decision = "approved" if ev.outcome == "meets_all" else "pending_review"
         requirements = [
-            str(g.get("display") or g.get("requirement_id") or g)
+            str(g.get("description") or g.get("display") or g.get("requirement_id") or g)
             for g in ev.requirementGaps
         ]
         structured_trace = StructuredTrace(
@@ -159,9 +159,24 @@ class DigiCoreClient:
             logic_path=[str(x) for x in ev.logicPath],
             actors=[],
         )
+        # DecisionResponse.pins are CRITERION-evaluation pins and are persisted
+        # into the durable Decision record + emitted on decision.recorded. They
+        # MUST be built from the criterion-level requirementGaps, NOT from
+        # ev.pins (which are ARTIFACT-VERSION URNs and belong only in
+        # structured_trace.governing_artifacts below).
+        #
+        # A C-1 requirementGap is a leaf EvidencePresent that evaluated false
+        # (evidence missing) → status "gap". On the approved path (meets_all),
+        # requirementGaps is empty → pins == [] (the honest "no unmet criteria"
+        # state, which auto_determination already handles).
         pins = [
-            Pin(pin_id=p, criterion_id=p, text=p, status="met")
-            for p in ev.pins
+            Pin(
+                pin_id=str(g.get("requirement_id") or g.get("requirementId") or ""),
+                criterion_id=str(g.get("requirement_id") or g.get("requirementId") or ""),
+                text=str(g.get("description") or g.get("display") or ""),
+                status="gap",
+            )
+            for g in ev.requirementGaps
         ]
         return DecisionResponse(
             decision=decision,
