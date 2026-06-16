@@ -12,7 +12,6 @@ import java.util.List;
 public record CoverageDiscoveryResponse(
         @JsonProperty("pa_required") boolean paRequired,
         @JsonProperty("governing_rules") List<GoverningRule> governingRules,
-        List<String> pins,
         @JsonProperty("dtr_package_ref") String dtrPackageRef) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)

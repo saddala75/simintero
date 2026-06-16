@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 class DtrProvidersIT extends FhirTestBase {
 
-    static final WireMockServer WIRE_MOCK; // serves Digicore (/api/v1/*) and normalization (/internal/normalize)
+    static final WireMockServer WIRE_MOCK; // serves digicore-runtime C-1 (/v1/runtime/*) and normalization (/internal/normalize)
     static final KafkaContainer KAFKA;
     static final MinIOContainer MINIO;
 
@@ -84,6 +84,28 @@ class DtrProvidersIT extends FhirTestBase {
         HAPI_MOCK.verify(0, anyRequestedFor(anyUrl()));
         WIRE_MOCK.verify(postRequestedFor(urlPathEqualTo("/v1/runtime/coverage-discovery")));
         WIRE_MOCK.verify(getRequestedFor(urlPathEqualTo("/v1/runtime/dtr-packages/" + encodedRef)));
+    }
+
+    @Test
+    void get_questionnaire_for_service_without_dtr_package_returns_clean_404() {
+        // Non-knee / no-DTR-package service: coverage-discovery yields a null dtr_package_ref.
+        WIRE_MOCK.stubFor(post(urlPathEqualTo("/v1/runtime/coverage-discovery")).willReturn(okJson("""
+                {"pa_required": false,
+                 "governing_rules": [],
+                 "pins": [],
+                 "dtr_package_ref": null}
+                """)));
+
+        ResponseEntity<String> resp = restTemplate.exchange(
+                "http://localhost:" + port + "/fhir/Questionnaire?context=office-visit&plan=plan-1",
+                HttpMethod.GET, new HttpEntity<>(fhirHeaders()), String.class);
+
+        // Clean FHIR 404 OperationOutcome, not a 500/NPE.
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(resp.getBody()).contains("OperationOutcome").contains("No DTR package");
+        // No dtr-package fetch should be attempted when the ref is null.
+        WIRE_MOCK.verify(postRequestedFor(urlPathEqualTo("/v1/runtime/coverage-discovery")));
+        WIRE_MOCK.verify(0, getRequestedFor(urlPathMatching("/v1/runtime/dtr-packages/.*")));
     }
 
     @Test
