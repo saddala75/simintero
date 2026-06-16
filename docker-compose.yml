@@ -338,6 +338,12 @@ services:
         condition: service_healthy
     networks:
       - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8083/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
 
   # ── Shared infra (Enstellar) ───────────────────────────────────────────────
 
@@ -436,3 +442,183 @@ services:
       - ollama-data:/root/.ollama
     networks:
       - sim-net
+
+  # ── Enstellar app services (C4a) ───────────────────────────────────────────
+
+  hapi:
+    image: hapiproject/hapi:v7.4.0
+    expose: ["8080"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      spring.datasource.url: jdbc:postgresql://postgres:5432/hapi
+      spring.datasource.username: hapi
+      spring.datasource.password: "${HAPI_DB_PASSWORD:-hapi_secret}"
+      spring.datasource.driverClassName: org.postgresql.Driver
+      spring.jpa.properties.hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgres94Dialect
+      hapi.fhir.fhir_version: R4
+      hapi.fhir.allow_multiple_delete: "true"
+      hapi.fhir.allow_external_references: "true"
+      hapi.fhir.validation.requests_enabled: "true"
+      hapi.fhir.validation.responses_enabled: "false"
+      hapi.fhir.implementationguides[0].name: hl7.fhir.us.core
+      hapi.fhir.implementationguides[0].version: 5.0.1
+      hapi.fhir.implementationguides[0].reloadExisting: "false"
+      hapi.fhir.implementationguides[1].name: hl7.fhir.us.davinci-pas
+      hapi.fhir.implementationguides[1].version: 2.0.1
+      hapi.fhir.implementationguides[1].reloadExisting: "false"
+    volumes:
+      - ./services/enstellar-compose/healthcheck/healthcheck.jar:/healthcheck.jar:ro
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "java", "-jar", "/healthcheck.jar", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+
+  interop:
+    build:
+      context: services/enstellar-interop
+      dockerfile: Dockerfile
+    expose: ["8080"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hapi:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      digicore-runtime:
+        condition: service_healthy
+    environment:
+      INTEROP_DB_URL: jdbc:postgresql://postgres:5432/hapi
+      INTEROP_DB_USER: hapi
+      INTEROP_DB_PASSWORD: "${HAPI_DB_PASSWORD:-hapi_secret}"
+      DIGICORE_BASE_URL: http://digicore-runtime:8083
+      HAPI_BASE_URL: http://hapi:8080/fhir
+      HAPI_PROXY_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+      MINIO_SECURE: "false"
+      MINIO_BUCKET: enstellar-raw-bundles
+      NORMALIZATION_URL: http://workflow-engine:8000
+      KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/simintero
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
+      EXPECTED_AUDIENCE: enstellar-api
+    volumes:
+      - ./services/enstellar-compose/healthcheck/healthcheck.jar:/healthcheck.jar:ro
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "java", "-jar", "/healthcheck.jar", "http://localhost:8080/fhir/metadata"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
+
+  agent-layer:
+    build:
+      context: services/enstellar-agent-layer
+      dockerfile: Dockerfile
+    expose: ["8000"]
+    environment:
+      ENSTELLAR_MODEL_PROVIDER: "${ENSTELLAR_MODEL_PROVIDER:-ollama}"
+      ENSTELLAR_MODEL_NAME: "${ENSTELLAR_MODEL_NAME:-llama3}"
+      ENSTELLAR_OLLAMA_BASE_URL: http://ollama:11434
+      ENSTELLAR_ANTHROPIC_API_KEY: "${ENSTELLAR_ANTHROPIC_API_KEY:-}"
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  workflow-engine:
+    build:
+      context: services/enstellar-workflow
+      dockerfile: Dockerfile
+    expose: ["8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      agent-layer:
+        condition: service_healthy
+    environment:
+      WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@postgres:5432/workflow
+      WORKFLOW_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      WORKFLOW_AGENT_LAYER_URL: http://agent-layer:8000
+      WORKFLOW_OIDC_ISSUER: http://localhost:8081/realms/simintero
+      WORKFLOW_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
+      OPA_URL: http://opa:8181
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+      MINIO_SECURE: "false"
+      MINIO_BUCKET: enstellar-raw-bundles
+      DIGICORE_BASE_URL: http://digicore-runtime:8083
+      REVITAL_BASE_URL: http://revital-pipeline:3014
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  portal-bff:
+    build:
+      context: services/enstellar-portal-bff
+      dockerfile: Dockerfile
+    expose: ["8001"]
+    ports:
+      - "8001:8001"
+    depends_on:
+      workflow-engine:
+        condition: service_healthy
+      interop:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    environment:
+      BFF_WORKFLOW_ENGINE_URL: http://workflow-engine:8000
+      BFF_FHIR_API_URL: http://interop:8080/fhir
+      BFF_CRD_API_URL: http://interop:8080/cds-services
+      BFF_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build:
+      context: services/enstellar-portal
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      portal-bff:
+        condition: service_healthy
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
