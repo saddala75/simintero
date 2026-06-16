@@ -1,169 +1,202 @@
 openapi: "3.1.0"
 info:
   title: Digicore Runtime Contract (C-1)
-  version: "1.0.0"
+  version: "2.0.0"
   description: |
-    Contract between Digicore and consumers (Enstellar, Revital).
-    Generated clients are in platform/libs/generated/c1-digicore-runtime/.
-    Breaking changes require a new major version and deprecation window.
+    Contract between Digicore (digicore-runtime) and consumers (Enstellar interop,
+    Enstellar workflow, Revital). Generated TS types are in
+    platform/libs/generated/c1-digicore-runtime/.
+
+    This is the surface the digicore-runtime service actually serves and that the
+    Enstellar interop (Java) and workflow (Python) clients call:
+      POST /v1/runtime/coverage-discovery
+      POST /v1/runtime/evaluate
+      POST /v1/runtime/evidence-requirements:resolve
+      GET  /v1/runtime/dtr-packages/{ref}
+
+    Field-naming note: coverage-discovery and evidence-requirements:resolve use
+    snake_case JSON (Map-backed handlers); evaluate uses camelCase JSON (record-backed
+    handler). Both are documented as served below.
+
+    Breaking changes require a new major version and a deprecation window.
 
 paths:
-  /v1/runtime/evaluate:
+  /v1/runtime/coverage-discovery:
     post:
-      operationId: evaluate
+      operationId: coverageDiscovery
       x-sim-authz:
-        action: runtime.evaluate
+        action: runtime.read
         resource_type: coverage_rule
+      description: |
+        Returns whether prior authorization is required for a service, the governing
+        rule references, the pinned policy artifact URNs, and the DTR package ref (if any).
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [caseContext, request, evidence]
+              required: [service_code]
               properties:
-                caseContext:
-                  type: object
-                  required: [tenant_id, lob, as_of]
-                  properties:
-                    tenant_id: { type: string }
-                    lob:
-                      type: string
-                      enum: [MA, MEDICAID, COMMERCIAL, PUBLIC]
-                    product:   { type: string }
-                    region:    { type: string }
-                    as_of:     { type: string, format: date }
-                request:
-                  type: object
-                  required: [service_lines]
-                  properties:
-                    service_lines:
-                      type: array
-                      items:
-                        type: object
-                        required: [code, system]
-                        properties:
-                          code:             { type: string }
-                          system:           { type: string, format: uri }
-                          qty:              { type: number }
-                          place_of_service: { type: string }
-                    urgency: { type: string, enum: [standard, expedited] }
-                evidence:
-                  type: object
-                  properties:
-                    resource_refs:            { type: array, items: { type: string } }
-                    questionnaire_responses:  { type: array, items: { type: string } }
-                pins:
-                  type: object
-                  properties:
-                    artifacts:
-                      type: array
-                      items:
-                        type: object
-                        required: [canonical_url, version]
-                        properties:
-                          canonical_url: { type: string, format: uri }
-                          version:       { type: string }
+                service_code:   { type: string, description: "FHIR/CPT service code or label" }
+                procedure_code: { type: string, description: "Procedure (CPT) code" }
       responses:
         "200":
-          description: Evaluation result with pinned artifact versions
+          description: Coverage discovery result
           content:
             application/json:
               schema:
                 type: object
-                required: [recommendation, requirement_gaps, pins, trace_ref]
+                required: [pa_required, governing_rules, pins, dtr_package_ref]
                 properties:
-                  recommendation:
-                    type: string
-                    enum: [meets_all, partial, not_met, indeterminate]
-                  requirement_gaps:
+                  pa_required: { type: boolean }
+                  governing_rules:
                     type: array
                     items:
                       type: object
-                      required: [requirement_id, description]
+                      required: [rule_id, version]
                       properties:
-                        requirement_id: { type: string }
-                        description:    { type: string }
-                        satisfied_by:   { type: ["string","null"] }
+                        rule_id: { type: string }
+                        version: { type: string }
                   pins:
                     type: array
-                    items:
-                      type: object
-                      required: [canonical_url, version]
-                      properties:
-                        canonical_url: { type: string, format: uri }
-                        version:       { type: string }
-                  trace_ref:           { type: string, pattern: "^trc_" }
-                  latency_budget_class:
-                    type: string
-                    enum: [realtime, standard]
-        "409":
-          description: Applicability conflict
+                    description: "Pinned policy artifact URNs (e.g. urn:sim:policy:...:1.0.0)"
+                    items: { type: string }
+                  dtr_package_ref:
+                    type: ["string", "null"]
+                    description: "DTR package ref, or null when no DTR package applies"
+
+  /v1/runtime/evaluate:
+    post:
+      operationId: evaluate
+      x-sim-authz:
+        action: runtime.evaluate
+        resource_type: coverage_rule
+      description: |
+        Deterministic coverage evaluation. Identical (request body + pins) yields a
+        byte-identical outcome, requirementGaps, and logicPath.
+        autoDetermination.eligible is true ONLY when outcome == meets_all (safety invariant).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [caseId, evidence, pins, serviceCode]
+              properties:
+                caseId:      { type: string }
+                evidence:
+                  type: object
+                  additionalProperties: true
+                  description: "Evidence map keyed by requirement_id; values are booleans/strings the ELM evaluator reads"
+                pins:
+                  type: array
+                  description: "Caller-supplied pinned artifact URNs; when present the engine does NOT call VKAS"
+                  items: { type: string }
+                serviceCode: { type: string }
+      responses:
+        "200":
+          description: Evaluation result with resolved pins and trace ref
           content:
-            application/problem+json:
+            application/json:
               schema:
                 type: object
-                required: [code, resolution_trace]
+                required: [outcome, requirementGaps, logicPath, autoDetermination, pins, traceRef]
                 properties:
-                  code: { const: SIM-DIG-CONFLICT }
-                  resolution_trace: { type: object }
+                  outcome:
+                    type: string
+                    enum: [meets_all, not_met, indeterminate]
+                  requirementGaps:
+                    type: array
+                    items:
+                      type: object
+                      required: [requirement_id]
+                      properties:
+                        requirement_id: { type: string }
+                        blocking:       { type: boolean }
+                  logicPath:
+                    type: array
+                    description: "Ordered evaluation trace steps"
+                    items:
+                      type: object
+                      additionalProperties: true
+                  autoDetermination:
+                    type: object
+                    required: [eligible]
+                    properties:
+                      eligible:
+                        type: boolean
+                        description: "true ONLY when outcome == meets_all"
+                  pins:
+                    type: array
+                    description: "Resolved pinned artifact URNs"
+                    items: { type: string }
+                  traceRef:
+                    type: string
+                    pattern: "^trace:"
+                    description: "Trace reference of the form trace:<uuid>"
 
-  /v1/runtime/evidence-requirements:
-    get:
-      operationId: getEvidenceRequirements
+  /v1/runtime/evidence-requirements:resolve:
+    post:
+      operationId: resolveEvidenceRequirements
       x-sim-authz:
         action: runtime.read
         resource_type: coverage_rule
-      description: Returns extraction targets for Revital given a case context
-      parameters:
-        - in: query
-          name: tenant_id
-          required: true
-          schema: { type: string }
-        - in: query
-          name: service_line_codes
-          required: true
-          schema: { type: string, description: "comma-separated FHIR codes" }
-        - in: query
-          name: as_of
-          required: true
-          schema: { type: string, format: date }
+      description: |
+        Returns the set of evidence requirements (extraction targets) for a given
+        service code. Consumed by Enstellar interop (DTR/CRD) and Revital.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [service_code]
+              properties:
+                service_code: { type: string }
       responses:
         "200":
-          description: Evidence requirements
+          description: Evidence requirements for the service code
           content:
             application/json:
               schema:
                 type: object
-                required: [requirements]
+                required: [service_code, requirements]
                 properties:
+                  service_code: { type: string }
                   requirements:
                     type: array
                     items:
                       type: object
-                      required: [requirement_id, description, resource_types]
+                      required: [requirement_id, display, required]
                       properties:
                         requirement_id: { type: string }
-                        description:    { type: string }
-                        resource_types: { type: array, items: { type: string } }
-                        value_sets:     { type: array, items: { type: string, format: uri } }
-        "400":
-          description: Invalid query parameters
+                        display:        { type: string }
+                        required:       { type: boolean }
+
+  /v1/runtime/dtr-packages/{ref}:
+    get:
+      operationId: getDtrPackage
+      x-sim-authz:
+        action: runtime.read
+        resource_type: coverage_rule
+      description: |
+        Fetch a DTR questionnaire package by ref. The ref is the percent-encoded
+        dtr_package_ref returned by coverage-discovery. Returns the FHIR Questionnaire
+        package JSON, or 404 when no package exists for the ref.
+      parameters:
+        - in: path
+          name: ref
+          required: true
+          schema: { type: string }
+          description: "DTR package ref (percent-encoded URN)"
+      responses:
+        "200":
+          description: DTR questionnaire package (FHIR Questionnaire JSON)
           content:
-            application/problem+json:
+            application/json:
               schema:
                 type: object
-                required: [code, detail]
-                properties:
-                  code: { type: string }
-                  detail: { type: string }
+                additionalProperties: true
         "404":
-          description: No applicable rules found for the given context
-          content:
-            application/problem+json:
-              schema:
-                type: object
-                required: [code, detail]
-                properties:
-                  code: { type: string }
-                  detail: { type: string }
+          description: No DTR package found for the given ref

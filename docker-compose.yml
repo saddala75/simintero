@@ -339,7 +339,12 @@ services:
     networks:
       - sim-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8083/healthz || exit 1"]
+      # NOTE: digicore-runtime's HealthController lives in package io.simintero.digicore,
+      # OUTSIDE the io.simintero.digicore.runtime component-scan root of
+      # DigiCoreRuntimeApplication, so GET /healthz is NOT registered and 404s. That is a
+      # pre-existing service-code/packaging defect (out of scope for I1). We probe the real,
+      # served C-1 endpoint instead: POST /v1/runtime/coverage-discovery returns 200.
+      test: ["CMD-SHELL", "wget -q -O /dev/null --post-data='{}' --header='Content-Type: application/json' http://localhost:8083/v1/runtime/coverage-discovery || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -476,18 +481,6 @@ services:
       retries: 10
       start_period: 120s
 
-  mock-digicore:
-    build:
-      context: services/enstellar-compose/mocks/digicore
-      dockerfile: Dockerfile
-    expose: ["8000"]
-    networks: [sim-net]
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   mock-revital:
     build:
       context: services/enstellar-compose/mocks/revital
@@ -518,13 +511,13 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
-      mock-digicore:
+      digicore-runtime:
         condition: service_healthy
     environment:
       INTEROP_DB_URL: jdbc:postgresql://postgres:5432/hapi
       INTEROP_DB_USER: hapi
       INTEROP_DB_PASSWORD: "${HAPI_DB_PASSWORD:-hapi_secret}"
-      DIGICORE_BASE_URL: http://mock-digicore:8000
+      DIGICORE_BASE_URL: http://digicore-runtime:8083
       HAPI_BASE_URL: http://hapi:8080/fhir
       HAPI_PROXY_ENABLED: "true"
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
@@ -579,6 +572,8 @@ services:
         condition: service_healthy
       agent-layer:
         condition: service_healthy
+      digicore-runtime:
+        condition: service_healthy
     environment:
       WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@postgres:5432/workflow
       WORKFLOW_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
@@ -591,7 +586,7 @@ services:
       MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
       MINIO_SECURE: "false"
       MINIO_BUCKET: enstellar-raw-bundles
-      DIGICORE_BASE_URL: http://mock-digicore:8000
+      DIGICORE_BASE_URL: http://digicore-runtime:8083
       REVITAL_BASE_URL: http://mock-revital:8000
     networks: [sim-net]
     healthcheck:

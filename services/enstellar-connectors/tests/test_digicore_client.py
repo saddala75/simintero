@@ -1,7 +1,10 @@
 """Unit tests for DigiCoreClient using respx HTTP mocking.
 
-Integration tests (requiring a live Digicore server at localhost:8090) are
-marked with @pytest.mark.integration and skipped unless DIGICORE_INTEGRATION=1.
+The client now calls the digicore-runtime C-1 endpoint POST /v1/runtime/evaluate
+and maps the EvaluationResponse back to the legacy DecisionResponse shape.
+
+Integration tests (requiring a live digicore-runtime server) are marked with
+@pytest.mark.integration and skipped unless DIGICORE_INTEGRATION=1.
 """
 from __future__ import annotations
 
@@ -22,29 +25,32 @@ from enstellar_connectors.digicore.models import StructuredTrace
 # Helpers
 # ---------------------------------------------------------------------------
 
-MOCK_TRACE = {
-    "artifact": "mock-policy-stub-v1",
-    "version": "1.0.0",
-    "source": "mock-digicore",
-    "logic_branch": "auto-approve-stub",
+# digicore-runtime C-1 evaluate endpoint
+EVALUATE_PATH = "/v1/runtime/evaluate"
+
+# outcome="meets_all" → DecisionResponse(decision="approved")
+EVAL_MEETS_ALL_RESPONSE = {
+    "outcome": "meets_all",
+    "requirementGaps": [],
+    "logicPath": [{"step": "root", "result": "met"}],
+    "autoDetermination": {"eligible": True},
+    "pins": ["urn:digicore:policy:stub:v1"],
+    "traceRef": "trc-1",
 }
 
-MOCK_APPROVED_RESPONSE = {
-    "decision": "approved",
-    "requirements": [],
-    "structured_trace": MOCK_TRACE,
-}
-
-MOCK_PENDING_RESPONSE = {
-    "decision": "pending_review",
-    "requirements": ["clinical-notes"],
-    "structured_trace": MOCK_TRACE,
-}
-
-MOCK_DENIED_RESPONSE = {
-    "decision": "denied",
-    "requirements": [],
-    "structured_trace": MOCK_TRACE,
+# outcome="meets_some" → DecisionResponse(decision="pending_review")
+# requirementGaps carry the criterion-level results (C-1: requirement_id +
+# description). The ev.pins are ARTIFACT-VERSION URNs and must NOT leak into
+# DecisionResponse.pins (they belong in structured_trace.governing_artifacts).
+EVAL_MEETS_SOME_RESPONSE = {
+    "outcome": "meets_some",
+    "requirementGaps": [
+        {"requirement_id": "clinical-notes", "description": "Clinical notes required"}
+    ],
+    "logicPath": [],
+    "autoDetermination": {"eligible": False},
+    "pins": ["urn:sim:policy:knee-arthroscopy:1.0.0"],
+    "traceRef": "trc-2",
 }
 
 
@@ -124,9 +130,9 @@ def test_circuit_breaker_failure_count_resets_on_success():
 @pytest.mark.asyncio
 @respx.mock
 async def test_evaluate_request_approved(monkeypatch):
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    respx.post("http://mock-digicore-test/api/v1/decisions").mock(
-        return_value=httpx.Response(200, json=MOCK_APPROVED_RESPONSE)
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
+        return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
     )
 
     client = DigiCoreClient()
@@ -136,34 +142,58 @@ async def test_evaluate_request_approved(monkeypatch):
     assert isinstance(resp, DecisionResponse)
     assert resp.decision == "approved"
     assert resp.requirements == []
-    assert resp.structured_trace.artifact == "mock-policy-stub-v1"
-    assert resp.structured_trace.version == "1.0.0"
-    assert resp.structured_trace.source == "mock-digicore"
-    assert resp.structured_trace.logic_branch == "auto-approve-stub"
+    # outcome maps to logic_branch; pins[0] becomes the artifact
+    assert resp.structured_trace.artifact == "urn:digicore:policy:stub:v1"
+    assert resp.structured_trace.source == "digicore-runtime"
+    assert resp.structured_trace.logic_branch == "meets_all"
+    assert resp.structured_trace.governing_artifacts == ["urn:digicore:policy:stub:v1"]
+    # meets_all → no requirementGaps → pins must be empty (the honest "no unmet
+    # criteria" state). Artifact URNs must NOT leak into pins as fake "met"
+    # criteria — they live only in structured_trace.governing_artifacts above.
+    assert resp.pins == []
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_evaluate_request_pending_review(monkeypatch):
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    respx.post("http://mock-digicore-test/api/v1/decisions").mock(
-        return_value=httpx.Response(200, json=MOCK_PENDING_RESPONSE)
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
+        return_value=httpx.Response(200, json=EVAL_MEETS_SOME_RESPONSE)
     )
 
     client = DigiCoreClient()
     resp = await client.evaluate_request(make_request())
 
+    # meets_some (anything != meets_all) → pending_review, never denied (invariant #1)
     assert resp.decision == "pending_review"
-    assert "clinical-notes" in resp.requirements
+    assert "Clinical notes required" in resp.requirements
+
+    # DecisionResponse.pins must be the CRITERION pins built from requirementGaps,
+    # NOT the artifact URNs in ev.pins.
+    assert len(resp.pins) == 1
+    gap_pin = resp.pins[0]
+    assert gap_pin.pin_id == "clinical-notes"
+    assert gap_pin.criterion_id == "clinical-notes"
+    assert gap_pin.text == "Clinical notes required"
+    assert gap_pin.status == "gap"
+
+    # The artifact-version URNs stay in structured_trace.governing_artifacts and
+    # must NOT appear among the criterion pins.
+    assert resp.structured_trace.governing_artifacts == [
+        "urn:sim:policy:knee-arthroscopy:1.0.0"
+    ]
+    assert all(
+        p.pin_id != "urn:sim:policy:knee-arthroscopy:1.0.0" for p in resp.pins
+    )
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_evaluate_request_sends_correct_body(monkeypatch):
     """Verify the request body includes all required fields including tenant_id."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    route = respx.post("http://mock-digicore-test/api/v1/decisions").mock(
-        return_value=httpx.Response(200, json=MOCK_APPROVED_RESPONSE)
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
+        return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
     )
 
     client = DigiCoreClient()
@@ -180,18 +210,20 @@ async def test_evaluate_request_sends_correct_body(monkeypatch):
     sent_body = route.calls.last.request.content
     import json as _json
     body = _json.loads(sent_body)
-    assert body["case_id"] == "case-body-check"
-    assert body["service_code"] == "99215"
-    assert body["tenant_id"] == "tenant-body"
+    # Body is now the C-1 EvaluationRequest shape
+    assert body["caseId"] == "case-body-check"
+    assert body["serviceCode"] == "99215"
+    assert body["evidence"] == {}
+    assert body["pins"] == []
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_successful_call_resets_circuit_breaker(monkeypatch):
     """A successful call after failures must reset the failure counter."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    respx.post("http://mock-digicore-test/api/v1/decisions").mock(
-        return_value=httpx.Response(200, json=MOCK_APPROVED_RESPONSE)
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
+        return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
     )
 
     client = DigiCoreClient()
@@ -213,12 +245,12 @@ async def test_successful_call_resets_circuit_breaker(monkeypatch):
 @respx.mock
 async def test_retries_on_503_then_succeeds(monkeypatch):
     """Client retries on 503 and succeeds on the second attempt."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
     # First call returns 503, second returns 200
-    respx.post("http://mock-digicore-test/api/v1/decisions").mock(
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         side_effect=[
             httpx.Response(503, json={"detail": "service unavailable"}),
-            httpx.Response(200, json=MOCK_APPROVED_RESPONSE),
+            httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE),
         ]
     )
 
@@ -234,11 +266,11 @@ async def test_retries_on_503_then_succeeds(monkeypatch):
 @respx.mock
 async def test_retries_on_502_then_succeeds(monkeypatch):
     """Client retries on 502."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    respx.post("http://mock-digicore-test/api/v1/decisions").mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         side_effect=[
             httpx.Response(502, json={}),
-            httpx.Response(200, json=MOCK_APPROVED_RESPONSE),
+            httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE),
         ]
     )
 
@@ -253,8 +285,8 @@ async def test_retries_on_502_then_succeeds(monkeypatch):
 @respx.mock
 async def test_does_not_retry_on_400(monkeypatch):
     """400 Bad Request is not transient — must not be retried."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    route = respx.post("http://mock-digicore-test/api/v1/decisions").mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(400, json={"detail": "bad request"})
     )
 
@@ -271,8 +303,8 @@ async def test_does_not_retry_on_400(monkeypatch):
 @respx.mock
 async def test_does_not_retry_on_500(monkeypatch):
     """500 Internal Server Error is not in the transient set — must not be retried."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    route = respx.post("http://mock-digicore-test/api/v1/decisions").mock(
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(500, json={"detail": "server error"})
     )
 
@@ -293,9 +325,9 @@ async def test_does_not_retry_on_500(monkeypatch):
 @respx.mock
 async def test_circuit_opens_after_5_consecutive_failures(monkeypatch):
     """INVARIANT: after 5 consecutive failing calls, the circuit opens."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
     monkeypatch.setenv("DIGICORE_RETRY_MAX_ATTEMPTS", "1")  # 1 attempt = no retry delay
-    respx.post("http://mock-digicore-test/api/v1/decisions").mock(
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(503, json={})
     )
 
@@ -313,9 +345,9 @@ async def test_circuit_opens_after_5_consecutive_failures(monkeypatch):
 @respx.mock
 async def test_circuit_open_raises_circuit_open_error_without_http_call(monkeypatch):
     """When circuit is open, evaluate_request raises CircuitOpenError immediately."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
-    route = respx.post("http://mock-digicore-test/api/v1/decisions").mock(
-        return_value=httpx.Response(200, json=MOCK_APPROVED_RESPONSE)
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
+        return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
     )
 
     client = DigiCoreClient()
@@ -334,9 +366,9 @@ async def test_circuit_open_raises_circuit_open_error_without_http_call(monkeypa
 @respx.mock
 async def test_circuit_does_not_open_on_4_failures(monkeypatch):
     """4 consecutive failures must not open the circuit (threshold is 5)."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
     monkeypatch.setenv("DIGICORE_RETRY_MAX_ATTEMPTS", "1")
-    respx.post("http://mock-digicore-test/api/v1/decisions").mock(
+    respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
         return_value=httpx.Response(503, json={})
     )
 
@@ -352,16 +384,16 @@ async def test_circuit_does_not_open_on_4_failures(monkeypatch):
 @respx.mock
 async def test_successful_call_after_4_failures_does_not_open_circuit(monkeypatch):
     """A success at failure_count=4 resets counter; subsequent failure won't open immediately."""
-    monkeypatch.setenv("DIGICORE_BASE_URL", "http://mock-digicore-test")
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
     monkeypatch.setenv("DIGICORE_RETRY_MAX_ATTEMPTS", "1")
-    route = respx.post("http://mock-digicore-test/api/v1/decisions")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH)
     route.mock(
         side_effect=[
             httpx.Response(503, json={}),
             httpx.Response(503, json={}),
             httpx.Response(503, json={}),
             httpx.Response(503, json={}),
-            httpx.Response(200, json=MOCK_APPROVED_RESPONSE),  # 5th call succeeds
+            httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE),  # 5th call succeeds
             httpx.Response(503, json={}),  # 6th call fails — circuit should NOT open
         ]
     )
@@ -394,16 +426,13 @@ async def test_successful_call_after_4_failures_does_not_open_circuit(monkeypatc
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_integration_evaluate_request_against_mock_server():
-    """Integration test: calls the real mock Digicore at http://localhost:8090.
+    """Integration test: calls the real digicore-runtime C-1 evaluate endpoint.
 
     Run with: DIGICORE_INTEGRATION=1 uv run pytest tests/ -v -m integration
-    Requires: `make up` or the mock server running at localhost:8090.
+    Requires: digicore-runtime running (default http://digicore-runtime:8083).
     """
     if not os.environ.get("DIGICORE_INTEGRATION"):
         pytest.skip("Set DIGICORE_INTEGRATION=1 to run integration tests")
-
-    import os as _os
-    _os.environ["DIGICORE_BASE_URL"] = "http://localhost:8090"
 
     client = DigiCoreClient()
     req = DecisionRequest(
@@ -415,11 +444,9 @@ async def test_integration_evaluate_request_against_mock_server():
     )
     resp = await client.evaluate_request(req)
 
-    assert resp.decision == "approved"
-    assert resp.structured_trace.artifact == "mock-policy-stub-v1"
-    assert resp.structured_trace.version == "1.0.0"
-    assert resp.structured_trace.source == "mock-digicore"
-    assert resp.structured_trace.logic_branch == "auto-approve-stub"
+    # Mapped DecisionResponse: never "denied" (invariant #1)
+    assert resp.decision in ("approved", "pending_review")
+    assert resp.structured_trace.source == "digicore-runtime"
 
 
 # ─── RevitalSettings in ConnectorSettings ───────────────────────────────────

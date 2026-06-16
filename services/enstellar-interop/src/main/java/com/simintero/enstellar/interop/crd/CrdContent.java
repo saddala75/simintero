@@ -5,7 +5,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/** Coverage-requirements content returned by Digicore ({@code GET /api/v1/crd}). */
+/**
+ * Coverage-requirements content assembled in-process from the digicore-runtime C-1
+ * {@code coverage-discovery} + {@code evidence-requirements:resolve} responses.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CrdContent(
         @JsonProperty("pa_required") boolean paRequired,

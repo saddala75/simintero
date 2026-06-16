@@ -87,3 +87,11 @@ if ! grep -q "tsbuildinfo" .dockerignore ; then
 fi
 [ "$tsbase_viol" -eq 0 ] || exit 1
 echo "C4-tsbase-fix invariant OK: TS service Dockerfiles COPY tsconfig.base.json; tsbuildinfo excluded."
+# I1 invariant: the Enstellar PA flow uses real digicore-runtime, not mock-digicore.
+if git grep -lI "mock-digicore" -- docker-compose.yml services/enstellar-interop services/enstellar-connectors services/enstellar-workflow ; then
+  echo "I1 INVARIANT VIOLATED: a tracked file still references mock-digicore (should use digicore-runtime)." >&2; exit 1
+fi
+if git grep -nI "DIGICORE_BASE_URL: http://mock-digicore" -- docker-compose.yml ; then
+  echo "I1 INVARIANT VIOLATED: DIGICORE_BASE_URL still points at mock-digicore." >&2; exit 1
+fi
+echo "I1 invariant OK: Enstellar PA flow uses real digicore-runtime (mock-digicore retired)."

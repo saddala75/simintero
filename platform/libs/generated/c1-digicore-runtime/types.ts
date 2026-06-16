@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/v1/runtime/coverage-discovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Returns whether prior authorization is required for a service, the governing
+         *     rule references, the pinned policy artifact URNs, and the DTR package ref (if any).
+         */
+        post: operations["coverageDiscovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runtime/evaluate": {
         parameters: {
             query?: never;
@@ -13,6 +33,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @description Deterministic coverage evaluation. Identical (request body + pins) yields a
+         *     byte-identical outcome, requirementGaps, and logicPath.
+         *     autoDetermination.eligible is true ONLY when outcome == meets_all (safety invariant).
+         */
         post: operations["evaluate"];
         delete?: never;
         options?: never;
@@ -20,15 +45,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/runtime/evidence-requirements": {
+    "/v1/runtime/evidence-requirements:resolve": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description Returns extraction targets for Revital given a case context */
-        get: operations["getEvidenceRequirements"];
+        get?: never;
+        put?: never;
+        /**
+         * @description Returns the set of evidence requirements (extraction targets) for a given
+         *     service code. Consumed by Enstellar interop (DTR/CRD) and Revital.
+         */
+        post: operations["resolveEvidenceRequirements"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runtime/dtr-packages/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Fetch a DTR questionnaire package by ref. The ref is the percent-encoded
+         *     dtr_package_ref returned by coverage-discovery. Returns the FHIR Questionnaire
+         *     package JSON, or 404 when no package exists for the ref.
+         */
+        get: operations["getDtrPackage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -49,6 +98,45 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    coverageDiscovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description FHIR/CPT service code or label */
+                    service_code: string;
+                    /** @description Procedure (CPT) code */
+                    procedure_code?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Coverage discovery result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pa_required: boolean;
+                        governing_rules: {
+                            rule_id: string;
+                            version: string;
+                        }[];
+                        /** @description Pinned policy artifact URNs (e.g. urn:sim:policy:...:1.0.0) */
+                        pins: string[];
+                        /** @description DTR package ref, or null when no DTR package applies */
+                        dtr_package_ref: string | null;
+                    };
+                };
+            };
+        };
+    };
     evaluate: {
         parameters: {
             query?: never;
@@ -59,42 +147,19 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    caseContext: {
-                        tenant_id: string;
-                        /** @enum {string} */
-                        lob: "MA" | "MEDICAID" | "COMMERCIAL" | "PUBLIC";
-                        product?: string;
-                        region?: string;
-                        /** Format: date */
-                        as_of: string;
-                    };
-                    request: {
-                        service_lines: {
-                            code: string;
-                            /** Format: uri */
-                            system: string;
-                            qty?: number;
-                            place_of_service?: string;
-                        }[];
-                        /** @enum {string} */
-                        urgency?: "standard" | "expedited";
-                    };
+                    caseId: string;
+                    /** @description Evidence map keyed by requirement_id; values are booleans/strings the ELM evaluator reads */
                     evidence: {
-                        resource_refs?: string[];
-                        questionnaire_responses?: string[];
+                        [key: string]: unknown;
                     };
-                    pins?: {
-                        artifacts?: {
-                            /** Format: uri */
-                            canonical_url: string;
-                            version: string;
-                        }[];
-                    };
+                    /** @description Caller-supplied pinned artifact URNs; when present the engine does NOT call VKAS */
+                    pins: string[];
+                    serviceCode: string;
                 };
             };
         };
         responses: {
-            /** @description Evaluation result with pinned artifact versions */
+            /** @description Evaluation result with resolved pins and trace ref */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -102,90 +167,90 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        recommendation: "meets_all" | "partial" | "not_met" | "indeterminate";
-                        requirement_gaps: {
+                        outcome: "meets_all" | "not_met" | "indeterminate";
+                        requirementGaps: {
                             requirement_id: string;
-                            description: string;
-                            satisfied_by?: string | null;
+                            blocking?: boolean;
                         }[];
-                        pins: {
-                            /** Format: uri */
-                            canonical_url: string;
-                            version: string;
+                        /** @description Ordered evaluation trace steps */
+                        logicPath: {
+                            [key: string]: unknown;
                         }[];
-                        trace_ref: string;
-                        /** @enum {string} */
-                        latency_budget_class?: "realtime" | "standard";
-                    };
-                };
-            };
-            /** @description Applicability conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": {
-                        /** @constant */
-                        code: "SIM-DIG-CONFLICT";
-                        resolution_trace: Record<string, never>;
+                        autoDetermination: {
+                            /** @description true ONLY when outcome == meets_all */
+                            eligible: boolean;
+                        };
+                        /** @description Resolved pinned artifact URNs */
+                        pins: string[];
+                        /** @description Trace reference of the form trace:<uuid> */
+                        traceRef: string;
                     };
                 };
             };
         };
     };
-    getEvidenceRequirements: {
+    resolveEvidenceRequirements: {
         parameters: {
-            query: {
-                tenant_id: string;
-                service_line_codes: string;
-                as_of: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    service_code: string;
+                };
+            };
+        };
         responses: {
-            /** @description Evidence requirements */
+            /** @description Evidence requirements for the service code */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
+                        service_code: string;
                         requirements: {
                             requirement_id: string;
-                            description: string;
-                            resource_types: string[];
-                            value_sets?: string[];
+                            display: string;
+                            required: boolean;
                         }[];
                     };
                 };
             };
-            /** @description Invalid query parameters */
-            400: {
+        };
+    };
+    getDtrPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description DTR package ref (percent-encoded URN) */
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description DTR questionnaire package (FHIR Questionnaire JSON) */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/problem+json": {
-                        code: string;
-                        detail: string;
+                    "application/json": {
+                        [key: string]: unknown;
                     };
                 };
             };
-            /** @description No applicable rules found for the given context */
+            /** @description No DTR package found for the given ref */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/problem+json": {
-                        code: string;
-                        detail: string;
-                    };
-                };
+                content?: never;
             };
         };
     };

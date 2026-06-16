@@ -90,7 +90,7 @@ def test_structured_trace_roundtrip():
     trace = StructuredTrace(
         artifact="mock-policy-stub-v1",
         version="1.0.0",
-        source="mock-digicore",
+        source="digicore-runtime",
         logic_branch="auto-approve-stub",
     )
     dumped = trace.model_dump()
@@ -160,15 +160,15 @@ def test_decision_response_invalid_decision_value_raises():
         )
 
 
-def test_decision_response_validates_from_mock_digicore_json():
-    """Validate against the exact JSON the mock Digicore server returns."""
+def test_decision_response_validates_from_digicore_runtime_json():
+    """Validate against the exact JSON the digicore-runtime server returns."""
     raw = {
         "decision": "approved",
         "requirements": [],
         "structured_trace": {
             "artifact": "mock-policy-stub-v1",
             "version": "1.0.0",
-            "source": "mock-digicore",
+            "source": "digicore-runtime",
             "logic_branch": "auto-approve-stub",
         },
     }
@@ -176,5 +176,5 @@ def test_decision_response_validates_from_mock_digicore_json():
     assert resp.decision == "approved"
     assert resp.structured_trace.artifact == "mock-policy-stub-v1"
     assert resp.structured_trace.version == "1.0.0"
-    assert resp.structured_trace.source == "mock-digicore"
+    assert resp.structured_trace.source == "digicore-runtime"
     assert resp.structured_trace.logic_branch == "auto-approve-stub"

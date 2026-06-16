@@ -43,26 +43,39 @@ class DigicoreClientIT extends FhirTestBase {
     DigicoreClient client;
 
     @Test
-    void get_crd_content_parses_digicore_response() {
-        DIGICORE_MOCK.stubFor(get(urlPathEqualTo("/api/v1/crd"))
+    void get_crd_content_assembles_from_c1_runtime() {
+        DIGICORE_MOCK.stubFor(post(urlPathEqualTo("/v1/runtime/coverage-discovery"))
+                .withRequestBody(matchingJsonPath("$.service_code", equalTo("knee-arthroscopy")))
+                .withRequestBody(matchingJsonPath("$.procedure_code", equalTo("knee-arthroscopy")))
                 .willReturn(okJson("""
                         {
                           "pa_required": true,
-                          "documentation_requirements": ["clinical-notes", "diagnosis-codes"],
-                          "rule_reference": "mock-rule-stub-v1",
-                          "dtr_launch_url": "http://localhost:8080/dtr/launch"
+                          "governing_rules": [{"rule_id": "sim-knee-pa", "version": "1.0.0"}],
+                          "pins": ["pin-1"],
+                          "dtr_package_ref": "urn:sim:dtr:knee-arthroscopy:1.0.0"
+                        }
+                        """)));
+        DIGICORE_MOCK.stubFor(post(urlPathEqualTo("/v1/runtime/evidence-requirements:resolve"))
+                .withRequestBody(matchingJsonPath("$.service_code", equalTo("knee-arthroscopy")))
+                .willReturn(okJson("""
+                        {
+                          "service_code": "knee-arthroscopy",
+                          "requirements": [
+                            {"requirement_id": "r1", "display": "Conservative therapy tried", "required": true},
+                            {"requirement_id": "r2", "display": "Imaging report", "required": true},
+                            {"requirement_id": "r3", "display": "Symptom duration", "required": true}
+                          ]
                         }
                         """)));
 
-        CrdContent content = client.getCrdContent("svc-1", "p1", "plan-1", "t1");
+        CrdContent content = client.getCrdContent("knee-arthroscopy", "p1", "plan-1", "t1");
 
         assertThat(content.paRequired()).isTrue();
+        assertThat(content.ruleReference()).isEqualTo("sim-knee-pa");
         assertThat(content.documentationRequirements())
-                .containsExactly("clinical-notes", "diagnosis-codes");
-        assertThat(content.ruleReference()).isEqualTo("mock-rule-stub-v1");
-        assertThat(content.dtrLaunchUrl()).isEqualTo("http://localhost:8080/dtr/launch");
-        DIGICORE_MOCK.verify(getRequestedFor(urlPathEqualTo("/api/v1/crd"))
-                .withQueryParam("service_code", equalTo("svc-1"))
-                .withQueryParam("tenant_id", equalTo("t1")));
+                .containsExactly("Conservative therapy tried", "Imaging report", "Symptom duration");
+        assertThat(content.dtrLaunchUrl()).isNotNull();
+        DIGICORE_MOCK.verify(postRequestedFor(urlPathEqualTo("/v1/runtime/coverage-discovery")));
+        DIGICORE_MOCK.verify(postRequestedFor(urlPathEqualTo("/v1/runtime/evidence-requirements:resolve")));
     }
 }

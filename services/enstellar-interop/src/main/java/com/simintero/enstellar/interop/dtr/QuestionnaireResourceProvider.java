@@ -43,6 +43,10 @@ public class QuestionnaireResourceProvider implements IResourceProvider {
         String tenant = TenantContextHolder.get().tenantId();
         String planId = plan != null ? plan.getValue() : "unknown";
         String json = digicore.getQuestionnaire(context.getValue(), planId, tenant);
+        if (json == null) {
+            throw new ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException(
+                    "No DTR package for context=" + context.getValue());
+        }
         Questionnaire q = fhirContext.newJsonParser().parseResource(Questionnaire.class, json);
         return List.of(q);
     }

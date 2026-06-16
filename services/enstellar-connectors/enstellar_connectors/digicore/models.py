@@ -1,7 +1,8 @@
 """Pydantic models for the Digicore decision API.
 
-DecisionRequest — outbound request body.
-DecisionResponse — response from POST /api/v1/decisions.
+DecisionRequest — outbound request body (mapped to the C-1 EvaluationRequest).
+DecisionResponse — legacy response shape mapped from the digicore-runtime C-1
+    EvaluationResponse (POST /v1/runtime/evaluate).
 StructuredTrace — embedded in DecisionResponse; used to pin rule artifact + version.
 Pin — a single evaluated criterion from the rules engine.
 
@@ -26,7 +27,7 @@ class Pin(BaseModel):
 
 
 class DecisionRequest(BaseModel):
-    """Outbound request body for POST /api/v1/decisions."""
+    """Outbound request body — mapped to the C-1 EvaluationRequest before POST /v1/runtime/evaluate."""
 
     case_id: str = Field(min_length=1)
     service_code: str = Field(min_length=1)
@@ -60,9 +61,34 @@ class StructuredTrace(BaseModel):
 
 
 class DecisionResponse(BaseModel):
-    """Response from POST /api/v1/decisions."""
+    """Legacy response shape, mapped from the C-1 EvaluationResponse (POST /v1/runtime/evaluate)."""
 
     decision: Literal["approved", "pending_review", "denied"]
     requirements: list[str]
     structured_trace: StructuredTrace
     pins: list[Pin] = []
+
+
+# ---------------------------------------------------------------------------
+# digicore-runtime C-1 models — POST /v1/runtime/evaluate
+# ---------------------------------------------------------------------------
+
+
+class EvaluationRequest(BaseModel):
+    """Outbound request body for the digicore-runtime C-1 evaluate endpoint."""
+
+    caseId: str
+    evidence: dict = {}
+    pins: list[str] = []
+    serviceCode: str
+
+
+class EvaluationResponse(BaseModel):
+    """Response from POST /v1/runtime/evaluate (digicore-runtime C-1)."""
+
+    outcome: str
+    requirementGaps: list[dict] = []
+    logicPath: list[dict] = []
+    autoDetermination: dict = {}
+    pins: list[str] = []
+    traceRef: str | None = None

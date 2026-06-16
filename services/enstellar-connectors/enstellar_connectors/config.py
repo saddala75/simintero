@@ -14,7 +14,7 @@ class ConnectorSettings(BaseSettings):
     """All settings for integration-connectors.
 
     Environment variable prefix: DIGICORE_
-    Example: DIGICORE_BASE_URL=http://mock-digicore:8000
+    Example: DIGICORE_BASE_URL=http://digicore-runtime:8083
 
     Pydantic-settings converts env var names to lowercase field names
     after stripping the prefix. DIGICORE_BASE_URL → base_url.
@@ -25,8 +25,8 @@ class ConnectorSettings(BaseSettings):
         case_sensitive=False,
     )
 
-    base_url: str = "http://localhost:8090"
-    """Base URL for the Digicore API. Override with DIGICORE_BASE_URL."""
+    base_url: str = "http://digicore-runtime:8083"
+    """Base URL for the digicore-runtime API. Override with DIGICORE_BASE_URL."""
 
     circuit_breaker_threshold: int = 5
     """Number of consecutive call failures before the circuit opens."""
