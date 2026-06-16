@@ -588,3 +588,89 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, select:focus-visi
 .lp-stds { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
 .lp-pill { font-family: "JetBrains Mono", monospace; font-size: 11.5px; letter-spacing: .04em; border: 1px solid rgba(27,26,22,.26); padding: 7px 13px; border-radius: 999px; color: #1B1A16; background: rgba(252,250,244,.6); }
 .lp-inline-link { color: #0F564C; font-weight: 600; text-decoration: none; border-bottom: 1px solid #0F564C; }
+
+/* ── Grafted from reviewer-workspace app.css (C3a) — case-review depth ── */
+
+/* case-review wrapper + left rail */
+.en-case-shell { flex: 1; display: flex; min-height: 0; }
+
+.en-wl-rail {
+  width: 286px;
+  flex: 0 0 auto;
+  background: var(--panel-2);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  transition: width .25s var(--ease);
+  overflow: hidden;
+}
+.en-wl-rail.collapsed { width: 0; border: 0; }
+
+.en-case-area { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+
+/* command bar */
+.en-pri-badge {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--red);
+  color: var(--red);
+}
+.en-pri-badge.std { border-color: var(--line-2); color: var(--ink-mut); }
+
+.en-state-chip {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.en-state-chip.in-review { background: var(--pine-tint); color: var(--pine); border: 1px solid rgba(15,86,76,.25); }
+.en-state-chip.pending-info { background: var(--amber-tint); color: var(--amber); border: 1px solid rgba(181,120,14,.3); }
+.en-state-chip.approved { background: var(--ok-tint); color: var(--ok); border: 1px solid rgba(15,122,90,.25); }
+.en-state-chip.denied { background: var(--red-tint); color: var(--red); border: 1px solid rgba(178,58,72,.3); }
+.en-state-chip.received { background: var(--panel-2); color: var(--ink-mut); border: 1px solid var(--line); }
+.en-state-chip.modified { background: var(--amber-tint); color: var(--amber); border: 1px solid rgba(181,120,14,.3); }
+
+/* action buttons (warn modifier) */
+.en-act.warn { background: var(--amber-tint); border-color: rgba(181,120,14,.3); color: var(--amber); }
+
+/* criteria accordion (artifact row) */
+.en-crit-artifact {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-mut);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* decision composer (textarea descendant) */
+.en-composer-b textarea {
+  width: 100%;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 13.5px;
+  resize: vertical;
+  min-height: 78px;
+  background: var(--panel-2);
+  color: var(--ink);
+}
+.en-composer-b textarea:focus { outline: 2px solid var(--pine); outline-offset: 1px; background: var(--panel); }
+
+/* status badge modifiers */
+.en-stbadge.received { background: var(--panel-2); color: var(--ink-mut); border: 1px solid var(--line); }
+.en-stbadge.denied { background: var(--red-tint); color: var(--red); }
+.en-stbadge.modified { background: var(--amber-tint); color: var(--amber); }
