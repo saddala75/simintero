@@ -60,3 +60,11 @@ if git grep -lI "realms/enstellar" -- docker-compose.yml infra .github/workflows
   echo "C4a INVARIANT VIOLATED: deploy config still references Keycloak realm 'enstellar' (should be 'simintero')." >&2; exit 1
 fi
 echo "C4a invariant OK: stack unified on realm simintero; enstellar-compose retired."
+# C4a-build-fix invariant: the Enstellar image Dockerfiles use the monorepo layout
+# (no pre-relocation COPY paths). The three fixed Dockerfiles must not COPY the old
+# standalone-repo paths (packages/, services/integration-connectors, packages/canonical-model,
+# services/interop, services/workflow-engine).
+if git grep -nE "COPY +packages/|COPY +services/integration-connectors|packages/canonical-model|COPY +services/interop |COPY +services/workflow-engine" -- services/enstellar-interop/Dockerfile services/enstellar-workflow/Dockerfile services/enstellar-portal-bff/Dockerfile ; then
+  echo "C4a-build-fix INVARIANT VIOLATED: an Enstellar Dockerfile still COPYs a pre-monorepo path." >&2; exit 1
+fi
+echo "C4a-build-fix invariant OK: Enstellar Dockerfiles on monorepo layout."

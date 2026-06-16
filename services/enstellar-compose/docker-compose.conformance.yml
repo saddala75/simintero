@@ -1,8 +1,0 @@
-# Conformance test overlay — applied ONLY by `make conformance`.
-# NEVER apply in staging or production.
-# Enables ConformanceTestAuthFilter (static bearer token; no OAuth).
-services:
-  interop:
-    environment:
-      INTEROP_CONFORMANCE_TEST_MODE: "true"
-      INTEROP_CONFORMANCE_TEST_TOKEN: "conformance-test-token"
