@@ -168,10 +168,10 @@ services:
       DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
-      KEYCLOAK_URL: "${KEYCLOAK_URL:-}"
-      KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:-}"
+      KEYCLOAK_URL: "${KEYCLOAK_URL:-http://keycloak:8080}"
       KEYCLOAK_REALM: "${KEYCLOAK_REALM:-simintero}"
       KEYCLOAK_CLIENT_ID: "${KEYCLOAK_CLIENT_ID:-control-plane}"
+      KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:-control-plane-secret}"
       NODE_ENV: development
       PORT: "3012"
     ports:
@@ -355,11 +355,17 @@ services:
       TEST_CLIENT_SECRET: "${TEST_CLIENT_SECRET:-test-secret}"
       E2E_PASSWORD: "${E2E_PASSWORD:-e2e-pass}"
       TEST_REVIEWER_PASSWORD: "${TEST_REVIEWER_PASSWORD:-reviewer-password}"
+      CONTROL_PLANE_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:-control-plane-secret}"
     ports:
       - "8081:8080"
     volumes:
+      # Keycloak's --import-realm never MERGES two files that declare the same realm:
+      # the single-file phase imports exactly one and the rest are skipped (IGNORE_EXISTING),
+      # and which one "wins" is not controllable by filename. So only the self-contained
+      # base realm is mounted into the import dir (it already folds in the CI test client +
+      # users). The ci-overlay file is kept on disk as a CI-parity artifact that the CI/smoke
+      # task applies out-of-band (e.g. via kcadm), NOT through the import dir.
       - ./infra/keycloak/simintero-realm.json:/opt/keycloak/data/import/simintero-realm.json:ro
-      - ./infra/keycloak/simintero-realm-ci-overlay.json:/opt/keycloak/data/import/simintero-realm-ci-overlay.json:ro
     depends_on:
       postgres:
         condition: service_healthy

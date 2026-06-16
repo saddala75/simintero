@@ -1,0 +1,207 @@
+{
+  "realm": "simintero",
+  "enabled": true,
+  "displayName": "Simintero",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+
+  "clients": [
+    {
+      "clientId": "enstellar-app",
+      "name": "Enstellar Application (SMART App Launch)",
+      "description": "SMART on FHIR authorization_code + PKCE client for the reviewer UI",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:3000/*", "http://localhost:5173/*"],
+      "webOrigins": ["+"],
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "fhir_scopes"],
+      "optionalClientScopes": ["offline_access"]
+    },
+    {
+      "clientId": "enstellar-backend",
+      "name": "Enstellar Backend Services (SMART Backend Services)",
+      "description": "SMART Backend Services client_credentials + private_key_jwt for service-to-service",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "clientAuthenticatorType": "client-jwt",
+      "secret": null,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "fhir_scopes"],
+      "optionalClientScopes": [],
+      "attributes": {
+        "use.jwks.url": "false",
+        "jwt.credential.public.key.type": "RSA"
+      }
+    },
+    {
+      "clientId": "control-plane",
+      "name": "Platform control-plane",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${CONTROL_PLANE_CLIENT_SECRET}",
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email"]
+    },
+    {
+      "clientId": "enstellar-test-client",
+      "name": "Test client (client_secret, CI only)",
+      "description": "Used only in integration tests — NOT for production",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${TEST_CLIENT_SECRET}",
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "fhir_scopes"],
+      "optionalClientScopes": []
+    }
+  ],
+
+  "clientScopes": [
+    {
+      "name": "fhir_scopes",
+      "description": "SMART on FHIR resource scopes",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" },
+      "protocolMappers": [
+        {
+          "name": "tenant_id_mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "tenant_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "tenant_id",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "fhir_user_mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "email",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "fhirUser",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "roles_flat_mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "usermodel.realmRoleMapping.rolePrefix": ""
+          }
+        },
+        {
+          "name": "enstellar-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "enstellar-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+
+  "users": [
+    {
+      "username": "testreviewer",
+      "enabled": true,
+      "email": "testreviewer@enstellar.local",
+      "firstName": "Test",
+      "lastName": "Reviewer",
+      "attributes": {
+        "tenant_id": ["tenant-test"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${TEST_REVIEWER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "e2e-reviewer",
+      "enabled": true,
+      "email": "e2e-reviewer@enstellar.local",
+      "firstName": "E2E",
+      "lastName": "Reviewer",
+      "attributes": {
+        "tenant_id": ["tenant-dev"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${E2E_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["reviewer"]
+    },
+    {
+      "username": "md-reviewer",
+      "enabled": true,
+      "email": "md-reviewer@enstellar.local",
+      "firstName": "Medical",
+      "lastName": "Director",
+      "attributes": {
+        "tenant_id": ["tenant-dev"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${E2E_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["reviewer", "medical_director"]
+    }
+  ],
+
+  "roles": {
+    "realm": [
+      { "name": "reviewer", "description": "PA reviewer" },
+      { "name": "clinical-reviewer", "description": "Clinician reviewer — may sign off on adverse" },
+      { "name": "admin", "description": "Tenant admin" },
+      { "name": "medical_director", "description": "Medical director — required by sim.guards.adverse_action for adverse-outcome sign-off" }
+    ]
+  }
+}
