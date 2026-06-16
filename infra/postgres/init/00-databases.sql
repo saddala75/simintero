@@ -17,7 +17,15 @@ GRANT ALL PRIVILEGES ON DATABASE hapi     TO hapi;
 GRANT ALL PRIVILEGES ON DATABASE workflow TO workflow;
 GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
 
--- ── sim_relay (BYPASSRLS outbox relay role) is NOT created here. ──
+-- ── sim_relay (BYPASSRLS outbox relay role) must be created HERE, as superuser. ──
 -- Alembic migration services/enstellar-workflow/migrations/versions/0011_shared_outbox.py
--- already creates it (guarded, BYPASSRLS) and grants it on shared.outbox in the
--- workflow DB. The migration owns it; adding it here would duplicate that ownership.
+-- runs `CREATE ROLE sim_relay BYPASSRLS`, but it runs as the `workflow` login role.
+-- In Postgres, creating a BYPASSRLS role requires the creator to itself have both
+-- CREATEROLE and BYPASSRLS — which `workflow` (a deliberately non-superuser, RLS-
+-- enforced role) does not, and must not (granting it BYPASSRLS would break the
+-- FORCE ROW LEVEL SECURITY guarantee above). Without this, the workflow-engine
+-- container crashes on first migrate ("permission denied to create role").
+-- The migration's CREATE is guarded by `IF NOT EXISTS (... rolname='sim_relay')`,
+-- so pre-creating the role here makes that step a no-op while its subsequent
+-- GRANTs (which `workflow` CAN issue on its own schema/table) still run.
+CREATE ROLE sim_relay BYPASSRLS;
