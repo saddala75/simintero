@@ -502,8 +502,8 @@ services:
 
   interop:
     build:
-      context: services/enstellar-interop
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/enstellar-interop/Dockerfile
     expose: ["8080"]
     ports:
       - "8080:8080"
@@ -567,8 +567,8 @@ services:
 
   workflow-engine:
     build:
-      context: services/enstellar-workflow
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/enstellar-workflow/Dockerfile
     expose: ["8000"]
     depends_on:
       postgres:
@@ -603,8 +603,8 @@ services:
 
   portal-bff:
     build:
-      context: services/enstellar-portal-bff
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/enstellar-portal-bff/Dockerfile
     expose: ["8001"]
     ports:
       - "8001:8001"
