@@ -2,7 +2,6 @@ packages:
   - "platform/libs/*"
   - "platform/libs/*/*"
   - "platform/services/*"
-  - "modules/enstellar/*"
   - "modules/digicore/*"
   - "modules/revital/*"
   - "modules/qualitron/*"

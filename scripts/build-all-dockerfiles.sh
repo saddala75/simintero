@@ -54,9 +54,6 @@ DOCKERFILE
 generate "platform/services/document"        "@sim/document"                    3010
 generate "platform/services/model-gateway"   "@sim/model-gateway"               3011
 generate "platform/services/control-plane"   "@sim/control-plane"               3012
-generate "modules/enstellar/case"            "@sim/enstellar-case"              3013
-generate "modules/enstellar/comms"           "@sim/enstellar-comms"             3022
-generate "modules/enstellar/workspace-bff"   "@sim/enstellar-workspace-bff"     3021
 generate "modules/revital/pipeline"          "@sim/revital-pipeline"            3014
 generate "modules/qualitron/execution"       "@sim/qualitron-execution"         3015
 generate "modules/claims/service"            "@sim/claims-service"              3016

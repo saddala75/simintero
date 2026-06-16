@@ -17,15 +17,6 @@ spec:
           - service: control-plane
             chart: control-plane
             cell: pooled
-          - service: enstellar-case
-            chart: enstellar-case
-            cell: pooled
-          - service: enstellar-comms
-            chart: enstellar-comms
-            cell: pooled
-          - service: workspace-bff
-            chart: workspace-bff
-            cell: pooled
           - service: revital-pipeline
             chart: revital-pipeline
             cell: pooled
@@ -46,13 +37,6 @@ spec:
             cell: pooled
           - service: analytics-service
             chart: analytics-service
-            cell: pooled
-          # ── Pooled cell — Temporal workers ─────────────────────────────────
-          - service: enstellar-workflow-worker
-            chart: enstellar-workflow-worker
-            cell: pooled
-          - service: enstellar-clock-worker
-            chart: enstellar-clock-worker
             cell: pooled
           # ── Pooled cell — Web apps ─────────────────────────────────────────
           - service: saas-admin

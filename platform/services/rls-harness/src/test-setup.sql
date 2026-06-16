@@ -28,10 +28,3 @@ VALUES
   ('00000000-0000-0000-0000-000000000001', 't_synth_a', 'MA', 'intake', 'standard', 'PAS'),
   ('00000000-0000-0000-0000-000000000002', 't_synth_b', 'MA', 'intake', 'standard', 'PAS')
 ON CONFLICT DO NOTHING;
-
--- ens.case_event
-INSERT INTO ens.case_event (case_id, seq, tenant_id, event_type, payload, actor)
-VALUES
-  ('00000000-0000-0000-0000-000000000001', 1, 't_synth_a', 'CaseCreated', '{}', '{"type":"service","id":"test"}'),
-  ('00000000-0000-0000-0000-000000000002', 1, 't_synth_b', 'CaseCreated', '{}', '{"type":"service","id":"test"}')
-ON CONFLICT DO NOTHING;
