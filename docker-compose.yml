@@ -567,8 +567,8 @@ services:
 
   workflow-engine:
     build:
-      context: services/enstellar-workflow
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/enstellar-workflow/Dockerfile
     expose: ["8000"]
     depends_on:
       postgres:
