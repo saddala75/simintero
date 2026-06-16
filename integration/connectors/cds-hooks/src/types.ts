@@ -48,5 +48,5 @@ export interface CdsResponse {
 
 export interface CdsHooksConfig {
   controlPlaneUrl: string;
-  fhirFacadeUrl: string;
+  interopFhirBaseUrl: string;
 }

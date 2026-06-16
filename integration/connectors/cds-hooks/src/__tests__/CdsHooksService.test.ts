@@ -10,7 +10,7 @@ import { fetch } from 'undici';
 
 const cfg = {
   controlPlaneUrl: 'http://localhost:3000',
-  fhirFacadeUrl: 'http://localhost:8080',
+  interopFhirBaseUrl: 'http://localhost:8080/fhir',
 };
 
 function buildApp() {

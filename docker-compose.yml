@@ -375,13 +375,12 @@ services:
       dockerfile: integration/connectors/cds-hooks/Dockerfile
     environment:
       CONTROL_PLANE_URL: http://control-plane:3012
-      FHIR_FACADE_URL: http://fhir-facade:8081
+      INTEROP_FHIR_BASE_URL: http://interop:8080/fhir
       PORT: "3050"
     ports:
       - "3050:3050"
     depends_on:
       - control-plane
-      - fhir-facade
     networks:
       - sim-net
 
