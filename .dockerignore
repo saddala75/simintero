@@ -19,3 +19,4 @@ integration/e2e/reports
 docs
 apps/web/**/*.js
 **/.DS_Store
+**/*.tsbuildinfo

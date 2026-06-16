@@ -68,3 +68,22 @@ if git grep -nE "COPY +packages/|COPY +services/integration-connectors|packages/
   echo "C4a-build-fix INVARIANT VIOLATED: an Enstellar Dockerfile still COPYs a pre-monorepo path." >&2; exit 1
 fi
 echo "C4a-build-fix invariant OK: Enstellar Dockerfiles on monorepo layout."
+# C4-tsbase-fix invariant: any service Dockerfile whose tsconfig extends the root
+# tsconfig.base.json must COPY it into the build context (else tsc fails TS5083),
+# and stale *.tsbuildinfo must not leak into the build context (breaks incremental emit).
+tsbase_viol=0
+for df in $(git grep -lI "pnpm-workspace.yaml" -- '**/Dockerfile'); do
+  d=$(dirname "$df")
+  if [ -f "$d/tsconfig.json" ] && grep -q "tsconfig.base.json" "$d/tsconfig.json"; then
+    if ! grep -q "tsconfig.base.json" "$df"; then
+      echo "C4-tsbase-fix INVARIANT VIOLATED: $df extends tsconfig.base.json but does not COPY it." >&2
+      tsbase_viol=1
+    fi
+  fi
+done
+if ! grep -q "tsbuildinfo" .dockerignore ; then
+  echo "C4-tsbase-fix INVARIANT VIOLATED: .dockerignore must exclude *.tsbuildinfo (stale incremental info breaks tsc --build emit)." >&2
+  tsbase_viol=1
+fi
+[ "$tsbase_viol" -eq 0 ] || exit 1
+echo "C4-tsbase-fix invariant OK: TS service Dockerfiles COPY tsconfig.base.json; tsbuildinfo excluded."

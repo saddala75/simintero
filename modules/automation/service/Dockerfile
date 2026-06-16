@@ -4,7 +4,7 @@ WORKDIR /repo
 
 RUN npm install -g pnpm@10
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY modules/automation/service/package.json ./modules/automation/service/
 
 RUN pnpm install --frozen-lockfile --filter @sim/automation-service...
