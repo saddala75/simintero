@@ -36,3 +36,17 @@ if git grep -nI "enstellarIntake\|enstellarCase\|workspaceBff\|fhirFacade" -- in
   echo "C3a INVARIANT VIOLATED: a retired dead-path service key reappeared in e2e world.ts." >&2; exit 1
 fi
 echo "C3a invariant OK: parallel seam + reviewer console retired."
+# C3b invariant: the TS Enstellar twin (modules/enstellar) is deleted (N-001 resolved).
+# Key on tracked-state + package/env/service-name patterns (NOT the bare "modules/enstellar"
+# string, which legitimately survives in immutable Flyway provenance comments + a docs README).
+# The canonical Python/Java services/enstellar-* and ens.case legitimately remain.
+if [ -n "$(git ls-files modules/enstellar)" ]; then
+  echo "C3b INVARIANT VIOLATED: modules/enstellar is still tracked (TS twin must be deleted)." >&2; exit 1
+fi
+if git grep -lI "@sim/enstellar-\|ENSTELLAR_CASE_URL" -- ':!docs/' ':!*.md' ':!services/enstellar-**' ':!scripts/check-no-legacy-contracts.sh' ; then
+  echo "C3b INVARIANT VIOLATED: a tracked file imports/wires the deleted TS twin (@sim/enstellar-* / ENSTELLAR_CASE_URL)." >&2; exit 1
+fi
+if git grep -lI "enstellar-case\|enstellar-comms\|enstellar-clock-worker\|enstellar-workflow-worker\|workspace-bff" -- docker-compose.yml infra .github/workflows ':!*.md' ; then
+  echo "C3b INVARIANT VIOLATED: a deleted TS-twin service reappeared in deploy/CI config." >&2; exit 1
+fi
+echo "C3b invariant OK: TS Enstellar twin deleted (N-001 resolved)."
