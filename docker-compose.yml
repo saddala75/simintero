@@ -81,17 +81,23 @@ services:
   temporal:
     image: temporalio/auto-setup:1.24
     environment:
-      - DB=postgresql
+      - DB=postgres12
       - DB_PORT=5432
       - POSTGRES_USER=sim
       - POSTGRES_PWD=devpassword
       - POSTGRES_SEEDS=postgres
-      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development-sql.yaml
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/docker.yaml
     ports:
       - "7233:7233"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "tctl --address $(hostname -i):7233 cluster health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     networks:
       - sim-net
 
@@ -212,6 +218,9 @@ services:
       PORT: "3014"
     ports:
       - "3014:3014"
+    depends_on:
+      temporal:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3014/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
