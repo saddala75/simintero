@@ -6,6 +6,7 @@ import { createSpanRouter } from './routes/span.js';
 import { createMetadataRouter } from './routes/metadata.js';
 import { createRedactRouter } from './routes/redact.js';
 import { createRedactionViewRouter } from './routes/redaction-view.js';
+import { createListRouter } from './routes/list.js';
 
 const DB_URL = process.env['DATABASE_URL'] ?? 'postgresql://localhost/simintero';
 const OBJECT_STORE_DIR = process.env['OBJECT_STORE_DIR'] ?? '/tmp/simintero-docs';
@@ -20,6 +21,7 @@ app.get('/healthz', (_req, res) => res.json({ ok: true }));
 app.use(createIngestRouter(pool, store));
 app.use(createSpanRouter(pool, store));
 app.use(createMetadataRouter(pool));
+app.use(createListRouter(pool));
 app.use(createRedactRouter(pool, store));
 app.use(createRedactionViewRouter(pool));
 

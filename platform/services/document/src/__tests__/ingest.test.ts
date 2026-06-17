@@ -6,9 +6,16 @@ import type { ObjectStore } from '../store/ObjectStore.js';
 import { createIngestRouter } from '../routes/ingest.js';
 
 function makePool(docId = 'doc-uuid-1'): Pool {
-  return {
-    query: vi.fn().mockResolvedValue({ rows: [{ doc_id: docId }] }),
-  } as unknown as Pool;
+  const client = {
+    query: vi.fn().mockImplementation(async (sql: string) => {
+      if (typeof sql === 'string' && sql.includes('INSERT INTO docs.document')) {
+        return { rows: [{ doc_id: docId }] };
+      }
+      return { rows: [] };
+    }),
+    release: vi.fn(),
+  };
+  return { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 }
 
 function makeStore(): ObjectStore {
@@ -42,19 +49,30 @@ describe('POST /documents/ingest', () => {
   });
 
   it('persists raw bytes to object store BEFORE inserting the DB row', async () => {
-    let putCalledBefore = false;
-    (store.put as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-      putCalledBefore = true;
-    });
-    (pool.query as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-      expect(putCalledBefore).toBe(true);
-      return { rows: [{ doc_id: 'doc-1' }] };
-    });
+    let putCalled = false;
+    (store.put as ReturnType<typeof vi.fn>).mockImplementation(async () => { putCalled = true; });
+
+    const client = {
+      query: vi.fn().mockImplementation(async (sql: string) => {
+        if (typeof sql === 'string' && sql.includes('INSERT INTO docs.document')) {
+          expect(putCalled).toBe(true);
+          return { rows: [{ doc_id: 'doc-1' }] };
+        }
+        return { rows: [] };
+      }),
+      release: vi.fn(),
+    };
+    pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
+    app = express();
+    app.use(express.json());
+    app.use(createIngestRouter(pool, store));
 
     await request(app)
       .post('/documents/ingest')
       .set('x-sim-tenant-id', 't_test')
       .send({ channel: 'portal_upload', raw_payload: 'data', created_by: { type: 'service', id: 'svc' } });
+
+    expect(putCalled).toBe(true);
   });
 
   it('returns 400 for an invalid channel', async () => {

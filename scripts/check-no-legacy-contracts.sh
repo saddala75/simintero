@@ -95,3 +95,14 @@ if git grep -nI "DIGICORE_BASE_URL: http://mock-digicore" -- docker-compose.yml 
   echo "I1 INVARIANT VIOLATED: DIGICORE_BASE_URL still points at mock-digicore." >&2; exit 1
 fi
 echo "I1 invariant OK: Enstellar PA flow uses real digicore-runtime (mock-digicore retired)."
+
+# I2a invariant: interop is wired to the platform Document Service for the ingestion bridge.
+if ! git grep -qI "DOCUMENT_SERVICE_URL: http://document-service:3010" -- docker-compose.yml ; then
+  echo "I2a INVARIANT VIOLATED: interop is not wired to document-service in docker-compose.yml." >&2; exit 1
+fi
+if ! git ls-files --error-unmatch \
+     services/enstellar-interop/src/main/java/com/simintero/enstellar/interop/document/DocumentServiceClient.java \
+     >/dev/null 2>&1 ; then
+  echo "I2a INVARIANT VIOLATED: interop DocumentServiceClient is missing." >&2; exit 1
+fi
+echo "I2a invariant OK: interop ingests PA documents into the platform Document Service (case_ref=correlation_id)."

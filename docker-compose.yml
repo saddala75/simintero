@@ -137,6 +137,12 @@ services:
     depends_on:
       flyway:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3010/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - sim-net
 
@@ -513,11 +519,14 @@ services:
         condition: service_healthy
       digicore-runtime:
         condition: service_healthy
+      document-service:
+        condition: service_healthy
     environment:
       INTEROP_DB_URL: jdbc:postgresql://postgres:5432/hapi
       INTEROP_DB_USER: hapi
       INTEROP_DB_PASSWORD: "${HAPI_DB_PASSWORD:-hapi_secret}"
       DIGICORE_BASE_URL: http://digicore-runtime:8083
+      DOCUMENT_SERVICE_URL: http://document-service:3010
       HAPI_BASE_URL: http://hapi:8080/fhir
       HAPI_PROXY_ENABLED: "true"
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
