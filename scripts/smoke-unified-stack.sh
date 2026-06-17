@@ -22,6 +22,13 @@ KC=${KC:-http://localhost:8081}
 INTEROP=${INTEROP:-http://localhost:8080}
 BFF=${BFF:-http://localhost:8001}
 OPA=${OPA:-http://localhost:8181}
+DOCS_URL=${DOCS_URL:-http://localhost:3010}
+
+# Tenant the smoke user (md-reviewer) carries via the realm-simintero tenant_id claim;
+# the bundle id is the PAS correlation id. Both are reused below so the I2a bridge
+# query (case_ref + x-sim-tenant-id) matches exactly what $submit stored.
+TENANT_ID=${TENANT_ID:-tenant-dev}
+CORRELATION_ID=${CORRELATION_ID:-smoke-pas-bundle-001}
 
 echo "── 1. compose config validates ──"
 docker compose config -q
@@ -38,7 +45,7 @@ echo "── 2. bring up the stack (waits for healthchecks) ──"
 # `depends_on` (e.g. interop → hapi), and none of those deps are the broken 7.
 docker compose up -d --wait \
   postgres keycloak redpanda minio opa \
-  digicore-runtime mock-revital \
+  digicore-runtime mock-revital document-service \
   agent-layer interop workflow-engine portal-bff
 
 echo "── 3. mint a realm-simintero reviewer JWT ──"
@@ -76,7 +83,7 @@ echo "── 6. PAS \$submit round-trip ──"
 # (system http://hl7.org/fhir/sid/us-npi) on the requesting Practitioner. Without
 # them interop's $submit returns 400 "Normalization rejected bundle". They're
 # included below so this is a real, accepted round-trip.
-PAS_BUNDLE='{"resourceType":"Bundle","id":"smoke-pas-bundle-001","type":"collection","entry":[{"resource":{"resourceType":"Claim","id":"claim-001","use":"preauthorization","status":"active","patient":{"reference":"Patient/pat-001"},"provider":{"reference":"Practitioner/pract-001"},"insurance":[{"sequence":1,"focal":true,"coverage":{"reference":"Coverage/cov-001"}}],"diagnosis":[{"sequence":1,"diagnosisCodeableConcept":{"coding":[{"system":"http://hl7.org/fhir/sid/icd-10-cm","code":"M54.5","display":"Low back pain"}]}}],"item":[{"sequence":1,"productOrService":{"coding":[{"system":"http://www.ama-assn.org/go/cpt","code":"27447","display":"Total knee arthroplasty"}]},"diagnosisSequence":[1]}]}},{"resource":{"resourceType":"Patient","id":"pat-001","name":[{"family":"Smith","given":["Jane"]}],"gender":"female","birthDate":"1980-01-15"}},{"resource":{"resourceType":"Practitioner","id":"pract-001","identifier":[{"system":"http://hl7.org/fhir/sid/us-npi","value":"1234567893"}],"name":[{"family":"Jones","given":["Bob"]}]}},{"resource":{"resourceType":"Coverage","id":"cov-001","payor":[{"display":"ACME Health Plan"}]}}]}'
+PAS_BUNDLE='{"resourceType":"Bundle","id":"'"$CORRELATION_ID"'","type":"collection","entry":[{ "resource": { "resourceType": "Binary", "contentType": "application/pdf", "data": "JVBERi0xLjQK" } },{"resource":{"resourceType":"Claim","id":"claim-001","use":"preauthorization","status":"active","patient":{"reference":"Patient/pat-001"},"provider":{"reference":"Practitioner/pract-001"},"insurance":[{"sequence":1,"focal":true,"coverage":{"reference":"Coverage/cov-001"}}],"diagnosis":[{"sequence":1,"diagnosisCodeableConcept":{"coding":[{"system":"http://hl7.org/fhir/sid/icd-10-cm","code":"M54.5","display":"Low back pain"}]}}],"item":[{"sequence":1,"productOrService":{"coding":[{"system":"http://www.ama-assn.org/go/cpt","code":"27447","display":"Total knee arthroplasty"}]},"diagnosisSequence":[1]}]}},{"resource":{"resourceType":"Patient","id":"pat-001","name":[{"family":"Smith","given":["Jane"]}],"gender":"female","birthDate":"1980-01-15"}},{"resource":{"resourceType":"Practitioner","id":"pract-001","identifier":[{"system":"http://hl7.org/fhir/sid/us-npi","value":"1234567893"}],"name":[{"family":"Jones","given":["Bob"]}]}},{"resource":{"resourceType":"Coverage","id":"cov-001","payor":[{"display":"ACME Health Plan"}]}}]}'
 SUBMIT_RESP=$(curl -sf -X POST "$INTEROP/fhir/Claim/\$submit" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/fhir+json" \
@@ -91,6 +98,17 @@ assert cr.get('resourceType') == 'ClaimResponse', f\"expected ClaimResponse, got
 assert cr.get('use') == 'preauthorization', f\"expected preauthorization, got {cr.get('use')}\"
 print('  \$submit OK — ClaimResponse outcome=' + cr.get('outcome', '?'))
 "
+
+echo "--- I2a: document retrievable by case_ref ---"
+DOCS=$(curl -s -H "x-sim-tenant-id: ${TENANT_ID}" \
+  "${DOCS_URL}/documents?case_ref=${CORRELATION_ID}")
+echo "documents: ${DOCS}"
+if echo "${DOCS}" | grep -q '"doc_id"'; then
+  echo "✅ I2a bridge: document ingested and retrievable by correlation_id"
+else
+  echo "❌ I2a bridge: no document found for case_ref=${CORRELATION_ID}" >&2
+  exit 1
+fi
 
 echo "── 7. case surfaces in portal-bff worklist ──"
 # queue_id "default" → all tenant cases (worklist_router), so this is a stable 200.
