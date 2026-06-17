@@ -112,6 +112,22 @@ services:
     networks:
       - sim-net
 
+  temporal-admin:
+    image: temporalio/admin-tools:1.24
+    depends_on:
+      temporal:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        temporal operator namespace describe simintero --address temporal:7233 >/dev/null 2>&1 \
+          || temporal operator namespace create simintero --address temporal:7233 --retention 14d
+        echo "namespace simintero ready"
+    restart: "no"
+    networks:
+      - sim-net
+
   opa:
     image: openpolicyagent/opa:latest
     command:
@@ -214,6 +230,7 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       MODEL_GATEWAY_URL: http://model-gateway:3011
+      DOCUMENT_SERVICE_URL: http://document-service:3010
       NODE_ENV: development
       PORT: "3014"
     ports:
@@ -221,12 +238,34 @@ services:
     depends_on:
       temporal:
         condition: service_healthy
+      temporal-admin:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3014/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - sim-net
+
+  revital-worker:
+    build:
+      context: .
+      dockerfile: modules/revital/pipeline/Dockerfile
+    command: ["node", "dist/worker.js"]
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      MODEL_GATEWAY_URL: http://model-gateway:3011
+      DOCUMENT_SERVICE_URL: http://document-service:3010
+      NODE_ENV: development
+    depends_on:
+      temporal-admin:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     networks:
       - sim-net
 
