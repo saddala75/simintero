@@ -24,21 +24,22 @@ WORKDIR /repo
 
 RUN npm install -g pnpm@10
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY ${SERVICE_PATH}/package.json ./${SERVICE_PATH}/
 
 RUN pnpm install --frozen-lockfile --filter ${PACKAGE_NAME}...
 
 COPY ${SERVICE_PATH}/ ./${SERVICE_PATH}/
 RUN pnpm --filter ${PACKAGE_NAME} run build
+RUN pnpm --filter ${PACKAGE_NAME} deploy --prod --legacy /app/deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
 
+COPY --from=builder /app/deploy/node_modules ./node_modules
+COPY --from=builder /app/deploy/package.json ./package.json
 COPY --from=builder /repo/${SERVICE_PATH}/dist ./dist
-COPY --from=builder /repo/${SERVICE_PATH}/node_modules ./node_modules
-COPY --from=builder /repo/${SERVICE_PATH}/package.json ./package.json
 
 ENV NODE_ENV=production
 ENV PORT=${PORT}
