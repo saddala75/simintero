@@ -145,7 +145,9 @@ fi
 echo "── 9. F3: revital analysis runs to a terminal status ──"
 # Revital's /v1/assist/analyses is gated only by the x-sim-tenant-id header (no JWT).
 # The Temporal worker executes the workflow → persistAdvisory writes a terminal row.
-# Terminal status is 'partial' (inference activities abstain — model-gateway is broken until AI1).
+# Terminal status is 'complete' for this empty-document_refs request (inference activities are
+# skipped, not errored); a real document-grounded request abstains to 'partial' until the AI
+# inference stack (model-gateway/VKAS) lands in AI1. Either terminal value passes here.
 REV_URL="http://localhost:3014"
 ANA=$(curl -sf -X POST "$REV_URL/v1/assist/analyses" \
   -H "x-sim-tenant-id: $TENANT_ID" -H "Content-Type: application/json" \
