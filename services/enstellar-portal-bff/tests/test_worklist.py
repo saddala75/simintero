@@ -38,9 +38,11 @@ def _item(
     sla_deadline: str | None = None,
     status: str = "clinical_review",
     urgency: str = "standard",
+    correlation_id: str = "corr-001",
 ) -> dict:
     return {
         "case_id": case_id,
+        "correlation_id": correlation_id,
         "member": {"name": name},
         "service_lines": [{"procedure_description": "PT Eval"}],
         "lob": "commercial",
@@ -68,6 +70,7 @@ async def test_worklist_returns_items() -> None:
     assert body["total"] == 1
     assert len(body["items"]) == 1
     assert body["items"][0]["member_name"] == "Jane Doe"
+    assert body["items"][0]["correlation_id"] == "corr-001"
 
 
 @pytest.mark.asyncio

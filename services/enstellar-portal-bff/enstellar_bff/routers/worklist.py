@@ -54,6 +54,7 @@ async def get_worklist(
         items.append(
             WorklistItem(
                 case_id=c["case_id"],
+                correlation_id=c["correlation_id"],
                 member_name=c.get("member", {}).get("name", ""),
                 service_description=(
                     c.get("service_lines", [{}])[0].get("procedure_description", "")

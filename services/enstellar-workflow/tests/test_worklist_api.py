@@ -103,6 +103,22 @@ async def test_item_shape(ac, seeded):
 
 
 @pytest.mark.asyncio
+async def test_item_includes_correlation_id(ac, seeded):
+    """Each worklist item exposes correlation_id (matching the seeded value)
+    alongside status, so a later smoke can locate a specific submitted case."""
+    r = await ac.get(
+        "/queues/default/worklist", headers={"Authorization": "Bearer tenant-wl"}
+    )
+    assert r.status_code == 200
+    items = r.json()["items"]
+    by_case = {item["case_id"]: item for item in items}
+    for c in seeded["cases"]:
+        item = by_case[str(c.case_id)]
+        assert item["correlation_id"] == c.correlation_id
+        assert "status" in item
+
+
+@pytest.mark.asyncio
 async def test_pagination(ac, seeded):
     r = await ac.get(
         "/queues/default/worklist?page=1&page_size=1",

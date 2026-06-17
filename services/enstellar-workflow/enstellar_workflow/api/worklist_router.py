@@ -50,11 +50,12 @@ async def get_worklist(
         rows = await conn.fetch(
             """
             SELECT
-                wi.case_id::text  AS case_id,
-                wi.lob            AS lob,
-                wi.status         AS status,
-                wi.urgency        AS urgency,
-                wi.case_json      AS case_json,
+                wi.case_id::text     AS case_id,
+                wi.correlation_id    AS correlation_id,
+                wi.lob               AS lob,
+                wi.status            AS status,
+                wi.urgency           AS urgency,
+                wi.case_json         AS case_json,
                 c.deadline        AS sla_deadline
             FROM workflow_instances wi
             LEFT JOIN clocks c
@@ -92,6 +93,7 @@ def _row_to_item(row: Any) -> dict:
 
     return {
         "case_id": row["case_id"],
+        "correlation_id": row["correlation_id"],
         "lob": row["lob"],
         "status": row["status"],
         "urgency": row["urgency"],
