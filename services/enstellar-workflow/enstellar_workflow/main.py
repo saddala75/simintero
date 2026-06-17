@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI):
             await cr_task
         except asyncio.CancelledError:
             pass
-        relay.stop()
+        await relay.stop()
         for t in (relay_task, dr_task):
             t.cancel()
             try:

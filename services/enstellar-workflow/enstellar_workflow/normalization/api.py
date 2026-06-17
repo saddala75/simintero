@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from canonical_model import Status
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -79,16 +80,20 @@ async def normalize(
     # The kickoff transition advances intake -> auto_determination, emitting a
     # CaseStateChanged the OutboxRelay carries to the AutoDeterminationConsumer.
     case = await case_service.create_case(case)
-    await case_service.transition(
-        TransitionRequest(
-            case_id=case.case_id,
-            tenant_id=case.tenant_id,
-            to_state="auto_determination",
-            actor_id="system",
-            actor_type="system",
-            correlation_id=case.correlation_id,
+    # Only kick off auto-determination for a freshly-created case. On a duplicate $submit,
+    # create_case returns the EXISTING case at its current status; re-transitioning would
+    # regress a case the async pipeline (or a human) has already advanced.
+    if case.status == Status.intake:
+        await case_service.transition(
+            TransitionRequest(
+                case_id=case.case_id,
+                tenant_id=case.tenant_id,
+                to_state="auto_determination",
+                actor_id="system",
+                actor_type="system",
+                correlation_id=case.correlation_id,
+            )
         )
-    )
 
     data = case.model_dump(mode="json")
     data["_raw_bundle_key"] = raw_key
