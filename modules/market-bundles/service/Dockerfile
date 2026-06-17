@@ -11,14 +11,15 @@ RUN pnpm install --frozen-lockfile --filter @sim/market-bundles...
 
 COPY modules/market-bundles/service/ ./modules/market-bundles/service/
 RUN pnpm --filter @sim/market-bundles run build
+RUN pnpm --filter @sim/market-bundles deploy --prod --legacy /app/deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
 
+COPY --from=builder /app/deploy/node_modules ./node_modules
+COPY --from=builder /app/deploy/package.json ./package.json
 COPY --from=builder /repo/modules/market-bundles/service/dist ./dist
-COPY --from=builder /repo/modules/market-bundles/service/node_modules ./node_modules
-COPY --from=builder /repo/modules/market-bundles/service/package.json ./package.json
 
 ENV NODE_ENV=production
 ENV PORT=3018
