@@ -715,6 +715,7 @@ services:
       BFF_FHIR_API_URL: http://interop:8080/fhir
       BFF_CRD_API_URL: http://interop:8080/cds-services
       BFF_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
+      BFF_OIDC_ISSUER: http://localhost:8081/realms/simintero
     networks: [sim-net]
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
