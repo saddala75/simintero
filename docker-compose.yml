@@ -430,6 +430,9 @@ services:
     environment:
       SERVER_PORT: "8083"
       POSTGRES_URL: jdbc:postgresql://postgres:5432/simintero
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/simintero
+      SPRING_DATASOURCE_USERNAME: sim
+      SPRING_DATASOURCE_PASSWORD: devpassword
     ports:
       - "8083:8083"
     depends_on:
@@ -438,12 +441,7 @@ services:
     networks:
       - sim-net
     healthcheck:
-      # NOTE: digicore-runtime's HealthController lives in package io.simintero.digicore,
-      # OUTSIDE the io.simintero.digicore.runtime component-scan root of
-      # DigiCoreRuntimeApplication, so GET /healthz is NOT registered and 404s. That is a
-      # pre-existing service-code/packaging defect (out of scope for I1). We probe the real,
-      # served C-1 endpoint instead: POST /v1/runtime/coverage-discovery returns 200.
-      test: ["CMD-SHELL", "wget -q -O /dev/null --post-data='{}' --header='Content-Type: application/json' http://localhost:8083/v1/runtime/coverage-discovery || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8083/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
