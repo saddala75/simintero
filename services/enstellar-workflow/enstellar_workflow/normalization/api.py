@@ -73,10 +73,12 @@ async def normalize(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # F2: synchronously create the workflow case and kick off auto-determination.
-    # create_case is idempotent on correlation_id; the kickoff transition advances
-    # intake -> auto_determination, emitting a CaseStateChanged the OutboxRelay carries
-    # to the AutoDeterminationConsumer.
-    await case_service.create_case(case)
+    # create_case is idempotent on correlation_id and RETURNS the persisted case (the
+    # original case_id on a duplicate $submit) — use it for the transition so a retried
+    # submit doesn't transition a non-existent (freshly-minted) case_id.
+    # The kickoff transition advances intake -> auto_determination, emitting a
+    # CaseStateChanged the OutboxRelay carries to the AutoDeterminationConsumer.
+    case = await case_service.create_case(case)
     await case_service.transition(
         TransitionRequest(
             case_id=case.case_id,
