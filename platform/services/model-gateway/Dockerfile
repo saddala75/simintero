@@ -11,14 +11,15 @@ RUN pnpm install --frozen-lockfile --filter @sim/model-gateway...
 
 COPY platform/services/model-gateway/ ./platform/services/model-gateway/
 RUN pnpm --filter @sim/model-gateway run build
+RUN pnpm --filter @sim/model-gateway deploy --prod --legacy /app/deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
 
+COPY --from=builder /app/deploy/node_modules ./node_modules
+COPY --from=builder /app/deploy/package.json ./package.json
 COPY --from=builder /repo/platform/services/model-gateway/dist ./dist
-COPY --from=builder /repo/platform/services/model-gateway/node_modules ./node_modules
-COPY --from=builder /repo/platform/services/model-gateway/package.json ./package.json
 
 ENV NODE_ENV=production
 ENV PORT=3011
