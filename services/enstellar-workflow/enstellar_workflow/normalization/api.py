@@ -13,9 +13,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ..cases.service import CaseService
+from ..db.connection import get_pool
+from ..engine.transitions import TransitionRequest
 from .config import get_normalization_settings
 from .mapper import PasBundleMapper
 from .storage import MinioStore
@@ -25,6 +28,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/internal", tags=["normalization"])
 
 
+async def _get_case_service() -> CaseService:
+    pool = await get_pool()
+    return CaseService(pool)
+
+
 class NormalizeRequest(BaseModel):
     bundle: dict[str, Any]
     tenant_id: str = Field(min_length=1)
@@ -32,7 +40,10 @@ class NormalizeRequest(BaseModel):
 
 
 @router.post("/normalize", response_model=None)
-async def normalize(req: NormalizeRequest) -> dict[str, Any]:
+async def normalize(
+    req: NormalizeRequest,
+    case_service: CaseService = Depends(_get_case_service),
+) -> dict[str, Any]:
     """Store raw bundle in MinIO, map to canonical Case, return Case JSON.
 
     Store-first pattern: even if mapping fails, the raw bundle is retained
@@ -60,6 +71,22 @@ async def normalize(req: NormalizeRequest) -> dict[str, Any]:
             extra={"tenant_id": req.tenant_id, "correlation_id": req.correlation_id, "error": str(exc)},
         )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # F2: synchronously create the workflow case and kick off auto-determination.
+    # create_case is idempotent on correlation_id; the kickoff transition advances
+    # intake -> auto_determination, emitting a CaseStateChanged the OutboxRelay carries
+    # to the AutoDeterminationConsumer.
+    await case_service.create_case(case)
+    await case_service.transition(
+        TransitionRequest(
+            case_id=case.case_id,
+            tenant_id=case.tenant_id,
+            to_state="auto_determination",
+            actor_id="system",
+            actor_type="system",
+            correlation_id=case.correlation_id,
+        )
+    )
 
     data = case.model_dump(mode="json")
     data["_raw_bundle_key"] = raw_key

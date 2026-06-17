@@ -240,6 +240,29 @@ class TestRoundTrip:
 class TestNormalizeEndpoint:
     """Tests the POST /internal/normalize endpoint with a real mapper but mocked MinIO."""
 
+    @pytest.fixture(autouse=True)
+    def _override_case_service(self, db_dsn):
+        """F2: the route now resolves a CaseService dependency that opens a DB pool.
+
+        Override it with a CaseService backed by the testcontainer DB so the
+        endpoint exercises real create_case + kickoff transition (instead of the
+        default get_pool() that targets an unreachable localhost:5432). A fresh
+        pool is created per request so it binds to the TestClient's event loop.
+        """
+        import asyncpg
+
+        from enstellar_workflow.cases.service import CaseService
+        from enstellar_workflow.main import app
+        from enstellar_workflow.normalization.api import _get_case_service
+
+        async def _fake_case_service() -> CaseService:
+            pool = await asyncpg.create_pool(db_dsn, min_size=1, max_size=2)
+            return CaseService(pool)
+
+        app.dependency_overrides[_get_case_service] = _fake_case_service
+        yield
+        app.dependency_overrides.pop(_get_case_service, None)
+
     def test_normalize_endpoint_returns_200(self, sample_bundle, monkeypatch):
         from fastapi.testclient import TestClient
 
