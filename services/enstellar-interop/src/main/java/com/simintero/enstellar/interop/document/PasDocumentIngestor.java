@@ -42,20 +42,22 @@ public class PasDocumentIngestor {
         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
             Resource resource = entry.getResource();
             if (resource instanceof Binary binary) {
-                ingestOne("fhir_binary", encodeBinary(binary), correlationId, tenantId, "Binary");
+                ingestGuarded("fhir_binary", "Binary", () -> encodeBinary(binary), correlationId, tenantId);
             } else if (resource instanceof DocumentReference docRef) {
-                ingestOne("fhir_document_reference", encodeResourceJson(docRef), correlationId, tenantId,
-                        "DocumentReference");
+                ingestGuarded("fhir_document_reference", "DocumentReference",
+                        () -> encodeResourceJson(docRef), correlationId, tenantId);
             } else if (resource instanceof QuestionnaireResponse qr) {
-                ingestOne("fhir_document_reference", encodeResourceJson(qr), correlationId, tenantId,
-                        "QuestionnaireResponse");
+                ingestGuarded("fhir_document_reference", "QuestionnaireResponse",
+                        () -> encodeResourceJson(qr), correlationId, tenantId);
             }
         }
     }
 
-    private void ingestOne(String channel, String base64Payload, String correlationId, String tenantId,
-                           String resourceType) {
+    private void ingestGuarded(String channel, String resourceType,
+                               java.util.function.Supplier<String> payloadSupplier,
+                               String correlationId, String tenantId) {
         try {
+            String base64Payload = payloadSupplier.get();   // encoding now inside the guard
             client.ingest(channel, base64Payload, correlationId, tenantId);
             log.info("pas_document_ingested tenant={} correlation_id={} resource_type={} channel={}",
                     tenantId, correlationId, resourceType, channel);
