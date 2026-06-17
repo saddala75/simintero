@@ -9,6 +9,7 @@ const SPAN_MAP: SpanMap = {
 
 const ANALYSIS_INPUT: AnalysisInput = {
   analysis_id: 'ana_1',
+  tenant_id: 'tenant-x',
   case_ref: 'case_1',
   document_refs: ['d1'],
   evidence_requirements_ref: null,

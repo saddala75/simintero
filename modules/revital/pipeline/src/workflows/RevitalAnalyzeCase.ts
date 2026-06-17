@@ -7,6 +7,7 @@ import type * as activities from '../activities/index.js';
 
 export interface AnalysisInput {
   analysis_id: string;
+  tenant_id: string;
   case_ref: string;
   document_refs: string[];
   evidence_requirements_ref: string | null;
@@ -82,6 +83,7 @@ export async function revitalAnalyzeCase(input: AnalysisInput): Promise<Analysis
 
   await persistAdvisory({
     analysis_id: input.analysis_id,
+    tenant_id: input.tenant_id,
     case_ref: input.case_ref,
     status,
     summary: summaryResult,
