@@ -1,5 +1,5 @@
 # ── Stage 1: build ──────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /repo
 
 RUN npm install -g pnpm@10
@@ -24,7 +24,7 @@ RUN pnpm --filter @sim/revital-pipeline run build
 RUN pnpm --filter @sim/revital-pipeline deploy --legacy --prod /deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
-FROM node:20-alpine
+FROM node:20-slim
 WORKDIR /app
 
 COPY --from=builder /deploy .

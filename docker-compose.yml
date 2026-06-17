@@ -113,13 +113,14 @@ services:
       - sim-net
 
   temporal-admin:
-    image: temporalio/admin-tools:1.24
+    # Reuse the already-pulled auto-setup image — it ships the `temporal` CLI + a shell
+    # (the admin-tools image has no 1.24 tag). Override its entrypoint to just register the namespace.
+    image: temporalio/auto-setup:1.24
+    entrypoint: ["/bin/sh", "-c"]
     depends_on:
       temporal:
         condition: service_healthy
     command:
-      - sh
-      - -c
       - |
         temporal operator namespace describe simintero --address temporal:7233 >/dev/null 2>&1 \
           || temporal operator namespace create simintero --address temporal:7233 --retention 14d
@@ -521,7 +522,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 60s
+      # Keycloak's JVM + realm import can take ~280s under the full stack on a RAM-constrained
+      # host; a generous start_period prevents `up --wait` marking it unhealthy before it boots.
+      start_period: 300s
 
   minio:
     image: minio/minio:RELEASE.2024-06-04T19-20-08Z

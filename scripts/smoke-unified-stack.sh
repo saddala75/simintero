@@ -46,7 +46,8 @@ echo "── 2. bring up the stack (waits for healthchecks) ──"
 docker compose up -d --wait \
   postgres keycloak redpanda minio opa \
   digicore-runtime mock-revital document-service \
-  agent-layer interop workflow-engine portal-bff
+  agent-layer interop workflow-engine portal-bff \
+  temporal revital-pipeline revital-worker model-gateway
 
 echo "── 3. mint a realm-simintero reviewer JWT ──"
 TOKEN=$(curl -sf -X POST "$KC/realms/simintero/protocol/openid-connect/token" \
@@ -140,5 +141,33 @@ else
   echo "❌ F2: case ${CORRELATION_ID} did not advance past intake (status='${F2_STATUS}')" >&2
   exit 1
 fi
+
+echo "── 9. F3: revital analysis runs to a terminal status ──"
+# Revital's /v1/assist/analyses is gated only by the x-sim-tenant-id header (no JWT).
+# The Temporal worker executes the workflow → persistAdvisory writes a terminal row.
+# Terminal status is 'partial' (inference activities abstain — model-gateway is broken until AI1).
+REV_URL="http://localhost:3014"
+ANA=$(curl -sf -X POST "$REV_URL/v1/assist/analyses" \
+  -H "x-sim-tenant-id: $TENANT_ID" -H "Content-Type: application/json" \
+  -d '{"case_ref":"'"$CORRELATION_ID"'","analysis_kinds":["summary","triage"],"inputs":{"document_refs":[],"case_context":{"lob":"MA","urgency":"standard","service_lines":[]}}}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('analysis_id',''))" 2>/dev/null)
+echo "   analysis_id=${ANA}"
+if [ -z "$ANA" ]; then echo "❌ F3: submit did not return an analysis_id" >&2; exit 1; fi
+REV_STATUS=""
+for i in $(seq 1 30); do
+  REV_STATUS=$(curl -sf "$REV_URL/v1/assist/analyses/$ANA" -H "x-sim-tenant-id: $TENANT_ID" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null || echo '')
+  echo "   poll $i: status='${REV_STATUS}'"
+  case "$REV_STATUS" in complete|partial|failed) break;; esac
+  sleep 2
+done
+case "$REV_STATUS" in
+  complete|partial)
+    echo "✅ F3: revital analysis ${ANA} reached terminal status '${REV_STATUS}' (Temporal worker executed the pipeline)";;
+  failed)
+    echo "❌ F3: analysis reached 'failed' — the workflow ran but an activity errored (check revital-worker logs)" >&2; exit 1;;
+  *)
+    echo "❌ F3: analysis stuck at status='${REV_STATUS}' (expected terminal) — worker/namespace/taskQueue mismatch?" >&2; exit 1;;
+esac
 
 echo "✅ unified-stack smoke PASSED"
