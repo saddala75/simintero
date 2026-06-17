@@ -20,6 +20,8 @@ import httpx
 from canonical_model import Case, EventEnvelope
 from simintero_outbox import SchemaRef, Topics, make_envelope
 
+from simintero_tenant_context import tenant_transaction
+
 from ..cases.repository import CaseRepository
 from ..config import get_settings
 from ..criteria.repository import CriteriaRepository
@@ -117,7 +119,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             return
         case_id = uuid.UUID(str(case_id_raw))
 
-        async with self._pool.acquire() as conn:
+        async with tenant_transaction(self._pool, tenant_id) as conn:
             case = await self._case_repo.fetch_by_id(conn, case_id, tenant_id)
 
         if case is None:
@@ -240,11 +242,10 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             },
         )
 
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                if rows:
-                    await self._criteria_repo.insert_many(conn, rows)
-                await self._outbox.publish(conn, event)
+        async with tenant_transaction(self._pool, case.tenant_id) as conn:
+            if rows:
+                await self._criteria_repo.insert_many(conn, rows)
+            await self._outbox.publish(conn, event)
 
         logger.info(
             "completeness_agent_done",
@@ -344,10 +345,9 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             },
         )
 
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                await self._suggestions_repo.insert_many(conn, [row])
-                await self._outbox.publish(conn, event)
+        async with tenant_transaction(self._pool, case.tenant_id) as conn:
+            await self._suggestions_repo.insert_many(conn, [row])
+            await self._outbox.publish(conn, event)
 
         logger.info(
             "triage_agent_done",
@@ -386,6 +386,5 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
                 "reason": reason,
             },
         )
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                await self._outbox.publish(conn, event)
+        async with tenant_transaction(self._pool, case.tenant_id) as conn:
+            await self._outbox.publish(conn, event)

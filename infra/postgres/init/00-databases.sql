@@ -29,3 +29,8 @@ GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
 -- so pre-creating the role here makes that step a no-op while its subsequent
 -- GRANTs (which `workflow` CAN issue on its own schema/table) still run.
 CREATE ROLE sim_relay BYPASSRLS;
+
+-- workflow must be a member of sim_relay to `SET ROLE sim_relay` in the outbox relay
+-- (membership alone does NOT give workflow BYPASSRLS on its own connections — only when it
+-- explicitly SET ROLEs — so FORCE RLS on normal workflow writes is preserved).
+GRANT sim_relay TO workflow;

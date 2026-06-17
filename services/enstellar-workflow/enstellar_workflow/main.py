@@ -21,6 +21,11 @@ from enstellar_workflow.api.worklist_router import router as worklist_router
 from enstellar_workflow.auth import jwt_validator
 from enstellar_workflow.config import get_settings
 from enstellar_workflow.consumers import AutoDeterminationConsumer, ClinicalReviewConsumer
+from enstellar_workflow.kafka.producer import KafkaProducer
+from enstellar_workflow.outbox.relay import OutboxRelay
+from enstellar_workflow.outbox.publisher import OutboxPublisher
+from enstellar_workflow.comms.consumers.decision_recorded import DecisionRecordedConsumer
+from enstellar_workflow.comms.service import NotificationService
 from enstellar_workflow.criteria.router import router as criteria_router
 from enstellar_workflow.normalization.api import router as normalization_router
 from enstellar_workflow.queues.router import router as queues_router
@@ -75,6 +80,17 @@ async def lifespan(app: FastAPI):
     cr_task = asyncio.create_task(clinical_review_consumer.run(), name="clinical-review-consumer")
     logger.info("ClinicalReviewConsumer started")
 
+    producer = KafkaProducer()
+    await producer.start()
+    relay = OutboxRelay(pool, producer)
+    relay_task = asyncio.create_task(relay.start(), name="outbox-relay")
+    logger.info("OutboxRelay started")
+    decision_consumer = DecisionRecordedConsumer(
+        pool=pool, notification_service=NotificationService(OutboxPublisher())
+    )
+    dr_task = asyncio.create_task(decision_consumer.run(), name="decision-recorded-consumer")
+    logger.info("DecisionRecordedConsumer started")
+
     try:
         yield
     finally:
@@ -88,6 +104,14 @@ async def lifespan(app: FastAPI):
             await cr_task
         except asyncio.CancelledError:
             pass
+        await relay.stop()
+        for t in (relay_task, dr_task):
+            t.cancel()
+            try:
+                await t
+            except asyncio.CancelledError:
+                pass
+        await producer.stop()
         await pool.close()
 
 

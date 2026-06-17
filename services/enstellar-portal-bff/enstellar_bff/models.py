@@ -16,6 +16,7 @@ class SlaInfo(BaseModel):
 
 class WorklistItem(BaseModel):
     case_id: UUID
+    correlation_id: str
     member_name: str
     service_description: str
     lob: str

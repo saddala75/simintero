@@ -115,4 +115,30 @@ echo "── 7. case surfaces in portal-bff worklist ──"
 curl -sf "$BFF/bff/queues/default/worklist" -H "Authorization: Bearer $TOKEN" -o /dev/null \
   && echo "  worklist OK"
 
+echo "── 8. F2: case advances through the event plane to clinical_review ──"
+# After $submit, normalize creates the case + kicks off auto_determination; the
+# OutboxRelay drains shared.outbox → Kafka; the consumers carry the case
+# auto_determination → (digicore pending_review) → clinical_review. We poll the
+# workflow DB directly for OUR correlation_id and assert it reaches clinical_review.
+# (The DB is the most direct proof of the event plane; the reviewer worklist is a
+# separate RBAC'd surface — md-reviewer lacks the reviewer role — so we don't use it here.)
+F2_STATUS=""
+for i in $(seq 1 30); do
+  F2_STATUS=$(docker compose exec -T postgres psql -U sim -d workflow -tAc \
+    "SELECT status FROM workflow_instances WHERE correlation_id='${CORRELATION_ID}' AND tenant_id='${TENANT_ID}';" \
+    2>/dev/null | tr -d '[:space:]')
+  echo "   poll $i: status='${F2_STATUS}'"
+  [ "$F2_STATUS" = "clinical_review" ] && break
+  sleep 2
+done
+if [ "$F2_STATUS" = "clinical_review" ]; then
+  echo "✅ F2: case ${CORRELATION_ID} reached clinical_review (event plane live end-to-end)"
+elif [ -n "$F2_STATUS" ] && [ "$F2_STATUS" != "intake" ]; then
+  echo "⚠️  F2: case advanced past intake to '${F2_STATUS}' but not clinical_review" >&2
+  exit 1
+else
+  echo "❌ F2: case ${CORRELATION_ID} did not advance past intake (status='${F2_STATUS}')" >&2
+  exit 1
+fi
+
 echo "✅ unified-stack smoke PASSED"

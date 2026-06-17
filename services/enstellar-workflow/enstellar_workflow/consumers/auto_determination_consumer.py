@@ -22,6 +22,8 @@ from enstellar_connectors.digicore.client import DigiCoreClient
 from canonical_model import EventEnvelope
 from simintero_outbox import Topics
 
+from simintero_tenant_context import tenant_transaction
+
 from ..cases.repository import CaseRepository
 from ..engine.auto_determination import AutoDeterminator
 from ..engine.transitions import TransitionEngine
@@ -68,34 +70,32 @@ class AutoDeterminationConsumer(IdempotentKafkaConsumer):
             return
         case_id = uuid.UUID(str(case_id_raw))
 
-        async with self._pool.acquire() as conn:
+        async with tenant_transaction(self._pool, tenant_id) as conn:
             case = await self._repo.fetch_by_id(conn, case_id, tenant_id)
 
-        if case is None:
-            logger.error(
-                "auto_determination_consumer_case_not_found",
+            if case is None:
+                logger.error(
+                    "auto_determination_consumer_case_not_found",
+                    extra={
+                        "tenant_id": tenant_id,
+                        "case_id": str(case_id),
+                        "event_id": event.event_id,
+                    },
+                )
+                return
+
+            logger.info(
+                "auto_determination_consumer_starting",
                 extra={
                     "tenant_id": tenant_id,
-                    "case_id": str(case_id),
-                    "event_id": event.event_id,
+                    "case_id": str(case.case_id),
+                    "correlation_id": event.correlation_id,
                 },
             )
-            return
 
-        logger.info(
-            "auto_determination_consumer_starting",
-            extra={
-                "tenant_id": tenant_id,
-                "case_id": str(case.case_id),
-                "correlation_id": event.correlation_id,
-            },
-        )
-
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                updated = await self._auto.run(
-                    conn, case, event.correlation_id, causation_id=event.event_id
-                )
+            updated = await self._auto.run(
+                conn, case, event.correlation_id, causation_id=event.event_id
+            )
 
         logger.info(
             "auto_determination_consumer_done",
