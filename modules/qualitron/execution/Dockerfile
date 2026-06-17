@@ -11,17 +11,18 @@ RUN pnpm install --frozen-lockfile --filter @sim/qualitron-execution...
 
 COPY modules/qualitron/execution/ ./modules/qualitron/execution/
 RUN pnpm --filter @sim/qualitron-execution run build
+RUN pnpm --filter @sim/qualitron-execution deploy --prod --legacy /app/deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
 
+COPY --from=builder /app/deploy/node_modules ./node_modules
+COPY --from=builder /app/deploy/package.json ./package.json
 COPY --from=builder /repo/modules/qualitron/execution/dist ./dist
-COPY --from=builder /repo/modules/qualitron/execution/node_modules ./node_modules
-COPY --from=builder /repo/modules/qualitron/execution/package.json ./package.json
 
 ENV NODE_ENV=production
 ENV PORT=3015
 EXPOSE 3015
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server.js"]
