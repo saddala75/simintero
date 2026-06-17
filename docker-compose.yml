@@ -143,13 +143,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    volumes:
-      # The TS image COPYs only platform/services/document/node_modules, whose entries
-      # are pnpm symlinks into the workspace virtual store (/node_modules/.pnpm). That
-      # store is not in the image, so the symlinks dangle and `express` fails to resolve
-      # at boot. Mount the workspace node_modules read-only so the symlinks resolve. The
-      # boot path needs only express + pg (pure JS), so this is arch-safe.
-      - ./node_modules:/node_modules:ro
     networks:
       - sim-net
 
