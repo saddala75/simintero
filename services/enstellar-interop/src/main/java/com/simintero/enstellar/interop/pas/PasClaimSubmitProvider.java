@@ -8,6 +8,7 @@ import ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException;
 import com.simintero.enstellar.interop.decision.DecisionRecord;
 import io.simintero.tenant.TenantContextHolder;
 import com.simintero.enstellar.interop.decision.DecisionStore;
+import com.simintero.enstellar.interop.document.PasDocumentIngestor;
 import com.simintero.enstellar.interop.pas.dto.NormalizeResponse;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
@@ -36,19 +37,22 @@ public class PasClaimSubmitProvider implements IResourceProvider {
     private final NormalizationClient normClient;
     private final CaseIntakePublisher intakePublisher;
     private final DecisionStore decisionStore;
+    private final PasDocumentIngestor documentIngestor;
 
     public PasClaimSubmitProvider(
         MinioRawBundleStore minioStore,
         PasBundleValidator validator,
         NormalizationClient normClient,
         CaseIntakePublisher intakePublisher,
-        DecisionStore decisionStore
+        DecisionStore decisionStore,
+        PasDocumentIngestor documentIngestor
     ) {
         this.minioStore = minioStore;
         this.validator = validator;
         this.normClient = normClient;
         this.intakePublisher = intakePublisher;
         this.decisionStore = decisionStore;
+        this.documentIngestor = documentIngestor;
     }
 
     @Override
@@ -105,6 +109,10 @@ public class PasClaimSubmitProvider implements IResourceProvider {
 
         // STEP 5: Publish case.intake.received event (after durable DB write)
         intakePublisher.publish(normalizeResponse);
+
+        // Ingest the bundle's documents into the platform Document Service, keyed by correlation_id.
+        // Best-effort — the ingestor swallows errors so this never fails the $submit.
+        documentIngestor.ingest(bundle, correlationId, tenantId);
 
         // STEP 6: Return QUEUED ClaimResponse — decision is async via workflow-engine.
         // EHRs poll GET /fhir/Claim/{correlationId}/$inquire for the final outcome.
