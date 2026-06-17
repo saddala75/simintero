@@ -112,6 +112,23 @@ services:
     networks:
       - sim-net
 
+  temporal-admin:
+    # Reuse the already-pulled auto-setup image — it ships the `temporal` CLI + a shell
+    # (the admin-tools image has no 1.24 tag). Override its entrypoint to just register the namespace.
+    image: temporalio/auto-setup:1.24
+    entrypoint: ["/bin/sh", "-c"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+    command:
+      - |
+        temporal operator namespace describe simintero --address temporal:7233 >/dev/null 2>&1 \
+          || temporal operator namespace create simintero --address temporal:7233 --retention 14d
+        echo "namespace simintero ready"
+    restart: "no"
+    networks:
+      - sim-net
+
   opa:
     image: openpolicyagent/opa:latest
     command:
@@ -214,6 +231,7 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       MODEL_GATEWAY_URL: http://model-gateway:3011
+      DOCUMENT_SERVICE_URL: http://document-service:3010
       NODE_ENV: development
       PORT: "3014"
     ports:
@@ -221,12 +239,34 @@ services:
     depends_on:
       temporal:
         condition: service_healthy
+      temporal-admin:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3014/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - sim-net
+
+  revital-worker:
+    build:
+      context: .
+      dockerfile: modules/revital/pipeline/Dockerfile
+    command: ["node", "dist/worker.js"]
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: simintero
+      MODEL_GATEWAY_URL: http://model-gateway:3011
+      DOCUMENT_SERVICE_URL: http://document-service:3010
+      NODE_ENV: development
+    depends_on:
+      temporal-admin:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     networks:
       - sim-net
 
@@ -482,7 +522,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 60s
+      # Keycloak's JVM + realm import can take ~280s under the full stack on a RAM-constrained
+      # host; a generous start_period prevents `up --wait` marking it unhealthy before it boots.
+      start_period: 300s
 
   minio:
     image: minio/minio:RELEASE.2024-06-04T19-20-08Z

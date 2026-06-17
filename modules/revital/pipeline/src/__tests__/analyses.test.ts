@@ -5,7 +5,11 @@ import type { Pool } from 'pg';
 import { createAnalysesRouter } from '../routes/analyses.js';
 
 function makePool(rows: unknown[] = []): Pool {
-  return { query: vi.fn().mockResolvedValue({ rows }) } as unknown as Pool;
+  const client = { query: vi.fn().mockResolvedValue({ rows }), release: vi.fn() };
+  return {
+    query: vi.fn().mockResolvedValue({ rows }),
+    connect: vi.fn().mockResolvedValue(client),
+  } as unknown as Pool;
 }
 
 const VALID_BODY = {
@@ -55,6 +59,19 @@ describe('POST /v1/assist/analyses', () => {
       .send(VALID_BODY);
 
     expect(res.status).toBe(401);
+  });
+
+  it('starts the workflow on taskQueue=revital with the registered name + tenant_id', async () => {
+    const startSpy = vi.fn().mockResolvedValue({ workflowId: 'wf_1' });
+    const app2 = express();
+    app2.use(express.json());
+    app2.use(createAnalysesRouter(makePool(), { start: startSpy } as never));
+    await request(app2).post('/v1/assist/analyses').set('x-sim-tenant-id', 't_test').send(VALID_BODY);
+    expect(startSpy).toHaveBeenCalledOnce();
+    const [wfName, opts] = startSpy.mock.calls[0]!;
+    expect(wfName).toBe('revitalAnalyzeCase');
+    expect((opts as { taskQueue: string }).taskQueue).toBe('revital');
+    expect((opts as { args: Array<{ tenant_id: string }> }).args[0]!.tenant_id).toBe('t_test');
   });
 });
 

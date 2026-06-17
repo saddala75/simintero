@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { monotonicFactory } from 'ulid';
 import type { Pool } from 'pg';
+import { withTenant } from '../db/withTenant.js';
 
 const ulid = monotonicFactory();
 
@@ -41,19 +42,23 @@ export function createAnalysesRouter(pool: Pool, temporalClient: TemporalClientL
         inputs: { document_refs: string[]; case_context: Record<string, unknown> };
       };
 
-      // Insert processing row
-      await pool.query(
-        `INSERT INTO revital.analysis
-           (analysis_id, tenant_id, case_ref, status, interaction, abstentions, unprocessed_inputs)
-         VALUES ($1, current_setting('sim.tenant_id', true), $2, 'processing', '{}', '[]', '[]')`,
-        [analysisId, case_ref],
+      // Insert processing row under the tenant GUC (RLS-protected table).
+      await withTenant(pool, tenantId, (c) =>
+        c.query(
+          `INSERT INTO revital.analysis
+             (analysis_id, tenant_id, case_ref, status, interaction, abstentions, unprocessed_inputs)
+           VALUES ($1, current_setting('sim.tenant_id', true), $2, 'processing', '{}', '[]', '[]')`,
+          [analysisId, case_ref],
+        ),
       );
 
       // Start Temporal workflow
-      await temporalClient.start('revital-analyze-case', {
+      await temporalClient.start('revitalAnalyzeCase', {
         workflowId: analysisId,
+        taskQueue: 'revital',
         args: [{
           analysis_id: analysisId,
+          tenant_id: tenantId,
           case_ref,
           document_refs: inputs.document_refs,
           evidence_requirements_ref: null,
@@ -76,10 +81,15 @@ export function createAnalysesRouter(pool: Pool, temporalClient: TemporalClientL
 
   router.get('/v1/assist/analyses/:id', async (req, res, next) => {
     try {
-      const { rows } = await pool.query(
-        `SELECT * FROM revital.analysis WHERE analysis_id = $1`,
-        [req.params['id']],
-      );
+      const tenantId = req.headers['x-sim-tenant-id'] as string;
+      if (!tenantId) {
+        res.status(401).json({ code: 'MISSING_TENANT_ID', detail: 'x-sim-tenant-id is required' });
+        return;
+      }
+      const rows = await withTenant(pool, tenantId, async (c) => {
+        const r = await c.query(`SELECT * FROM revital.analysis WHERE analysis_id = $1`, [req.params['id']]);
+        return r.rows;
+      });
       if (!rows[0]) { res.status(404).end(); return; }
 
       const row = rows[0] as {

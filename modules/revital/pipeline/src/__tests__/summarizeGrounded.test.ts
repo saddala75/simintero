@@ -8,7 +8,7 @@ const SPAN_MAP: SpanMap = {
 };
 
 const INPUT: AnalysisInput = {
-  analysis_id: 'ana_1', case_ref: 'case_1', document_refs: ['d1'],
+  analysis_id: 'ana_1', tenant_id: 'tenant-x', case_ref: 'case_1', document_refs: ['d1'],
   evidence_requirements_ref: null, model_binding_ref: 'ref', model_binding_version: '1.0.0',
   prompt_ref: 'ref', prompt_version: '1.0.0', cell_boundary: 'pooled',
 };
