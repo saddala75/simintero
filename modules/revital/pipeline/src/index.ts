@@ -11,7 +11,7 @@ const TEMPORAL_ADDRESS = process.env['TEMPORAL_ADDRESS'] ?? 'localhost:7233';
 async function main() {
   const pool = new pg.Pool({ connectionString: DB_URL });
   const connection = await Connection.connect({ address: TEMPORAL_ADDRESS });
-  const temporalClient = new Client({ connection });
+  const temporalClient = new Client({ connection, namespace: process.env['TEMPORAL_NAMESPACE'] ?? 'simintero' });
 
   const app = express();
   app.use(express.json());
