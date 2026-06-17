@@ -106,3 +106,16 @@ if ! git ls-files --error-unmatch \
   echo "I2a INVARIANT VIOLATED: interop DocumentServiceClient is missing." >&2; exit 1
 fi
 echo "I2a invariant OK: interop ingests PA documents into the platform Document Service (case_ref=correlation_id)."
+
+# F1 invariant: no service Dockerfile ships dangling pnpm workspace symlinks, and the
+# four formerly-export{} services boot a real server.
+if git grep -nI "COPY --from=builder /repo/.*/node_modules " -- '*Dockerfile' ; then
+  echo "F1 INVARIANT VIOLATED: a Dockerfile still copies workspace node_modules (dangling pnpm symlinks)." >&2; exit 1
+fi
+for f in modules/claims/service/src/index.ts modules/search/query-api/src/index.ts \
+         modules/analytics/service/src/index.ts modules/qualitron/execution/src/server.ts ; do
+  if ! git grep -qI "listen" -- "$f" ; then
+    echo "F1 INVARIANT VIOLATED: $f does not start a server (.listen)." >&2; exit 1
+  fi
+done
+echo "F1 invariant OK: every service image is self-contained and the formerly-dead services boot."
