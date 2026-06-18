@@ -146,7 +146,11 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             )
             return
 
-        correlation_id = event.correlation_id
+        # Use the CASE's stable business correlation_id — NOT the event's
+        # per-transition correlation_id. Documents were ingested (I2a) under the
+        # case's stable id, and the Revital/inflight path must key on the same id.
+        # The triggering event's id lives on as causation_id (lineage) below.
+        correlation_id = case.correlation_id
 
         logger.info(
             "clinical_review_consumer_starting",

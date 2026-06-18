@@ -38,13 +38,19 @@ from tests.conftest import make_case
 # ---------------------------------------------------------------------------
 
 def _make_clinical_review_event(case: Case):
-    """Build a CASE_STATE_CHANGED event with to_state=clinical_review."""
+    """Build a CASE_STATE_CHANGED event with to_state=clinical_review.
+
+    The event's correlation_id is a PER-TRANSITION value, deliberately DISTINCT
+    from the case's stable business correlation_id. The consumer must use
+    case.correlation_id (not event.correlation_id) for the Revital/doc/inflight
+    path — documents were ingested under the case's stable id.
+    """
     return make_envelope(
         SchemaRef.CASE_STATE_CHANGED,
         tenant_id=case.tenant_id,
         actor_id="system",
         actor_type="system",
-        correlation_id=case.correlation_id,
+        correlation_id=f"{case.correlation_id}-to-clinical",
         payload={
             "case_id": str(case.case_id),
             "from_state": "auto_determination",
@@ -154,8 +160,12 @@ async def test_non_clinical_review_transition_is_ignored(pg_pool: asyncpg.Pool):
 
 @pytest.mark.asyncio
 async def test_submits_to_revital_and_records_inflight(pg_pool: asyncpg.Pool):
-    """On clinical_review: resolve refs → submit to Revital → record inflight."""
-    case = make_case(status=Status.clinical_review)
+    """On clinical_review: resolve refs → submit to Revital → record inflight.
+
+    The CASE's stable correlation_id (under which I2a ingested documents) must be
+    used for resolve_refs / submit / inflight — NOT the event's per-transition id.
+    """
+    case = make_case(status=Status.clinical_review, correlation_id="corr-stable")
 
     async with pg_pool.acquire() as conn:
         async with conn.transaction():
@@ -167,17 +177,23 @@ async def test_submits_to_revital_and_records_inflight(pg_pool: asyncpg.Pool):
     )
 
     event = _make_clinical_review_event(case)
+    # Guard the premise: the event carries a DIFFERENT (per-transition) id.
+    assert event.correlation_id == "corr-stable-to-clinical"
+    assert event.correlation_id != case.correlation_id
+
     await consumer.handle(event)
 
-    # 1. resolve_refs called with case_ref=correlation_id + tenant_id
+    # 1. resolve_refs called with case_ref=CASE correlation_id (not the event's)
     docs.resolve_refs.assert_awaited_once_with(
-        case_ref=case.correlation_id, tenant_id=case.tenant_id
+        case_ref="corr-stable", tenant_id=case.tenant_id
     )
+    assert docs.resolve_refs.await_args.kwargs["case_ref"] != event.correlation_id
 
     # 2. submit called with completeness+triage, resolved refs, PHI-min context, tenant
     revital.submit.assert_awaited_once()
     kwargs = revital.submit.await_args.kwargs
-    assert kwargs["case_ref"] == case.correlation_id
+    assert kwargs["case_ref"] == "corr-stable"
+    assert kwargs["case_ref"] != event.correlation_id
     assert kwargs["analysis_kinds"] == ["completeness", "triage"]
     assert kwargs["document_refs"] == ["doc-a", "doc-b"]
     assert kwargs["tenant_id"] == case.tenant_id
@@ -198,7 +214,8 @@ async def test_submits_to_revital_and_records_inflight(pg_pool: asyncpg.Pool):
     assert ins_kwargs["analysis_id"] == "an-999"
     assert ins_kwargs["case_id"] == case.case_id
     assert ins_kwargs["tenant_id"] == case.tenant_id
-    assert ins_kwargs["correlation_id"] == case.correlation_id
+    assert ins_kwargs["correlation_id"] == "corr-stable"
+    assert ins_kwargs["correlation_id"] != event.correlation_id
 
 
 @pytest.mark.asyncio
