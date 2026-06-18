@@ -24,8 +24,6 @@ class Settings(BaseSettings):
     # when the relay already connects as a BYPASSRLS principal via its own DSN).
     relay_db_role: str | None = "sim_relay"
 
-    agent_layer_url: str = "http://agent-layer:8000"
-
     # --- Document Service + Revital (I2b clinical-review pipeline) -----------
     # The ClinicalReviewConsumer resolves a case's documents from the platform
     # Document Service by case_ref (= correlation_id), then submits them to the

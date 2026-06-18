@@ -29,6 +29,7 @@ from enstellar_workflow.comms.service import NotificationService
 from enstellar_workflow.criteria.router import router as criteria_router
 from enstellar_workflow.normalization.api import router as normalization_router
 from enstellar_workflow.queues.router import router as queues_router
+from enstellar_workflow.revital.poller import RevitalPoller
 from enstellar_workflow.suggestions.router import router as suggestions_router
 
 logging.basicConfig(
@@ -91,6 +92,10 @@ async def lifespan(app: FastAPI):
     dr_task = asyncio.create_task(decision_consumer.run(), name="decision-recorded-consumer")
     logger.info("DecisionRecordedConsumer started")
 
+    revital_poller = RevitalPoller(pool)
+    rp_task = asyncio.create_task(revital_poller.start(), name="revital-poller")
+    logger.info("RevitalPoller started")
+
     try:
         yield
     finally:
@@ -105,12 +110,17 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
         await relay.stop()
-        for t in (relay_task, dr_task):
+        await revital_poller.stop()
+        for t in (relay_task, dr_task, rp_task):
             t.cancel()
             try:
                 await t
             except asyncio.CancelledError:
                 pass
+        # close long-lived httpx clients (consumer + poller) to drain pools
+        await clinical_review_consumer._docs.close()
+        await clinical_review_consumer._revital.close()
+        await revital_poller.aclose()
         await producer.stop()
         await pool.close()
 

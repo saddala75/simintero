@@ -76,6 +76,10 @@ class RevitalPoller:
     async def stop(self) -> None:
         self._running = False
 
+    async def aclose(self) -> None:
+        """Close the long-lived Revital httpx client to drain its connection pool."""
+        await self._revital.close()
+
     @asynccontextmanager
     async def _scan_conn(self):
         """Acquire a connection with the BYPASSRLS relay role set (if configured)."""
