@@ -154,6 +154,15 @@ class RevitalPoller:
         confidence = result.triage.confidence if result.triage else None
 
         async with tenant_transaction(self._pool, tenant_id) as conn:
+            if not await self._inflight.claim(conn, row["analysis_id"]):
+                logger.info(
+                    "revital_finalize_skipped_already_done",
+                    extra={
+                        "analysis_id": row["analysis_id"],
+                        "tenant_id": tenant_id,
+                    },
+                )
+                return
             case = await self._cases.fetch_by_id(conn, case_id, tenant_id)
             lob = lob_for_envelope(case.lob) if case else None
             event = make_envelope(
@@ -175,7 +184,6 @@ class RevitalPoller:
             if suggestion_rows:
                 await self._suggestions.insert_many(conn, suggestion_rows)
             await self._outbox.publish(conn, event)
-            await self._inflight.mark_done(conn, row["analysis_id"])
 
         logger.info(
             "revital_poll_finalized",
@@ -194,6 +202,15 @@ class RevitalPoller:
         tenant_id = row["tenant_id"]
 
         async with tenant_transaction(self._pool, tenant_id) as conn:
+            if not await self._inflight.claim(conn, row["analysis_id"]):
+                logger.info(
+                    "revital_finalize_skipped_already_done",
+                    extra={
+                        "analysis_id": row["analysis_id"],
+                        "tenant_id": tenant_id,
+                    },
+                )
+                return
             case = await self._cases.fetch_by_id(conn, case_id, tenant_id)
             lob = lob_for_envelope(case.lob) if case else None
             event = make_envelope(
@@ -210,7 +227,6 @@ class RevitalPoller:
                 },
             )
             await self._outbox.publish(conn, event)
-            await self._inflight.mark_done(conn, row["analysis_id"])
 
         logger.info(
             "revital_poll_failed",

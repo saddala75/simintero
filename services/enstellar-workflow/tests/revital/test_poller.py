@@ -50,11 +50,13 @@ class FakeRepo:
 
 
 class FakeInflight:
-    def __init__(self):
-        self.done = []
+    def __init__(self, claim_result=True):
+        self.claimed = []
+        self._claim_result = claim_result
 
-    async def mark_done(self, conn, analysis_id):
-        self.done.append(analysis_id)
+    async def claim(self, conn, analysis_id):
+        self.claimed.append(analysis_id)
+        return self._claim_result
 
 
 class FakeOutbox:
@@ -90,7 +92,7 @@ def _row(submitted_at=None):
     }
 
 
-def _make_poller(monkeypatch, revital):
+def _make_poller(monkeypatch, revital, claim_result=True):
     monkeypatch.setattr(
         "enstellar_workflow.revital.poller.tenant_transaction",
         fake_tenant_transaction,
@@ -98,7 +100,7 @@ def _make_poller(monkeypatch, revital):
     poller = RevitalPoller(pool=object(), revital=revital)
     poller._criteria = FakeRepo()
     poller._suggestions = FakeRepo()
-    poller._inflight = FakeInflight()
+    poller._inflight = FakeInflight(claim_result=claim_result)
     poller._outbox = FakeOutbox()
     poller._cases = FakeCaseRepo()
     return poller
@@ -132,7 +134,7 @@ async def test_complete_writes_rows_event_and_marks_done(monkeypatch):
     assert isinstance(event, EventEnvelope)
     assert event.schema_ref.endswith("AgentAssistProduced/v1")
     assert event.payload["case_id"] == str(row["case_id"])
-    assert poller._inflight.done == ["an-1"]
+    assert poller._inflight.claimed == ["an-1"]
 
 
 @pytest.mark.asyncio
@@ -148,7 +150,34 @@ async def test_partial_is_treated_as_terminal_ok(monkeypatch):
     assert poller._suggestions.inserted == []
     assert len(poller._outbox.published) == 1
     assert poller._outbox.published[0].schema_ref.endswith("AgentAssistProduced/v1")
-    assert poller._inflight.done == ["an-1"]
+    assert poller._inflight.claimed == ["an-1"]
+
+
+# ---------------------------------------------------------------------------
+# claim lost (already finalized by a racing tick) → no writes, no event
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_finish_ok_skips_when_claim_lost(monkeypatch):
+    result = AnalysisResult(
+        analysis_id="an-1",
+        status="complete",
+        completeness=CompletenessBlock(
+            status="ok",
+            gaps=[Gap(requirement_id="REQ-1", description="missing labs")],
+        ),
+        triage=TriageBlock(status="ok", suggestion="likely_meets", confidence=0.9),
+    )
+    # claim returns False → another tick already finalized this row.
+    poller = _make_poller(monkeypatch, FakeRevital(result=result), claim_result=False)
+    row = _row()
+
+    await poller._process_one(row)
+
+    # Claim was attempted but lost → no advisory rows, no event published.
+    assert poller._inflight.claimed == ["an-1"]
+    assert poller._criteria.inserted == []
+    assert poller._suggestions.inserted == []
+    assert poller._outbox.published == []
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +197,7 @@ async def test_failed_emits_failed_event_no_rows(monkeypatch):
     event = poller._outbox.published[0]
     assert event.schema_ref.endswith("AgentAssistFailed/v1")
     assert event.payload["reason"] == "revital_status_failed"
-    assert poller._inflight.done == ["an-1"]
+    assert poller._inflight.claimed == ["an-1"]
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +216,7 @@ async def test_processing_past_timeout_fails_with_timeout(monkeypatch):
     event = poller._outbox.published[0]
     assert event.schema_ref.endswith("AgentAssistFailed/v1")
     assert event.payload["reason"] == "timeout"
-    assert poller._inflight.done == ["an-1"]
+    assert poller._inflight.claimed == ["an-1"]
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +233,7 @@ async def test_processing_within_timeout_does_nothing(monkeypatch):
     assert poller._criteria.inserted == []
     assert poller._suggestions.inserted == []
     assert poller._outbox.published == []
-    assert poller._inflight.done == []
+    assert poller._inflight.claimed == []
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +251,7 @@ async def test_revital_unavailable_leaves_row_processing(monkeypatch):
     assert poller._criteria.inserted == []
     assert poller._suggestions.inserted == []
     assert poller._outbox.published == []
-    assert poller._inflight.done == []
+    assert poller._inflight.claimed == []
 
 
 @pytest.mark.asyncio
@@ -232,4 +261,4 @@ async def test_unexpected_exception_does_not_raise(monkeypatch):
 
     await poller._process_one(row)  # must not raise
 
-    assert poller._inflight.done == []
+    assert poller._inflight.claimed == []

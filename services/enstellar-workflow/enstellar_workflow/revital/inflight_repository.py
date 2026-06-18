@@ -54,6 +54,23 @@ class InflightRepository:
         )
         return [dict(r) for r in rows]
 
+    async def claim(self, conn: asyncpg.Connection, analysis_id: str) -> bool:
+        """Atomically transition processing→done. Returns True if THIS caller won
+        the claim (row was still 'processing'), False if already finalized.
+
+        Run inside the per-tenant tenant_transaction BEFORE writing advisory rows:
+        because it shares that transaction with the inserts/publish, a later
+        failure rolls back the claim too and the row returns to 'processing'.
+        """
+        status = await conn.execute(
+            """UPDATE revital_inflight SET status = 'done', completed_at = now()
+               WHERE analysis_id = $1 AND status = 'processing'""",
+            analysis_id,
+        )
+        # asyncpg execute() returns the command tag, e.g. "UPDATE 1" / "UPDATE 0";
+        # matches the existing idiom in escalation/signoff services.
+        return status == "UPDATE 1"
+
     async def mark_done(self, conn: asyncpg.Connection, analysis_id: str) -> None:
         await conn.execute(
             "UPDATE revital_inflight SET status = 'done', completed_at = now() WHERE analysis_id = $1",

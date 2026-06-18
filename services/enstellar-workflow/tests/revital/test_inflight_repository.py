@@ -87,6 +87,39 @@ async def test_list_processing_sql_shape():
     assert args == (7,)
 
 
+class FakeClaimConn:
+    """execute() returns a command tag so claim's "UPDATE 1" check is exercised."""
+
+    def __init__(self, command_tags):
+        self.calls = []
+        self._tags = list(command_tags)
+
+    async def execute(self, sql, *args):
+        self.calls.append(("execute", sql, args))
+        return self._tags.pop(0)
+
+
+@pytest.mark.asyncio
+async def test_claim_returns_true_when_row_was_processing():
+    repo = InflightRepository()
+    conn = FakeClaimConn(["UPDATE 1"])
+    won = await repo.claim(conn, "an-claim")
+    assert won is True
+    kind, sql, args = conn.calls[0]
+    assert kind == "execute"
+    assert "UPDATE revital_inflight" in sql
+    assert "status = 'done'" in sql
+    assert "status = 'processing'" in sql  # gated on still-processing
+    assert args == ("an-claim",)
+
+
+@pytest.mark.asyncio
+async def test_claim_returns_false_when_already_finalized():
+    repo = InflightRepository()
+    conn = FakeClaimConn(["UPDATE 0"])
+    assert await repo.claim(conn, "an-claim") is False
+
+
 @pytest.mark.asyncio
 async def test_mark_done_issues_update():
     repo = InflightRepository()
@@ -173,6 +206,36 @@ async def test_mark_done_flips_status_and_sets_completed_at(pg_pool: asyncpg.Poo
     # No longer counts as processing.
     async with tenant_transaction(pg_pool, tenant_id) as conn:
         assert await repo.exists_processing_for_case(conn, case_id, tenant_id) is False
+
+
+@pytest.mark.asyncio
+async def test_claim_wins_once_then_loses(pg_pool: asyncpg.Pool):
+    repo = InflightRepository()
+    tenant_id = "tenant-inflight-claim"
+    case_id = uuid.uuid4()
+    analysis_id = f"an-{uuid.uuid4()}"
+
+    async with tenant_transaction(pg_pool, tenant_id) as conn:
+        await repo.insert(
+            conn, analysis_id=analysis_id, case_id=case_id,
+            tenant_id=tenant_id, correlation_id="corr-claim",
+        )
+
+    # First claim wins (row was processing) and flips status→done.
+    async with tenant_transaction(pg_pool, tenant_id) as conn:
+        assert await repo.claim(conn, analysis_id) is True
+
+    async with tenant_transaction(pg_pool, tenant_id) as conn:
+        row = await conn.fetchrow(
+            "SELECT status, completed_at FROM revital_inflight WHERE analysis_id = $1",
+            analysis_id,
+        )
+    assert row["status"] == "done"
+    assert row["completed_at"] is not None
+
+    # Second claim loses (already finalized).
+    async with tenant_transaction(pg_pool, tenant_id) as conn:
+        assert await repo.claim(conn, analysis_id) is False
 
 
 @pytest.mark.asyncio
