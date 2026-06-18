@@ -44,6 +44,24 @@ class CoverageDiscoveryControllerTest {
     }
 
     @Test
+    void resolvesNonKneeRuleDataDriven() throws Exception {
+        when(ruleResolver.resolveByProcedure(eq("72148"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("72148"), true,
+                List.of("urn:sim:policy:lumbar-spine-mri:1.0.0"),
+                "urn:sim:dtr:lumbar-spine-mri:1.0.0",
+                List.of(Map.of("requirement_id","conservative_therapy_6wk","required",true)),
+                "https://artifacts.simintero.io/shared/cql_library/lumbar-spine-mri", "1.0.0")));
+        mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
+                .content("{\"service_code\":\"72148\",\"procedure_code\":\"72148\"}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.pa_required").value(true))
+           .andExpect(jsonPath("$.pins[0]").value("urn:sim:policy:lumbar-spine-mri:1.0.0"))
+           .andExpect(jsonPath("$.dtr_package_ref").value("urn:sim:dtr:lumbar-spine-mri:1.0.0"))
+           .andExpect(jsonPath("$.governing_rules[0].rule_id").value("coverage_rule/72148"));
+    }
+
+    @Test
     void unknownCodeReturnsPaNotRequired() throws Exception {
         when(ruleResolver.resolveByProcedure(any(), any(RuleContext.class))).thenReturn(Optional.empty());
         mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
