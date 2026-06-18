@@ -43,6 +43,32 @@
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
 
+        <!-- HL7/CQF CQL-to-ELM translator (jakarta-based 3.x line, aligns with Spring Boot 3.x).
+             Pulls model, elm, elm-jackson transitively; elm-jackson provides toJson(). -->
+        <dependency>
+            <groupId>info.cqframework</groupId>
+            <artifactId>cql-to-elm</artifactId>
+            <version>3.20.0</version>
+        </dependency>
+        <!-- Required at runtime: provides the ModelInfoReaderProvider SPI implementation so the
+             translator can load System/FHIR model info. cql-to-elm does NOT pull a model-info
+             reader transitively; without this the compile fails with
+             "No ModelInfoReaderProviders found on the classpath". Jackson-based to align with
+             elm-jackson / Spring's Jackson (not model-jaxb). -->
+        <dependency>
+            <groupId>info.cqframework</groupId>
+            <artifactId>model-jackson</artifactId>
+            <version>3.20.0</version>
+        </dependency>
+        <!-- Required for translator.toJson(): provides the ElmLibraryWriterProvider SPI.
+             cql-to-elm 3.20.0 does NOT pull elm-jackson transitively (only model + elm); without
+             this toJson() throws "No ElmLibraryWriterProviders found on the classpath". -->
+        <dependency>
+            <groupId>info.cqframework</groupId>
+            <artifactId>elm-jackson</artifactId>
+            <version>3.20.0</version>
+        </dependency>
+
         <!-- PostgreSQL JDBC driver (runtime) -->
         <dependency>
             <groupId>org.postgresql</groupId>

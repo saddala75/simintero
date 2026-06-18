@@ -10,21 +10,23 @@ import java.io.InputStream;
 import java.util.*;
 
 /**
- * Phase 1 lightweight ELM evaluator.
+ * Phase 1 ELM evaluator.
  *
- * Reads a simplified ELM JSON fixture (knee-arthroscopy.elm.json shipped in the
- * classpath under elm/) and interprets it against caller-provided evidence.
+ * <p>Loads a compiled ELM library (real cql-to-elm output) from the classpath under
+ * {@code /elm/} and drives evaluation through the {@link ElmInterpreter}, which applies
+ * Kleene three-valued logic (TRUE / FALSE / null=indeterminate) over the bounded ELM
+ * subset emitted by parameter-based boolean/comparison CQL.
  *
- * Supported expression types:
- *   EvidencePresent — looks up a key in the evidence map
- *   And             — all operands true → true; any indeterminate → indeterminate; any false → false
+ * <p>Each {@code ExpressionDef} under {@code library.statements.def} is evaluated in
+ * declaration order. The outcome is derived from the {@code "Meets All Criteria"} define:
+ * <ul>
+ *   <li>null            → indeterminate</li>
+ *   <li>{@code TRUE}    → meets_all</li>
+ *   <li>{@code FALSE}   → not_met (with blocking gaps for each false leaf ParameterRef)</li>
+ * </ul>
  *
- * Outcome mapping:
- *   "Meets All Criteria" = true              → meets_all
- *   any expression       = "indeterminate"   → indeterminate
- *   "Meets All Criteria" = false             → not_met
- *
- * Determinism guarantee: pure function — same (evidence, definitions) → same result.
+ * <p>Determinism guarantee: pure function — same (evidence, library) → same result, with
+ * declaration-order iteration ({@link LinkedHashMap}) for a stable logicPath.
  */
 @Component
 public class ElmEvaluator {
@@ -34,10 +36,12 @@ public class ElmEvaluator {
     private static final String MEETS_ALL_DEF = "Meets All Criteria";
     private static final String DEFAULT_LIBRARY_REF = "knee-arthroscopy";
 
-    // Sentinel to propagate indeterminate through And chains
-    private static final Object INDETERMINATE = new Object();
-
     private final ObjectMapper mapper = new ObjectMapper();
+    private final ElmInterpreter interpreter;
+
+    public ElmEvaluator(ElmInterpreter interpreter) {
+        this.interpreter = interpreter;
+    }
 
     /**
      * Result of evaluating the ELM library against a set of evidence.
@@ -71,50 +75,41 @@ public class ElmEvaluator {
     public ElmResult evaluate(Map<String, Object> evidence, String libraryRef) {
         JsonNode library = loadLibrary(sanitizeRef(libraryRef));
         JsonNode defs = library.path("library").path("statements").path("def");
-
         if (!defs.isArray()) {
-            throw new IllegalStateException("ELM fixture missing library.statements.def array");
+            throw new IllegalStateException("ELM missing library.statements.def");
         }
 
-        // Build an ordered definition map preserving declaration order (required for And resolution)
-        LinkedHashMap<String, JsonNode> defMap = new LinkedHashMap<>();
-        for (JsonNode def : defs) {
-            defMap.put(def.get("name").asText(), def);
+        // Build an ordered definition map preserving declaration order (required for
+        // ExpressionRef resolution and a deterministic logicPath).
+        LinkedHashMap<String, JsonNode> defsByName = new LinkedHashMap<>();
+        for (JsonNode d : defs) {
+            defsByName.put(d.path("name").asText(), d);
         }
 
-        // Evaluate every definition; cache results for And operand lookup
-        Map<String, Object> evalCache = new LinkedHashMap<>();
+        Map<String, Object> results = new LinkedHashMap<>();
         List<Map<String, Object>> logicPath = new ArrayList<>();
-
-        for (Map.Entry<String, JsonNode> entry : defMap.entrySet()) {
-            String name = entry.getKey();
-            Object result = evalExpression(entry.getValue().get("expression"), evidence, evalCache, defMap);
-            evalCache.put(name, result);
-            logicPath.add(Map.of("expression_name", name, "result", resultLabel(result)));
+        for (Map.Entry<String, JsonNode> e : defsByName.entrySet()) {
+            Object r = interpreter.eval(e.getValue().path("expression"), evidence, defsByName);
+            results.put(e.getKey(), r);
+            logicPath.add(Map.of("expression_name", e.getKey(), "result", label(r)));
         }
 
-        // Determine outcome from "Meets All Criteria"
-        Object meetsAll = evalCache.get(MEETS_ALL_DEF);
-        boolean anyIndeterminate = evalCache.values().stream().anyMatch(v -> v == INDETERMINATE);
-
+        Object meetsAll = results.get(MEETS_ALL_DEF);
         String outcome;
         List<Map<String, Object>> gaps = new ArrayList<>();
-
-        if (anyIndeterminate) {
+        if (meetsAll == null) {
             outcome = "indeterminate";
         } else if (Boolean.TRUE.equals(meetsAll)) {
             outcome = "meets_all";
         } else {
             outcome = "not_met";
-            // Collect blocking gaps: every leaf EvidencePresent that is false
-            for (Map.Entry<String, JsonNode> entry : defMap.entrySet()) {
-                JsonNode expr = entry.getValue().get("expression");
-                if (expr != null && "EvidencePresent".equals(expr.path("type").asText())) {
-                    Object val = evalCache.get(entry.getKey());
-                    if (!Boolean.TRUE.equals(val) && val != INDETERMINATE) {
-                        String key = expr.path("key").asText();
-                        gaps.add(Map.of("requirement_id", key, "blocking", true));
-                    }
+            // Blocking gaps: every leaf ParameterRef define that resolved to false.
+            // requirement_id is the parameter/evidence key (ParameterRef.name).
+            for (Map.Entry<String, JsonNode> e : defsByName.entrySet()) {
+                JsonNode expr = e.getValue().path("expression");
+                if ("ParameterRef".equals(expr.path("type").asText())
+                        && Boolean.FALSE.equals(results.get(e.getKey()))) {
+                    gaps.add(Map.of("requirement_id", expr.path("name").asText(), "blocking", true));
                 }
             }
         }
@@ -122,59 +117,13 @@ public class ElmEvaluator {
         return new ElmResult(outcome, Collections.unmodifiableList(gaps), Collections.unmodifiableList(logicPath));
     }
 
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    private Object evalExpression(
-            JsonNode expr,
-            Map<String, Object> evidence,
-            Map<String, Object> cache,
-            Map<String, JsonNode> defMap) {
-
-        if (expr == null) return false;
-
-        String type = expr.path("type").asText();
-
-        return switch (type) {
-            case "EvidencePresent" -> {
-                String key = expr.path("key").asText();
-                Object val = evidence.get(key);
-                if (val == null) yield false;
-                if (val instanceof Boolean b) yield b;
-                if ("indeterminate".equals(val)) yield INDETERMINATE;
-                // Truthy strings / numbers: treat as true
-                yield Boolean.parseBoolean(val.toString());
-            }
-            case "And" -> {
-                JsonNode operands = expr.get("operands");
-                boolean seenIndeterminate = false;
-                if (operands != null && operands.isArray()) {
-                    for (JsonNode operand : operands) {
-                        String refName = operand.asText();
-                        Object refResult = cache.containsKey(refName)
-                                ? cache.get(refName)
-                                : evalExpression(defMap.get(refName) != null
-                                        ? defMap.get(refName).get("expression") : null,
-                                    evidence, cache, defMap);
-                        if (refResult == INDETERMINATE) {
-                            seenIndeterminate = true;
-                        } else if (!Boolean.TRUE.equals(refResult)) {
-                            yield false; // short-circuit: definitive false
-                        }
-                    }
-                }
-                yield seenIndeterminate ? INDETERMINATE : true;
-            }
-            default -> false;
-        };
+    private String label(Object r) {
+        return r == null ? "indeterminate" : (Boolean.TRUE.equals(r) ? "true" : "false");
     }
 
-    private String resultLabel(Object result) {
-        if (result == INDETERMINATE) return "indeterminate";
-        if (Boolean.TRUE.equals(result)) return "true";
-        return "false";
-    }
+    // -------------------------------------------------------------------------
+    // Classpath loading helpers — KEPT VERBATIM from the prior implementation.
+    // -------------------------------------------------------------------------
 
     /**
      * Sanitize a library ref so it can be used as a filesystem-safe classpath segment.

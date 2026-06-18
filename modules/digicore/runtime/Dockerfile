@@ -1,7 +1,14 @@
+# --- Build stage: compile + package from source (so the image always matches the committed source) ---
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml .
+COPY src ./src
+RUN mvn -q -B -DskipTests package
+
+# --- Runtime stage ---
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-
-COPY target/digicore-runtime-*.jar app.jar
+COPY --from=build /build/target/digicore-runtime-*.jar app.jar
 
 ENV JAVA_OPTS="-Xmx1536m -Xms512m"
 ENV SERVER_PORT=8083
