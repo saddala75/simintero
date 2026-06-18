@@ -1,8 +1,18 @@
 import crypto from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { resolveEffectiveVersion, type ArtifactRow } from "./resolve.js";
-import { transitionStatus, StatusTransitionError } from "./lifecycle.js";
+import { transitionStatus, StatusTransitionError, type ArtifactStatus } from "./lifecycle.js";
 import { evaluateBlastRadius, applyPromotion, type PromotionSet } from "./promotions.js";
+
+async function currentStatus(
+  pool: { query: (sql: string, params: unknown[]) => Promise<{ rows: { status: string }[] }> },
+  url: string,
+  version: string,
+): Promise<string | null> {
+  const { rows } = await pool.query(
+    `SELECT status FROM vkas.artifact WHERE canonical_url=$1 AND version=$2`, [url, version]);
+  return rows[0]?.status ?? null;
+}
 
 export function createVkasRouter(): Router {
   const router = Router();
@@ -85,17 +95,41 @@ export function createVkasRouter(): Router {
     }
   });
 
-  // POST /v1/artifacts/:canonicalUrl/:version/submit
-  router.post("/v1/artifacts/:canonicalUrl/:version/submit", async (_req: Request, res: Response) => {
+  // POST /v1/artifacts/submit — body-based lifecycle transition (draft → in_review)
+  router.post('/v1/artifacts/submit', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      transitionStatus("draft", "in_review");
-      res.status(501).json({ error: "Not implemented in Phase 0 stub" });
+      const { canonical_url, version } = req.body as { canonical_url: string; version: string };
+      const pool = req.app.locals['pool'];
+      const cur = await currentStatus(pool, canonical_url, version);
+      if (!cur) { res.status(404).json({ error: 'artifact not found' }); return; }
+      transitionStatus(cur as ArtifactStatus, 'in_review');
+      await pool.query(
+        `UPDATE vkas.artifact SET status='in_review' WHERE canonical_url=$1 AND version=$2`,
+        [canonical_url, version]);
+      res.status(200).json({ canonical_url, version, status: 'in_review' });
     } catch (err) {
-      if (err instanceof StatusTransitionError) {
-        res.status(422).json({ error: err.message });
-        return;
-      }
-      throw err;
+      if (err instanceof StatusTransitionError) { res.status(422).json({ error: err.message }); return; }
+      next(err);
+    }
+  });
+
+  // POST /v1/artifacts/activate — body-based lifecycle transition (folds in_review → approved → active)
+  router.post('/v1/artifacts/activate', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { canonical_url, version } = req.body as { canonical_url: string; version: string };
+      const pool = req.app.locals['pool'];
+      const cur = await currentStatus(pool, canonical_url, version);
+      if (!cur) { res.status(404).json({ error: 'artifact not found' }); return; }
+      let s: ArtifactStatus = cur as ArtifactStatus;
+      if (s === 'in_review') { transitionStatus(s, 'approved'); s = 'approved'; }
+      transitionStatus(s, 'active');
+      await pool.query(
+        `UPDATE vkas.artifact SET status='active', effective_from=CURRENT_DATE WHERE canonical_url=$1 AND version=$2`,
+        [canonical_url, version]);
+      res.status(200).json({ canonical_url, version, status: 'active' });
+    } catch (err) {
+      if (err instanceof StatusTransitionError) { res.status(422).json({ error: err.message }); return; }
+      next(err);
     }
   });
 
