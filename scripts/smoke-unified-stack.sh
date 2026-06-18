@@ -199,4 +199,41 @@ ai1_check triage_advise suggestion \
   '{"task_kind":"triage_advise","prompt_ref":"p","prompt_version":"1.0.0","model_binding_ref":"https://artifacts.simintero.io/shared/model_binding/claude-pa","model_binding_version":"1.0.0","inputs":{},"workflow_id":"ai1-smoke"}'
 echo "✅ AI1: /inference returns structured output for all task_kinds (VKAS resolve → mock-llm → parsed)"
 
+echo "── 11. I2b-1: clinical_review drives the real Revital advisory ──"
+# The case reached clinical_review in step 8. The rewired ClinicalReviewConsumer
+# resolved the I2a-ingested document, submitted a C-2 analysis to revital-pipeline,
+# and recorded a revital_inflight row; RevitalPoller polls to a terminal status and
+# (on complete/partial) maps the advisory + emits AGENT_ASSIST_PRODUCED. We poll the
+# workflow DB for the in-flight row reaching 'done' and assert a produced (not failed)
+# advisory event for OUR correlation_id. Per the acceptance bar the gate is
+# "in-flight done + AgentAssistProduced", NOT a specific criteria row (the submit
+# route sets evidence_requirements_ref=null, so completeness is null here).
+I2B_STATUS=""
+for i in $(seq 1 45); do
+  I2B_STATUS=$(docker compose exec -T postgres psql -U sim -d workflow -tAc \
+    "SELECT status FROM revital_inflight WHERE correlation_id='${CORRELATION_ID}' AND tenant_id='${TENANT_ID}' ORDER BY submitted_at DESC LIMIT 1;" \
+    2>/dev/null | tr -d '[:space:]')
+  echo "   poll $i: revital_inflight status='${I2B_STATUS}'"
+  [ "$I2B_STATUS" = "done" ] && break
+  sleep 2
+done
+if [ "$I2B_STATUS" != "done" ]; then
+  echo "❌ I2b-1: revital_inflight did not reach 'done' (status='${I2B_STATUS}') — submit/poller path broken" >&2
+  echo "   --- revital-worker logs ---" >&2; docker compose logs revital-worker 2>&1 | tail -30 >&2
+  echo "   --- workflow-engine logs ---" >&2; docker compose logs workflow-engine 2>&1 | tail -30 >&2
+  exit 1
+fi
+# Assert a produced (not failed) advisory event landed for this correlation_id.
+PRODUCED=$(docker compose exec -T postgres psql -U sim -d workflow -tAc \
+  "SELECT count(*) FROM shared.outbox WHERE envelope->>'correlation_id'='${CORRELATION_ID}' AND envelope->>'schema_ref'='sim.ai.interaction/AgentAssistProduced/v1';" \
+  2>/dev/null | tr -d '[:space:]')
+echo "   AgentAssistProduced events: ${PRODUCED}"
+if [ "${PRODUCED:-0}" -ge 1 ]; then
+  echo "✅ I2b-1: Revital advisory produced end-to-end (in-flight→done, AgentAssistProduced emitted)"
+else
+  echo "❌ I2b-1: in-flight done but no AgentAssistProduced — analysis failed/abstained, mapping not reached" >&2
+  docker compose logs workflow-engine 2>&1 | tail -30 >&2
+  exit 1
+fi
+
 echo "✅ unified-stack smoke PASSED"
