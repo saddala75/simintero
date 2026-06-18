@@ -14,8 +14,10 @@ const ACTIVE_BINDING = {
 };
 
 function makePool(): Pool {
+  const client = { query: vi.fn().mockResolvedValue({ rows: [] }), release: vi.fn() };
   return {
     query: vi.fn().mockResolvedValue({ rows: [] }),
+    connect: vi.fn().mockResolvedValue(client),
   } as unknown as Pool;
 }
 
@@ -50,7 +52,7 @@ describe('InferenceDispatcher', () => {
     });
 
     expect(result.request_id).toBeTruthy();
-    expect(result.output).toBeDefined();
+    expect(result.output).toEqual({ result: 'ok' });
   });
 
   it('throws SIM-MG-BOUNDARY when binding has no endpoint for caller boundary', async () => {
@@ -98,10 +100,12 @@ describe('InferenceDispatcher', () => {
   });
 
   it('publishes audit entry to shared.outbox after successful dispatch', async () => {
+    pool = makePool();
+    dispatcher = new InferenceDispatcher(pool, 'http://vkas-mock');
     (fetch as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ACTIVE_BINDING })
       .mockResolvedValueOnce({ ok: true, json: async () => ({
-        content: [{ text: 'result' }],
+        content: [{ text: '{"assertions":[]}' }],
         usage: { input_tokens: 10, output_tokens: 5 }
       }) });
 
@@ -113,19 +117,16 @@ describe('InferenceDispatcher', () => {
       tenant_ctx: VALID_CTX,
     });
 
-    const calls = (pool.query as ReturnType<typeof vi.fn>).mock.calls as unknown[][];
-    const insertCall = calls.find((args) => {
-      const sql = args[0];
-      return typeof sql === 'string' && sql.includes('shared.outbox');
-    });
+    const client = await (pool.connect as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+    const calls = (client.query as ReturnType<typeof vi.fn>).mock.calls as unknown[][];
+    const insertCall = calls.find((a) => typeof a[0] === 'string' && (a[0] as string).includes('shared.outbox'));
     expect(insertCall).toBeTruthy();
-    // insertCall is [sql, params] where params[2] is the JSON payload string
+    expect(insertCall![0]).toContain('event_id');
+    expect(insertCall![0]).toContain('envelope');
+    expect(insertCall![0]).not.toContain('payload');
     const params = insertCall![1] as unknown[];
-    const topic = params[1] as string;
-    const payload = JSON.parse(params[2] as string) as Record<string, unknown>;
-    expect(topic).toBeTruthy();
-    expect(payload['request_id']).toBeTruthy();
-    // Raw inputs must not appear — only refs
-    expect(JSON.stringify(payload)).not.toContain('text_segments');
+    const envelope = JSON.parse(params[3] as string) as Record<string, unknown>;
+    expect((envelope['payload'] as Record<string, unknown>)['request_id']).toBeTruthy();
+    expect(JSON.stringify(envelope)).not.toContain('text_segments');
   });
 });

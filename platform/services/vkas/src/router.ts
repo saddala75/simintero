@@ -14,17 +14,47 @@ export function createVkasRouter(): Router {
 
   // Express route for Google custom-method pattern GET /v1/artifacts:resolve
   // The regex ensures ':resolve' is matched literally, not as a param capture.
-  router.get(/^\/v1\/artifacts:resolve$/, async (req: Request, res: Response) => {
-    const { canonical_url } = req.query as Record<string, string>;
-    if (!canonical_url) {
-      res.status(400).json({ error: "canonical_url is required" });
-      return;
-    }
+  router.get(/^\/v1\/artifacts:resolve$/, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { canonical_url, version, lob, region, program, product } = req.query as Record<string, string>;
+      if (!canonical_url) {
+        res.status(400).json({ error: 'canonical_url is required' });
+        return;
+      }
+      const pool = req.app.locals['pool'];
+      const { rows } = await pool.query(
+        `SELECT canonical_url, version, tenant_id, artifact_type, status,
+                effective_from, effective_to, applicability, content, content_hash,
+                relations, metadata, created_by, created_at
+         FROM vkas.artifact
+         WHERE canonical_url = $1`,
+        [canonical_url],
+      );
+      const candidates: ArtifactRow[] = rows.map((r: Record<string, unknown>) => ({
+        ...r,
+        effective_from: r['effective_from'] ? new Date(r['effective_from'] as string) : null,
+        effective_to: r['effective_to'] ? new Date(r['effective_to'] as string) : null,
+      })) as ArtifactRow[];
 
-    // Phase 0: resolution algorithm implemented; DB integration in Phase 1
-    // Return 501 until the DB layer is wired
-    res.status(501).json({ error: "Not implemented in Phase 0 stub" });
-    return;
+      let chosen: ArtifactRow | null;
+      if (version) {
+        chosen = candidates.find((a) => a.version === version && a.status === 'active') ?? null;
+      } else {
+        const ctx: { lob?: string; region?: string; program?: string; product?: string } = {};
+        if (lob) ctx.lob = lob;
+        if (region) ctx.region = region;
+        if (program) ctx.program = program;
+        if (product) ctx.product = product;
+        chosen = resolveEffectiveVersion(candidates, { asOf: new Date(), ctx });
+      }
+      if (!chosen) {
+        res.status(404).json({ error: `No active artifact for ${canonical_url}${version ? `@${version}` : ''}` });
+        return;
+      }
+      res.json({ status: chosen.status, content: chosen.content });
+    } catch (err) {
+      next(err);
+    }
   });
 
   // POST /v1/artifacts/:canonicalUrl/:version/submit

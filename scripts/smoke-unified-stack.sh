@@ -47,7 +47,8 @@ docker compose up -d --wait \
   postgres keycloak redpanda minio opa \
   digicore-runtime mock-revital document-service \
   agent-layer interop workflow-engine portal-bff \
-  temporal revital-pipeline revital-worker model-gateway
+  temporal revital-pipeline revital-worker model-gateway \
+  vkas mock-llm
 
 echo "── 3. mint a realm-simintero reviewer JWT ──"
 TOKEN=$(curl -sf -X POST "$KC/realms/simintero/protocol/openid-connect/token" \
@@ -171,5 +172,31 @@ case "$REV_STATUS" in
   *)
     echo "❌ F3: analysis stuck at status='${REV_STATUS}' (expected terminal) — worker/namespace/taskQueue mismatch?" >&2; exit 1;;
 esac
+
+echo "── 10. AI1: model-gateway /inference returns structured output ──"
+# After F3 the Revital pipeline runs but abstains without an inference backend.
+# AI1 stands up VKAS (resolves the seeded shared model_binding) + a deterministic
+# mock LLM; model-gateway parses the LLM string into a structured `output` object.
+# We POST /inference for each task_kind and assert `output` is a dict carrying the
+# kind's signature key (extract_entities→entities, summarize→assertions,
+# triage_advise→suggestion). Path: VKAS resolve → mock-llm → JSON.parse.
+MG_URL="http://localhost:3011"
+ai1_check() {
+  local kind="$1" expect_key="$2" body="$3"
+  local out
+  out=$(curl -sf -X POST "$MG_URL/inference" \
+    -H "x-sim-tenant-id: $TENANT_ID" -H "x-sim-cell-boundary: pooled" -H "Content-Type: application/json" \
+    -d "$body" \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); o=d.get('output'); print('OBJ' if isinstance(o,dict) and ('$expect_key' in o) else 'BAD:'+str(type(o).__name__))" 2>/dev/null || echo "ERR")
+  echo "   $kind → $out"
+  [ "$out" = "OBJ" ] || { echo "❌ AI1: /inference($kind) did not return structured output" >&2; exit 1; }
+}
+ai1_check extract_entities entities \
+  '{"task_kind":"extract_entities","prompt_ref":"p","prompt_version":"1.0.0","model_binding_ref":"https://artifacts.simintero.io/shared/model_binding/claude-pa","model_binding_version":"1.0.0","inputs":{"document_span_refs":["span-1"],"text_segments":["t"]},"workflow_id":"ai1-smoke"}'
+ai1_check summarize assertions \
+  '{"task_kind":"summarize","prompt_ref":"p","prompt_version":"1.0.0","model_binding_ref":"https://artifacts.simintero.io/shared/model_binding/claude-pa","model_binding_version":"1.0.0","inputs":{"document_span_refs":["span-1"]},"workflow_id":"ai1-smoke"}'
+ai1_check triage_advise suggestion \
+  '{"task_kind":"triage_advise","prompt_ref":"p","prompt_version":"1.0.0","model_binding_ref":"https://artifacts.simintero.io/shared/model_binding/claude-pa","model_binding_version":"1.0.0","inputs":{},"workflow_id":"ai1-smoke"}'
+echo "✅ AI1: /inference returns structured output for all task_kinds (VKAS resolve → mock-llm → parsed)"
 
 echo "✅ unified-stack smoke PASSED"

@@ -5,6 +5,7 @@ import { applyPhiFilter } from '../phi-filter/PhiFilter.js';
 import { AnthropicAdapter } from '../adapters/AnthropicAdapter.js';
 import type { ProviderAdapter } from '../adapters/types.js';
 import { KillSwitchChecker } from '../kill-switch/KillSwitchChecker.js';
+import { withTenant } from '../db/withTenant.js';
 
 const ulid = monotonicFactory();
 
@@ -78,36 +79,50 @@ export class InferenceDispatcher {
       no_train_headers: AnthropicAdapter.NO_TRAIN_HEADER,
     });
 
-    // 6. Audit publish — input_refs only, never raw payload
+    // 6. Audit publish — valid shared.outbox envelope, under the tenant GUC.
     const request_id = ulid();
     const outputHash = `sha256:${crypto.createHash('sha256').update(JSON.stringify(result.raw_output)).digest('hex')}`;
     const inputRefs = Object.keys(safeInputs);
-
-    await this.pool.query(
-      `INSERT INTO shared.outbox (tenant_id, topic, payload)
-       VALUES ($1, $2, $3)`,
-      [
-        req.tenant_ctx.tenant_id,
-        'sim.ai.interaction',
-        JSON.stringify({
-          request_id,
-          tenant_id: req.tenant_ctx.tenant_id,
-          task_kind: req.task_kind,
-          model_binding_ref: req.model_binding_ref,
-          model_binding_version: req.model_binding_version,
-          prompt_ref: req.prompt_ref,
-          prompt_version: req.prompt_version,
-          input_refs: inputRefs,
-          output_hash: outputHash,
-          latency_ms: result.latency_ms,
-          provider_cost_usd: result.provider_cost_usd,
-          boundary: req.tenant_ctx.cell_boundary,
-          occurred_at: new Date().toISOString(),
-        }),
-      ],
+    const eventId = `evt_${ulid()}`;
+    const auditEnvelope = {
+      event_id: eventId,
+      schema_ref: 'sim.ai.interaction/InferenceServed/v1',
+      occurred_at: new Date().toISOString(),
+      tenant: { tenant_id: req.tenant_ctx.tenant_id },
+      correlation_id: req.workflow_id ?? request_id,
+      payload: {
+        request_id,
+        task_kind: req.task_kind,
+        model_binding_ref: req.model_binding_ref,
+        model_binding_version: req.model_binding_version,
+        prompt_ref: req.prompt_ref,
+        prompt_version: req.prompt_version,
+        input_refs: inputRefs,
+        output_hash: outputHash,
+        latency_ms: result.latency_ms,
+        provider_cost_usd: result.provider_cost_usd,
+        boundary: req.tenant_ctx.cell_boundary,
+      },
+    };
+    await withTenant(this.pool, req.tenant_ctx.tenant_id, (client) =>
+      client.query(
+        `INSERT INTO shared.outbox (event_id, topic, key, envelope, tenant_id)
+         VALUES ($1, $2, $3, $4::jsonb, $5)`,
+        [eventId, 'sim.ai.interaction', request_id, JSON.stringify(auditEnvelope), req.tenant_ctx.tenant_id],
+      ),
     );
 
-    return { output: result.raw_output, request_id };
+    // 7. Parse the model's text into structured output. A model returning non-JSON fails cleanly.
+    let output: unknown;
+    try {
+      output = typeof result.raw_output === 'string' ? JSON.parse(result.raw_output) : result.raw_output;
+    } catch {
+      throw Object.assign(
+        new Error('Model returned non-JSON output'),
+        { code: 'SIM-MG-OUTPUT_PARSE', status: 502 },
+      );
+    }
+    return { output, request_id };
   }
 
   private adapterFor(provider: string, endpoint: string): ProviderAdapter {
