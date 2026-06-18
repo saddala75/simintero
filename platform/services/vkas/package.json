@@ -22,9 +22,7 @@
     "@types/supertest": "^6.0.0"
   },
   "dependencies": {
-    "express": "^5.0.0"
-  },
-  "peerDependencies": {
-    "pg": ">=8"
+    "express": "^5.0.0",
+    "pg": "^8.12.0"
   }
 }
