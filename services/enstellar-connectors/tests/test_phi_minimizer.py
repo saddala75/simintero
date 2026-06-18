@@ -1,16 +1,13 @@
 """Unit tests for minimize_for_revital — PHI stripping before Revital calls.
 
 INVARIANT #3 (PHI minimum-necessary): case data must be minimized before any
-call to RevitalClient.summarize(). These tests verify:
+call to RevitalClient.submit(). These tests verify:
 1. All PHI field names in _PHI_FIELDS are stripped from the member sub-dict.
 2. Non-PHI fields are preserved unchanged.
 3. Top-level PHI fields are also stripped.
 4. The original case_data is NOT mutated (returns a copy).
-5. An end-to-end check: minimize_for_revital() → SummarizeRequest has no PHI.
+5. An end-to-end check: minimize_for_revital() → case_context has no PHI.
 """
-import pytest
-
-from enstellar_connectors.revital.models import SummarizeRequest
 from enstellar_connectors.revital.phi_minimizer import _PHI_FIELDS, minimize_for_revital
 
 
@@ -146,11 +143,11 @@ def test_non_dict_member_passes_through_without_crash():
 # ─── End-to-end PHI contract ─────────────────────────────────────────────────
 
 
-def test_summarize_request_built_from_minimized_dict_has_no_phi():
-    """End-to-end: minimize_for_revital() → SummarizeRequest dump has no PHI fields.
+def test_case_context_built_from_minimized_dict_has_no_phi():
+    """End-to-end: minimize_for_revital() → Revital case_context has no PHI fields.
 
-    This is the definitive test for the caller contract described in
-    integration-connectors spec under 'PHI rule'.
+    This is the definitive test for the caller contract: the dict passed as
+    RevitalClient.submit(case_context=...) must never carry raw PHI (invariant #3).
     """
     raw_case = {
         "case_id": "case-e2e-phi",
@@ -168,23 +165,13 @@ def test_summarize_request_built_from_minimized_dict_has_no_phi():
             "plan_id": "PLAN-007",
         },
     }
-    minimized = minimize_for_revital(raw_case)
-
-    req = SummarizeRequest(
-        case_id=minimized["case_id"],
-        tenant_id=minimized["tenant_id"],
-        service_codes=minimized["service_codes"],
-        diagnosis_codes=minimized["diagnosis_codes"],
-        lob=minimized["lob"],
-        urgency=minimized["urgency"],
-        doc_requirements=minimized["doc_requirements"],
-    )
-    dumped = req.model_dump()
+    case_context = minimize_for_revital(raw_case)
 
     for phi_field in ("member_name", "dob", "ssn", "date_of_birth"):
-        assert phi_field not in dumped, (
-            f"PHI field '{phi_field}' leaked into SummarizeRequest body. "
+        assert phi_field not in case_context, (
+            f"PHI field '{phi_field}' leaked into the Revital case_context. "
             "Revital must never receive raw PHI fields (invariant #3)."
         )
-    assert dumped["case_id"] == "case-e2e-phi"
-    assert dumped["service_codes"] == ["99213"]
+        assert phi_field not in case_context.get("member", {})
+    assert case_context["case_id"] == "case-e2e-phi"
+    assert case_context["service_codes"] == ["99213"]

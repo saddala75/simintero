@@ -1,69 +1,87 @@
-"""Pydantic models for the Revital clinical summarization API.
+"""Pydantic models for the Revital C-2 poll API.
 
-SummarizeRequest — PHI-minimized outbound request body.
-SummarizeResponse — advisory output from POST /api/v1/summarize.
-RevitalUnavailableError — raised when Revital is unreachable; callers MUST catch it.
+The Revital pipeline exposes an async poll API (not a synchronous summarize call):
+- POST /v1/assist/analyses          → 202 {analysis_id, operation}  (submit)
+- GET  /v1/assist/analyses/{id}     → 200 AnalysisResult            (poll)
 
-INVARIANT #3 (PHI minimum-necessary): SummarizeRequest defines only PHI-safe
-fields. PHI fields (member_name, dob, ssn, etc.) must never appear in this model.
-Enforced by test_summarize_request_schema_has_no_phi_fields.
+AnalysisResult mirrors the real GET response shape produced by the pipeline
+(mapEvidenceToCriteria.ts → completeness; triageAdvise.ts → triage). Extra GET
+fields (summary/extraction/interaction/abstentions/unprocessed_inputs) are
+tolerated and ignored by the connector.
 
-INVARIANT #5: tenant_id has min_length=1 with a blank-check validator. A blank
-or missing tenant_id raises ValidationError *before* any HTTP call is made.
-
-ADVISORY ONLY: SummarizeResponse output must never be used to make or directly
+ADVISORY ONLY: AnalysisResult output must never be used to make or directly
 influence a coverage determination without human sign-off (invariant #1).
+
+RevitalUnavailableError — raised when Revital is unreachable; callers MUST catch it.
 """
 from __future__ import annotations
 
-from typing import Any
-
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel
 
 
-class SummarizeRequest(BaseModel):
-    """PHI-minimized request body for POST /api/v1/summarize.
+class Gap(BaseModel):
+    """A requirement the pipeline could not satisfy from the supplied evidence."""
 
-    Callers MUST call minimize_for_revital() before constructing this model.
-    This class MUST NOT gain PHI fields (member_name, dob, ssn, address, etc.).
-    Adding PHI fields will fail test_summarize_request_schema_has_no_phi_fields.
+    requirement_id: str
+    description: str
+    search_attempted: bool = False
+
+
+class Satisfied(BaseModel):
+    """A requirement satisfied by one or more evidence refs."""
+
+    requirement_id: str
+    evidence_refs: list[str] = []
+
+
+class CompletenessBlock(BaseModel):
+    """Completeness block from mapEvidenceToCriteria.ts.
+
+    status is 'ok' or 'abstained'. Unknown extra keys (e.g. ``against``) are
+    tolerated and ignored.
     """
 
-    case_id: str = Field(min_length=1)
-    tenant_id: str = Field(
-        min_length=1,
-        description="Required: tenant owning this request — invariant #5",
-    )
-    service_codes: list[str]
-    diagnosis_codes: list[str]
-    lob: str = Field(min_length=1)
-    urgency: str = Field(min_length=1)
-    doc_requirements: list[str]
+    model_config = {"extra": "ignore"}
 
-    @field_validator("tenant_id")
-    @classmethod
-    def tenant_id_not_blank(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("tenant_id must not be blank — invariant #5")
-        return v
+    status: str
+    gaps: list[Gap] = []
+    satisfied: list[Satisfied] = []
+    conflicts: list[dict] = []
 
 
-class SummarizeResponse(BaseModel):
-    """Advisory response from POST /api/v1/summarize.
+class TriageBlock(BaseModel):
+    """Triage block from triageAdvise.ts.
+
+    status is 'ok' or 'abstained'. suggestion is one of
+    'likely_meets' | 'needs_rfi' | 'route_to_clinician' when present.
+    """
+
+    model_config = {"extra": "ignore"}
+
+    status: str
+    suggestion: str | None = None
+    confidence: float | None = None
+    rationale_assertion_ids: list[str] | None = None
+
+
+class AnalysisResult(BaseModel):
+    """Parsed GET /v1/assist/analyses/{id} response.
+
+    status is one of 'processing' | 'complete' | 'partial' | 'failed'. Extra
+    response fields (summary/extraction/interaction/abstentions/
+    unprocessed_inputs/classification) are tolerated and ignored.
 
     ADVISORY ONLY: no code path may use this output to commit a coverage
     determination without recorded human sign-off (invariant #1).
     """
 
-    summary: str
-    citations: list[str]
-    extracted_entities: list[dict[str, Any]]
-    completeness: float = Field(ge=0.0, le=1.0)
-    triage: str = Field(
-        description="Advisory routing signal. Known values: standard, escalate, expedited, routine_review. Left as str for forward-compatibility.",
-    )
-    abstained: bool
-    model_version: str
+    model_config = {"extra": "ignore"}
+
+    analysis_id: str
+    status: str
+    case_ref: str | None = None
+    completeness: CompletenessBlock | None = None
+    triage: TriageBlock | None = None
 
 
 class RevitalUnavailableError(Exception):
@@ -75,8 +93,8 @@ class RevitalUnavailableError(Exception):
     Example::
 
         try:
-            resp = await client.summarize(req)
+            aid = await client.submit(...)
         except RevitalUnavailableError:
-            logger.warning("revital_unavailable case_id=%s — routing to human review", case_id)
-            # continue workflow without advisory summary
+            logger.warning("revital_unavailable case_ref=%s — routing to human review", case_ref)
+            # continue workflow without advisory analysis
     """

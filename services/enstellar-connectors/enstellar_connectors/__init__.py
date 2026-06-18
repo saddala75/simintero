@@ -3,7 +3,13 @@ from .circuit_breaker import CircuitBreaker, CircuitOpenError
 from .digicore.client import DigiCoreClient
 from .digicore.models import DecisionRequest, DecisionResponse, StructuredTrace
 from .revital.client import RevitalClient
-from .revital.models import RevitalUnavailableError, SummarizeRequest, SummarizeResponse
+from .revital.models import (
+    AnalysisResult,
+    CompletenessBlock,
+    Gap,
+    RevitalUnavailableError,
+    TriageBlock,
+)
 from .revital.phi_minimizer import minimize_for_revital
 
 __all__ = [
@@ -15,7 +21,9 @@ __all__ = [
     "StructuredTrace",
     "RevitalClient",
     "RevitalUnavailableError",
-    "SummarizeRequest",
-    "SummarizeResponse",
+    "AnalysisResult",
+    "CompletenessBlock",
+    "TriageBlock",
+    "Gap",
     "minimize_for_revital",
 ]
