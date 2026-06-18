@@ -30,9 +30,11 @@ PROVENANCE:
 """
 from __future__ import annotations
 
+import json
 import logging
 
 import httpx
+from pydantic import ValidationError
 from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
@@ -124,10 +126,13 @@ class RevitalClient:
                 "case_context": case_context,
             },
         }
-        data = await self._guarded(
-            lambda: self._post("/v1/assist/analyses", body, tenant_id)
-        )
-        return data["analysis_id"]
+        async def op() -> str:
+            data = await self._post("/v1/assist/analyses", body, tenant_id)
+            # Extracted inside the guarded region so a malformed 202 body
+            # (missing analysis_id) degrades to RevitalUnavailableError, not KeyError.
+            return data["analysis_id"]
+
+        return await self._guarded(op)
 
     async def get_analysis(self, analysis_id: str, tenant_id: str) -> AnalysisResult:
         """GET /v1/assist/analyses/{id} with retry and circuit-breaker protection.
@@ -145,10 +150,13 @@ class RevitalClient:
                 attempts are exhausted.
         """
         self._raise_if_open()
-        data = await self._guarded(
-            lambda: self._get(f"/v1/assist/analyses/{analysis_id}", tenant_id)
-        )
-        return AnalysisResult.model_validate(data)
+        async def op() -> AnalysisResult:
+            data = await self._get(f"/v1/assist/analyses/{analysis_id}", tenant_id)
+            # Parsed inside the guarded region so a malformed body degrades to
+            # RevitalUnavailableError, not pydantic ValidationError.
+            return AnalysisResult.model_validate(data)
+
+        return await self._guarded(op)
 
     # ─── internals ────────────────────────────────────────────────────────────
 
@@ -163,7 +171,16 @@ class RevitalClient:
         """Run a retried HTTP op, recording circuit-breaker success/failure."""
         try:
             result = await self._retrying(op)
-        except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+        except (
+            httpx.TransportError,
+            httpx.HTTPStatusError,
+            json.JSONDecodeError,
+            KeyError,
+            ValidationError,
+        ) as exc:
+            # Transport/HTTP errors are retried by _retrying; parse errors
+            # (malformed/short 2xx body) are server faults too — all degrade to
+            # RevitalUnavailableError so a Revital problem never blocks the workflow.
             self._cb.record_failure()
             raise RevitalUnavailableError(
                 f"Revital call failed after {self._retry_attempts} attempt(s): {exc}"

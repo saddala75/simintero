@@ -110,6 +110,27 @@ async def test_submit_failure_raises_unavailable(monkeypatch):
         )
 
 
+@pytest.mark.asyncio
+@respx.mock
+async def test_submit_missing_analysis_id_raises_unavailable(monkeypatch):
+    """A 202 body lacking analysis_id must degrade to RevitalUnavailableError,
+    never a raw KeyError (advisory never-block invariant)."""
+    monkeypatch.setenv("REVITAL_BASE_URL", REVITAL_TEST_URL)
+    respx.post(f"{REVITAL_TEST_URL}/v1/assist/analyses").mock(
+        return_value=httpx.Response(202, json={"operation": "op_1"})  # no analysis_id
+    )
+
+    client = make_client()
+    with pytest.raises(RevitalUnavailableError):
+        await client.submit(
+            case_ref="corr-1",
+            analysis_kinds=["completeness"],
+            document_refs=["d1"],
+            case_context={},
+            tenant_id="tenant-dev",
+        )
+
+
 # ─── get_analysis() ──────────────────────────────────────────────────────────
 
 
@@ -168,6 +189,38 @@ async def test_get_analysis_failure_raises_unavailable(monkeypatch):
     client = make_client()
     with pytest.raises(RevitalUnavailableError):
         await client.get_analysis("ana_x", tenant_id="tenant-dev")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_analysis_invalid_body_raises_unavailable(monkeypatch):
+    """A 200 body that fails AnalysisResult validation (wrong-type status) must
+    degrade to RevitalUnavailableError, never a raw pydantic ValidationError."""
+    monkeypatch.setenv("REVITAL_BASE_URL", REVITAL_TEST_URL)
+    respx.get(f"{REVITAL_TEST_URL}/v1/assist/analyses/ana_bad").mock(
+        return_value=httpx.Response(
+            200, json={"analysis_id": "ana_bad", "status": {"not": "a string"}}
+        )
+    )
+
+    client = make_client()
+    with pytest.raises(RevitalUnavailableError):
+        await client.get_analysis("ana_bad", tenant_id="tenant-dev")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_analysis_non_json_body_raises_unavailable(monkeypatch):
+    """A 200 with a non-JSON body must degrade to RevitalUnavailableError,
+    never a raw json.JSONDecodeError."""
+    monkeypatch.setenv("REVITAL_BASE_URL", REVITAL_TEST_URL)
+    respx.get(f"{REVITAL_TEST_URL}/v1/assist/analyses/ana_txt").mock(
+        return_value=httpx.Response(200, text="not json at all")
+    )
+
+    client = make_client()
+    with pytest.raises(RevitalUnavailableError):
+        await client.get_analysis("ana_txt", tenant_id="tenant-dev")
 
 
 # ─── Circuit breaker / retry ─────────────────────────────────────────────────
