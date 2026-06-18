@@ -9,6 +9,7 @@ import { createQueueRouter } from './routes/queue.js';
 import { createApproveRouter } from './routes/approve.js';
 import { createActivateRouter } from './routes/activate.js';
 import type { VkasClient } from './routes/activate.js';
+import { createEnqueueRouter } from './routes/enqueue.js';
 import type { ArtifactApprovalState } from './gates/GateEnforcer.js';
 
 // Re-export public types and classes
@@ -27,6 +28,8 @@ export type { ActivateInput, VkasClient } from './routes/activate.js';
 export { handleActivate, createActivateRouter } from './routes/activate.js';
 export type { QueueResult } from './routes/queue.js';
 export { handleQueue, createQueueRouter } from './routes/queue.js';
+export type { EnqueueInput } from './routes/enqueue.js';
+export { handleEnqueue, createEnqueueRouter } from './routes/enqueue.js';
 
 // In-memory approval store (Phase 1 — no DB needed)
 const approvalStore = new Map<string, ArtifactApprovalState>();
@@ -35,11 +38,13 @@ const approvalStore = new Map<string, ArtifactApprovalState>();
 const vkasBaseUrl = process.env['VKAS_BASE_URL'] ?? 'http://localhost:3040';
 
 const fetchVkasClient: VkasClient = {
-  activate: async (artifactId: string): Promise<void> => {
-    await fetch(`${vkasBaseUrl}/v1/artifacts/${encodeURIComponent(artifactId)}/activate`, {
+  activate: async (canonicalUrl: string, version: string): Promise<void> => {
+    const r = await fetch(`${vkasBaseUrl}/v1/artifacts/activate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ canonical_url: canonicalUrl, version }),
     });
+    if (!r.ok) throw new Error(`VKAS activate failed (${r.status}) for ${canonicalUrl}`);
   },
 };
 
@@ -70,6 +75,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 app.use(createQueueRouter(approvalStore));
+app.use(createEnqueueRouter(approvalStore));
 app.use(createApproveRouter(approvalStore, enforcer, notifier));
 app.use(createActivateRouter(approvalStore, enforcer, fetchVkasClient, notifier));
 
