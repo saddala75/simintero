@@ -1,13 +1,20 @@
-"""ClinicalReviewConsumer — triggers Completeness and Triage agents on clinical_review entry.
+"""ClinicalReviewConsumer — submits a C-2 analysis to Revital on clinical_review entry.
 
-INVARIANT #2: No LLM call on the decision path. This consumer invokes the agent-layer
-    via HTTP and writes advisory suggestions/criteria only. It never commits a determination.
-INVARIANT #3: PHI minimized before every agent call. case_summary contains only
+On a CASE_STATE_TRANSITIONED event with to_state="clinical_review" this consumer
+resolves the case's documents from the platform Document Service, submits a
+completeness+triage analysis to the real Revital pipeline, and records a
+revital_inflight row. A separate background poller picks up the result later.
+It no longer calls the agent-layer.
+
+INVARIANT #2: No LLM call on the decision path. Revital output is advisory only;
+    this consumer never commits a determination.
+INVARIANT #3: PHI minimized before the Revital boundary. case_context contains only
     procedure_codes, diagnosis_codes, urgency, and lob. Member name, DOB, MRN,
     address, NPI and coverage identifiers are NEVER included.
 INVARIANT #4: Every DB row, event, and log line carries tenant_id.
-INVARIANT #5 (abstained): When agent output has abstained=True, NO criteria or
-    suggestion rows are written. Only a WARN log and AGENT_ASSIST_FAILED outbox event.
+NEVER-BLOCK: A Revital or Document Service failure must never block the case.
+    On failure the consumer emits AGENT_ASSIST_FAILED and returns; the case
+    continues to human-only review.
 """
 from __future__ import annotations
 
@@ -22,12 +29,15 @@ from simintero_outbox import SchemaRef, Topics, make_envelope
 
 from simintero_tenant_context import tenant_transaction
 
+from enstellar_connectors.revital.client import RevitalClient
+from enstellar_connectors.revital.models import RevitalUnavailableError
+
 from ..cases.repository import CaseRepository
 from ..config import get_settings
-from ..criteria.repository import CriteriaRepository
+from ..documents.client import DocumentServiceClient
 from ..kafka.consumer import IdempotentKafkaConsumer
 from ..outbox.publisher import OutboxPublisher
-from ..suggestions.repository import SuggestionsRepository
+from ..revital import InflightRepository
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +51,7 @@ def _lob(case: Case) -> str | None:
 
 
 def _build_agent_input(case: Case, correlation_id: str) -> dict:
-    """Build a PHI-minimized agent input dict for agent-layer HTTP calls.
+    """Build a PHI-minimized input dict; case_summary is reused as Revital case_context.
 
     INVARIANT #3 enforcement: member first_name, last_name, date_of_birth, mrn,
     coverage subscriber_id, plan_id, requesting_provider NPI are all EXCLUDED.
@@ -71,13 +81,15 @@ def _build_agent_input(case: Case, correlation_id: str) -> dict:
 
 
 class ClinicalReviewConsumer(IdempotentKafkaConsumer):
-    """Listens for clinical_review state transitions and runs advisory agents.
+    """Listens for clinical_review state transitions and submits to Revital.
 
     On receiving a CASE_STATE_TRANSITIONED event with to_state="clinical_review":
-      1. Calls /assist/completeness → writes criteria gaps (advisory).
-      2. Calls /assist/triage → writes one routing suggestion (advisory).
+      1. Resolves the case's document_refs from the Document Service (by case_ref).
+      2. Submits a completeness+triage analysis to the Revital pipeline.
+      3. Records a revital_inflight row for the background poller.
 
-    Neither agent output is used to make or record a coverage determination.
+    The Revital output is advisory only and is never used to make or record a
+    coverage determination. A Revital/doc failure never blocks the case.
     """
 
     def __init__(self, pool: asyncpg.Pool) -> None:
@@ -87,8 +99,9 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             group_id="workflow-engine-clinical-review",
         )
         self._case_repo = CaseRepository()
-        self._criteria_repo = CriteriaRepository()
-        self._suggestions_repo = SuggestionsRepository()
+        self._docs = DocumentServiceClient(get_settings().document_service_url)
+        self._revital = RevitalClient()
+        self._inflight = InflightRepository()
         self._outbox = OutboxPublisher()
 
     # ------------------------------------------------------------------
@@ -134,7 +147,6 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
             return
 
         correlation_id = event.correlation_id
-        agent_input = _build_agent_input(case, correlation_id)
 
         logger.info(
             "clinical_review_consumer_starting",
@@ -146,215 +158,108 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
         )
 
         # Carry the triggering event's id as causation_id so derived
-        # AGENT_ASSIST_PRODUCED / AGENT_ASSIST_FAILED events record lineage.
+        # AGENT_ASSIST_FAILED events record lineage.
         causation_id = event.event_id
-        await self._run_completeness(case, agent_input, correlation_id, causation_id)
-        await self._run_triage(case, agent_input, correlation_id, causation_id)
+        await self._submit_to_revital(case, correlation_id, causation_id)
 
     # ------------------------------------------------------------------
-    # Completeness agent
+    # Revital submission
     # ------------------------------------------------------------------
 
-    async def _run_completeness(
+    async def _submit_to_revital(
         self,
         case: Case,
-        agent_input: dict,
         correlation_id: str,
         causation_id: str | None = None,
     ) -> None:
-        """POST to /assist/completeness and write criteria gap rows.
+        """Resolve docs, submit to Revital, and record an in-flight row.
 
-        INVARIANT #2: output is advisory — never used for a determination.
-        INVARIANT #5: abstained=True → no rows, only AGENT_ASSIST_FAILED event.
+        INVARIANT #2: Revital output is advisory — never used for a determination.
+        INVARIANT #3: case_context is the PHI-minimized case_summary.
+        NEVER-BLOCK: any doc-resolve / submit failure emits AGENT_ASSIST_FAILED
+            and returns — the case is never blocked.
         """
-        settings = get_settings()
-        url = f"{settings.agent_layer_url}/assist/completeness"
+        tenant_id = case.tenant_id
 
+        # 1. Idempotency: skip if an analysis is already processing for this case.
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            if await self._inflight.exists_processing_for_case(
+                conn, case.case_id, tenant_id
+            ):
+                logger.info(
+                    "revital_submit_skipped_duplicate",
+                    extra={
+                        "tenant_id": tenant_id,
+                        "case_id": str(case.case_id),
+                        "correlation_id": correlation_id,
+                    },
+                )
+                return
+
+        # 2. PHI-minimized case context (reuse the agent_input case_summary).
+        case_context = _build_agent_input(case, correlation_id)["case_summary"]
+
+        # 3. Resolve documents + submit. Any failure here must NEVER block the
+        #    case: resolve_refs uses raw httpx (httpx.HTTPError) and submit raises
+        #    RevitalUnavailableError. A broad Exception guard backs the never-block
+        #    invariant against any other failure mode (e.g. malformed doc payload).
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(url, json=agent_input)
-                resp.raise_for_status()
-        except httpx.HTTPError as exc:
+            refs = await self._docs.resolve_refs(
+                case_ref=correlation_id, tenant_id=tenant_id
+            )
+            analysis_id = await self._revital.submit(
+                case_ref=correlation_id,
+                analysis_kinds=["completeness", "triage"],
+                document_refs=refs,
+                case_context=case_context,
+                tenant_id=tenant_id,
+            )
+        except (RevitalUnavailableError, httpx.HTTPError) as exc:
             logger.error(
-                "completeness_agent_http_error",
+                "revital_submit_failed",
                 extra={
-                    "tenant_id": case.tenant_id,
+                    "tenant_id": tenant_id,
                     "case_id": str(case.case_id),
                     "error": str(exc)[:400],
                     "correlation_id": correlation_id,
                 },
             )
             await self._emit_failed_event(
-                case, "completeness-v1", str(exc), correlation_id, causation_id
+                case, "revital", str(exc), correlation_id, causation_id
             )
             return
-
-        output = resp.json()
-
-        if output.get("abstained") is True:
-            logger.warning(
-                "completeness_agent_abstained",
-                extra={
-                    "tenant_id": case.tenant_id,
-                    "case_id": str(case.case_id),
-                    "abstention_reason": output.get("abstention_reason"),
-                    "correlation_id": correlation_id,
-                },
-            )
-            await self._emit_failed_event(
-                case,
-                output.get("agent_id", "completeness-v1"),
-                output.get("abstention_reason") or "abstained",
-                correlation_id,
-                causation_id,
-            )
-            return
-
-        result = output.get("result") or {}
-        gaps = result.get("gaps", [])
-        rows = [
-            {
-                "case_id": case.case_id,
-                "tenant_id": case.tenant_id,
-                "criterion_id": gap["required_document_type"],
-                "text": gap["description"],
-                "status": "gap",
-                "citations": [gap["citation"]] if gap.get("citation") else [],
-            }
-            for gap in gaps
-        ]
-
-        provenance = output.get("provenance") or {}
-        event = make_envelope(
-            SchemaRef.AGENT_ASSIST_PRODUCED,
-            tenant_id=case.tenant_id,
-            actor_id=output.get("agent_id", "completeness-v1"),
-            actor_type="service",
-            correlation_id=correlation_id,
-            causation_id=causation_id,
-            lob=_lob(case),
-            payload={
-                "case_id": str(case.case_id),
-                "agent_id": output.get("agent_id", "completeness-v1"),
-                "confidence": output.get("confidence"),
-                "citations": output.get("citations", []),
-                **provenance,
-            },
-        )
-
-        async with tenant_transaction(self._pool, case.tenant_id) as conn:
-            if rows:
-                await self._criteria_repo.insert_many(conn, rows)
-            await self._outbox.publish(conn, event)
-
-        logger.info(
-            "completeness_agent_done",
-            extra={
-                "tenant_id": case.tenant_id,
-                "case_id": str(case.case_id),
-                "gaps_written": len(rows),
-                "correlation_id": correlation_id,
-            },
-        )
-
-    # ------------------------------------------------------------------
-    # Triage agent
-    # ------------------------------------------------------------------
-
-    async def _run_triage(
-        self,
-        case: Case,
-        agent_input: dict,
-        correlation_id: str,
-        causation_id: str | None = None,
-    ) -> None:
-        """POST to /assist/triage and write one routing suggestion row.
-
-        INVARIANT #2: output is advisory — never used for a determination.
-        INVARIANT #5: abstained=True → no rows, only AGENT_ASSIST_FAILED event.
-        """
-        settings = get_settings()
-        url = f"{settings.agent_layer_url}/assist/triage"
-
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(url, json=agent_input)
-                resp.raise_for_status()
-        except httpx.HTTPError as exc:
+        except Exception as exc:  # never-block: degrade any unexpected failure
             logger.error(
-                "triage_agent_http_error",
+                "revital_submit_unexpected_error",
                 extra={
-                    "tenant_id": case.tenant_id,
+                    "tenant_id": tenant_id,
                     "case_id": str(case.case_id),
                     "error": str(exc)[:400],
                     "correlation_id": correlation_id,
                 },
             )
             await self._emit_failed_event(
-                case, "triage-v1", str(exc), correlation_id, causation_id
+                case, "revital", str(exc), correlation_id, causation_id
             )
             return
 
-        output = resp.json()
-
-        if output.get("abstained") is True:
-            logger.warning(
-                "triage_agent_abstained",
-                extra={
-                    "tenant_id": case.tenant_id,
-                    "case_id": str(case.case_id),
-                    "abstention_reason": output.get("abstention_reason"),
-                    "correlation_id": correlation_id,
-                },
+        # 4. Record the in-flight analysis for the background poller.
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            await self._inflight.insert(
+                conn,
+                analysis_id=analysis_id,
+                case_id=case.case_id,
+                tenant_id=tenant_id,
+                correlation_id=correlation_id,
             )
-            await self._emit_failed_event(
-                case,
-                output.get("agent_id", "triage-v1"),
-                output.get("abstention_reason") or "abstained",
-                correlation_id,
-                causation_id,
-            )
-            return
-
-        result = output.get("result") or {}
-        row = {
-            "case_id": case.case_id,
-            "tenant_id": case.tenant_id,
-            "agent_id": output.get("agent_id", "triage-v1"),
-            "title": f"Suggested queue: {result.get('suggested_queue', 'unknown')}",
-            "body": result.get("rationale", ""),
-            "confidence": float(output.get("confidence", 0.0)),
-            "citations": output.get("citations", []),
-        }
-
-        provenance = output.get("provenance") or {}
-        event = make_envelope(
-            SchemaRef.AGENT_ASSIST_PRODUCED,
-            tenant_id=case.tenant_id,
-            actor_id=output.get("agent_id", "triage-v1"),
-            actor_type="service",
-            correlation_id=correlation_id,
-            causation_id=causation_id,
-            lob=_lob(case),
-            payload={
-                "case_id": str(case.case_id),
-                "agent_id": output.get("agent_id", "triage-v1"),
-                "confidence": output.get("confidence"),
-                "citations": output.get("citations", []),
-                **provenance,
-            },
-        )
-
-        async with tenant_transaction(self._pool, case.tenant_id) as conn:
-            await self._suggestions_repo.insert_many(conn, [row])
-            await self._outbox.publish(conn, event)
 
         logger.info(
-            "triage_agent_done",
+            "revital_submitted",
             extra={
-                "tenant_id": case.tenant_id,
+                "tenant_id": tenant_id,
                 "case_id": str(case.case_id),
-                "suggested_queue": result.get("suggested_queue"),
+                "analysis_id": analysis_id,
+                "document_count": len(refs),
                 "correlation_id": correlation_id,
             },
         )
