@@ -184,14 +184,58 @@ services:
     ports:
       - "3011:3011"
     depends_on:
-      - flyway
-      - opa
+      flyway:
+        condition: service_completed_successfully
+      opa:
+        condition: service_started
+      vkas:
+        condition: service_healthy
+      mock-llm:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3011/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - sim-net
+
+  vkas:
+    build:
+      context: .
+      dockerfile: platform/services/vkas/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      PORT: "3040"
+    ports:
+      - "3040:3040"
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3040/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - sim-net
+
+  mock-llm:
+    build:
+      context: platform/services/mock-llm
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3060"
+    ports:
+      - "3060:3060"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3060/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - sim-net
 
