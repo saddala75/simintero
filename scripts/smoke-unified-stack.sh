@@ -236,4 +236,35 @@ else
   exit 1
 fi
 
+echo "── 12. P1-b2a: digicore resolves coverage rules from VKAS (data-driven) ──"
+# After P1-b2a, digicore-runtime resolves the governing coverage_rule + its ELM from VKAS
+# (seeded by V018) instead of the hardcoded knee branch. We exercise the engine directly:
+# (a) knee (27447) still meets_all — now VKAS-resolved, not classpath; (b) a NON-knee
+# procedure (72148 lumbar MRI) resolves a VKAS rule + auto-determines data-driven; (c) the
+# not_met path proves real evaluation. Request fields are snake_case (SNAKE_CASE jackson).
+DIGI="http://localhost:8083"
+b2a_eval() {  # $1=service_code  $2=evidence-json  → "<outcome> <eligible>"
+  curl -sf -X POST "$DIGI/v1/runtime/evaluate" -H "Content-Type: application/json" \
+    -d "{\"case_id\":\"smoke\",\"service_code\":\"$1\",\"pins\":[],\"evidence\":$2}" \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('outcome'), d.get('auto_determination',{}).get('eligible'))" 2>/dev/null
+}
+KNEE=$(b2a_eval 27447 '{"diagnosis_documented":true,"conservative_therapy_tried":true,"imaging_documented":true}')
+echo "   knee(27447) → ${KNEE}"
+[ "$KNEE" = "meets_all True" ] || { echo "❌ b2a: knee not VKAS-resolved to meets_all (got '${KNEE}')" >&2; docker compose logs digicore-runtime 2>&1 | tail -25 >&2; exit 1; }
+
+COV=$(curl -sf -X POST "$DIGI/v1/runtime/coverage-discovery" -H "Content-Type: application/json" \
+  -d '{"service_code":"72148","procedure_code":"72148"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('pa_required'))" 2>/dev/null)
+echo "   coverage-discovery(72148).pa_required → ${COV}"
+[ "$COV" = "True" ] || { echo "❌ b2a: non-knee rule 72148 not resolved from VKAS (pa_required='${COV}')" >&2; docker compose logs digicore-runtime 2>&1 | tail -25 >&2; exit 1; }
+
+MRI=$(b2a_eval 72148 '{"conservative_therapy_6wk":true,"neuro_deficit_or_red_flag":true}')
+echo "   lumbar-MRI(72148) → ${MRI}"
+[ "$MRI" = "meets_all True" ] || { echo "❌ b2a: non-knee rule 72148 did not evaluate data-driven to meets_all (got '${MRI}')" >&2; docker compose logs digicore-runtime 2>&1 | tail -25 >&2; exit 1; }
+
+MRI2=$(b2a_eval 72148 '{"conservative_therapy_6wk":true,"neuro_deficit_or_red_flag":false}')
+echo "   lumbar-MRI(72148) partial-evidence → ${MRI2}"
+[ "$MRI2" = "not_met False" ] || { echo "❌ b2a: 72148 not_met path failed (got '${MRI2}')" >&2; exit 1; }
+echo "✅ P1-b2a: digicore is data-driven — knee + non-knee rules resolved from VKAS, evaluated correctly"
+
 echo "✅ unified-stack smoke PASSED"

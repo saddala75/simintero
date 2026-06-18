@@ -73,7 +73,21 @@ public class ElmEvaluator {
      * and a warning is logged.
      */
     public ElmResult evaluate(Map<String, Object> evidence, String libraryRef) {
-        JsonNode library = loadLibrary(sanitizeRef(libraryRef));
+        return evaluateLibrary(evidence, loadLibrary(sanitizeRef(libraryRef)));
+    }
+
+    /**
+     * Evaluate against a fully-resolved ELM library tree supplied directly by the caller.
+     *
+     * <p>{@code library} is the full {@code {"library":{...}}} ELM JSON (e.g. resolved from
+     * VKAS / compiled from CQL); the interpreter reads {@code library.statements.def}. This
+     * overload performs NO classpath loading — it never falls back to the default knee fixture.
+     */
+    public ElmResult evaluate(Map<String, Object> evidence, JsonNode library) {
+        return evaluateLibrary(evidence, library);
+    }
+
+    private ElmResult evaluateLibrary(Map<String, Object> evidence, JsonNode library) {
         JsonNode defs = library.path("library").path("statements").path("def");
         if (!defs.isArray()) {
             throw new IllegalStateException("ELM missing library.statements.def");

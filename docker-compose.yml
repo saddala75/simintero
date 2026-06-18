@@ -517,10 +517,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/simintero
       SPRING_DATASOURCE_USERNAME: sim
       SPRING_DATASOURCE_PASSWORD: devpassword
+      VKAS_URL: http://vkas:3040
     ports:
       - "8083:8083"
     depends_on:
       postgres:
+        condition: service_healthy
+      vkas:
         condition: service_healthy
     networks:
       - sim-net
