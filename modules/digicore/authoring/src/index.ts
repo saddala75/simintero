@@ -7,6 +7,12 @@ import { createCompileRouter } from './routes/compile.js';
 import { createValidateRouter } from './routes/validate.js';
 import { createUnitTestRouter } from './routes/unitTest.js';
 import { createDraftRouter } from './routes/draft.js';
+import { createRulesRouter } from './routes/rules.js';
+import type {
+  RulesCompiler,
+  RulesVkasClient,
+  RulesGovernanceClient,
+} from './routes/rules.js';
 
 // Re-export public types
 export type { ElmResult, CompilerHttpClient } from './compiler/CqlCompilerClient.js';
@@ -19,6 +25,13 @@ export type {
 } from './vkas/DraftArtifactCreator.js';
 export type { TestCase, TestResult, ExpectedOutcome } from './routes/unitTest.js';
 export { evaluateEvidence } from './routes/unitTest.js';
+export { createRulesRouter } from './routes/rules.js';
+export type {
+  RulesCompiler,
+  RulesVkasClient,
+  RulesGovernanceClient,
+  RulesRouterDeps,
+} from './routes/rules.js';
 
 // Minimal fetch-based HTTP clients for production use
 const fetchCompilerClient = {
@@ -53,11 +66,24 @@ const fetchVkasClient = {
   },
 };
 
+const fetchGovernanceClient = {
+  post: async (url: string, body: unknown): Promise<unknown> => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return res.json() as Promise<unknown>;
+  },
+};
+
 const runtimeBaseUrl =
   process.env['RUNTIME_BASE_URL'] ?? 'http://localhost:3020';
 const terminologyGwBaseUrl =
   process.env['TERMINOLOGY_GW_BASE_URL'] ?? 'http://localhost:3030';
 const vkasBaseUrl = process.env['VKAS_BASE_URL'] ?? 'http://localhost:3040';
+const governanceBaseUrl =
+  process.env['GOVERNANCE_BASE_URL'] ?? 'http://localhost:3014';
 
 const compiler = new CqlCompilerClient(fetchCompilerClient, runtimeBaseUrl);
 const validator = new TerminologyBindingValidator(
@@ -65,6 +91,28 @@ const validator = new TerminologyBindingValidator(
   terminologyGwBaseUrl
 );
 const draftCreator = new DraftArtifactCreator(fetchVkasClient, vkasBaseUrl);
+
+// Orchestrator deps (POST /v1/authoring/rules)
+const rulesCompiler: RulesCompiler = {
+  compile: (cql: string) => compiler.compile(cql),
+};
+
+const rulesVkas: RulesVkasClient = {
+  create: (input) => fetchVkasClient.post(`${vkasBaseUrl}/v1/artifacts`, input),
+  submit: (canonical_url, version) =>
+    fetchVkasClient.post(`${vkasBaseUrl}/v1/artifacts/submit`, {
+      canonical_url,
+      version,
+    }),
+};
+
+const rulesGovernance: RulesGovernanceClient = {
+  enqueue: (body) =>
+    fetchGovernanceClient.post(
+      `${governanceBaseUrl}/v1/governance/queue/submit`,
+      body
+    ),
+};
 
 const app: Express = express();
 app.use(express.json());
@@ -77,6 +125,13 @@ app.use(createCompileRouter(compiler));
 app.use(createValidateRouter(validator));
 app.use(createUnitTestRouter());
 app.use(createDraftRouter(draftCreator));
+app.use(
+  createRulesRouter({
+    compiler: rulesCompiler,
+    vkas: rulesVkas,
+    governance: rulesGovernance,
+  })
+);
 
 export default app;
 
