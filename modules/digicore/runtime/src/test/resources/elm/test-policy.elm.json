@@ -1,11 +1,60 @@
 {
-  "library": {
-    "identifier": { "id": "test-policy", "version": "1.0" },
-    "statements": {
-      "def": [
-        { "name": "Requirement Met", "expression": { "type": "EvidencePresent", "key": "requirement_met" } },
-        { "name": "Meets All Criteria", "expression": { "type": "And", "operands": ["Requirement Met"] } }
-      ]
+  "library" : {
+    "type" : "Library",
+    "identifier" : {
+      "type" : "VersionedIdentifier",
+      "id" : "TestPolicy",
+      "version" : "1.0.0"
+    },
+    "schemaIdentifier" : {
+      "type" : "VersionedIdentifier",
+      "id" : "urn:hl7-org:elm",
+      "version" : "r1"
+    },
+    "usings" : {
+      "type" : "Library$Usings",
+      "def" : [ {
+        "type" : "UsingDef",
+        "localIdentifier" : "System",
+        "uri" : "urn:hl7-org:elm-types:r1"
+      } ]
+    },
+    "parameters" : {
+      "type" : "Library$Parameters",
+      "def" : [ {
+        "type" : "ParameterDef",
+        "parameterTypeSpecifier" : {
+          "type" : "NamedTypeSpecifier",
+          "name" : "{urn:hl7-org:elm-types:r1}Boolean"
+        },
+        "name" : "requirement_met",
+        "accessLevel" : "Public"
+      } ]
+    },
+    "statements" : {
+      "type" : "Library$Statements",
+      "def" : [ {
+        "type" : "ExpressionDef",
+        "expression" : {
+          "type" : "ParameterRef",
+          "name" : "requirement_met"
+        },
+        "name" : "Requirement Met",
+        "context" : "Unfiltered",
+        "accessLevel" : "Public"
+      }, {
+        "type" : "ExpressionDef",
+        "expression" : {
+          "type" : "And",
+          "operand" : [ {
+            "type" : "ExpressionRef",
+            "name" : "Requirement Met"
+          } ]
+        },
+        "name" : "Meets All Criteria",
+        "context" : "Unfiltered",
+        "accessLevel" : "Public"
+      } ]
     }
   }
 }

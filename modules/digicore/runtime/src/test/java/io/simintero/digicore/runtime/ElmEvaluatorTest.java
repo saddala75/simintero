@@ -1,15 +1,18 @@
 package io.simintero.digicore.runtime;
 
 import io.simintero.digicore.runtime.engine.ElmEvaluator;
+import io.simintero.digicore.runtime.engine.ElmInterpreter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for the Phase 1 lightweight ELM evaluator.
+ * Unit tests for the Phase 1 ELM evaluator backed by the real compiled
+ * knee-arthroscopy ELM fixture and the {@link ElmInterpreter}.
  * No Spring context required — pure JUnit 5.
  */
 class ElmEvaluatorTest {
@@ -18,7 +21,7 @@ class ElmEvaluatorTest {
 
     @BeforeEach
     void setUp() {
-        evaluator = new ElmEvaluator();
+        evaluator = new ElmEvaluator(new ElmInterpreter());
     }
 
     @Test
@@ -56,15 +59,14 @@ class ElmEvaluatorTest {
 
     @Test
     void testCaseC_indeterminate() {
-        Map<String, Object> evidence = Map.of(
-                "diagnosis_documented", true,
-                "conservative_therapy_tried", "indeterminate",
-                "imaging_documented", true
-        );
+        // conservative_therapy_tried is ABSENT (not provided) → indeterminate
+        Map<String, Object> evidence = new HashMap<>();
+        evidence.put("diagnosis_documented", true);
+        evidence.put("imaging_documented", true);
 
         ElmEvaluator.ElmResult result = evaluator.evaluate(evidence);
 
         assertEquals("indeterminate", result.outcome(),
-                "Indeterminate evidence value should propagate to indeterminate outcome");
+                "Absent evidence (null parameter binding) should propagate to indeterminate outcome");
     }
 }

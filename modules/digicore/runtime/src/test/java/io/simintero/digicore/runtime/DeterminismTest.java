@@ -1,6 +1,7 @@
 package io.simintero.digicore.runtime;
 
 import io.simintero.digicore.runtime.engine.ElmEvaluator;
+import io.simintero.digicore.runtime.engine.ElmInterpreter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +22,7 @@ class DeterminismTest {
 
     @BeforeEach
     void setUp() {
-        evaluator = new ElmEvaluator();
+        evaluator = new ElmEvaluator(new ElmInterpreter());
     }
 
     @Test
