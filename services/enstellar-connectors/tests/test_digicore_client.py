@@ -453,11 +453,11 @@ async def test_integration_evaluate_request_against_mock_server():
 
 
 def test_revital_base_url_default(monkeypatch):
-    """Default value for revital_base_url points to the compose mock."""
+    """Default value for revital_base_url points to the real revital-pipeline."""
     monkeypatch.delenv("REVITAL_BASE_URL", raising=False)
     reset_settings()
     s = get_settings()
-    assert s.revital_base_url == "http://mock-revital:8000"
+    assert s.revital_base_url == "http://revital-pipeline:3014"
 
 
 def test_revital_base_url_env_override(monkeypatch):
@@ -474,4 +474,4 @@ def test_revital_base_url_does_not_use_digicore_prefix(monkeypatch):
     monkeypatch.delenv("REVITAL_BASE_URL", raising=False)
     reset_settings()
     s = get_settings()
-    assert s.revital_base_url == "http://mock-revital:8000"
+    assert s.revital_base_url == "http://revital-pipeline:3014"

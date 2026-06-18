@@ -45,8 +45,8 @@ echo "── 2. bring up the stack (waits for healthchecks) ──"
 # `depends_on` (e.g. interop → hapi), and none of those deps are the broken 7.
 docker compose up -d --wait \
   postgres keycloak redpanda minio opa \
-  digicore-runtime mock-revital document-service \
-  agent-layer interop workflow-engine portal-bff \
+  digicore-runtime document-service \
+  interop workflow-engine portal-bff \
   temporal revital-pipeline revital-worker model-gateway \
   vkas mock-llm
 
