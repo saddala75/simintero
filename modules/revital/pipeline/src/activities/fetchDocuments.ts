@@ -9,11 +9,14 @@ export async function fetchDocumentsImpl(
   docRefs: string[],
   unprocessed: Array<{ ref: string; reason: string }>,
   docServiceUrl: string,
+  tenantId: string,
 ): Promise<DocMeta[]> {
   const results: DocMeta[] = [];
   for (const ref of docRefs) {
     try {
-      const res = await fetch(`${docServiceUrl}/documents/${ref}/metadata`);
+      const res = await fetch(`${docServiceUrl}/documents/${ref}/metadata`, {
+        headers: { 'x-sim-tenant-id': tenantId },
+      });
       if (!res.ok) {
         unprocessed.push({ ref, reason: res.status === 404 ? 'not_found' : `http_${res.status}` });
         continue;
@@ -36,6 +39,7 @@ const DOC_SERVICE_URL = process.env['DOCUMENT_SERVICE_URL'] ?? 'http://localhost
 export async function fetchDocuments(
   docRefs: string[],
   unprocessed: Array<{ ref: string; reason: string }>,
+  tenantId: string,
 ): Promise<DocMeta[]> {
-  return fetchDocumentsImpl(docRefs, unprocessed, DOC_SERVICE_URL);
+  return fetchDocumentsImpl(docRefs, unprocessed, DOC_SERVICE_URL, tenantId);
 }

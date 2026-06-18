@@ -86,6 +86,6 @@ export async function extractEntities(
   spanMap: SpanMap,
   input: AnalysisInput,
 ): Promise<ExtractionBlock> {
-  const tenantId = process.env['SIM_TENANT_ID'] ?? 'unknown';
+  const tenantId = input.tenant_id;
   return extractEntitiesImpl(spanMap, input, GATEWAY_URL, tenantId);
 }

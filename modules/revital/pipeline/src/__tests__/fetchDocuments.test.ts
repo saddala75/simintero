@@ -10,7 +10,7 @@ describe('fetchDocuments', () => {
     vi.stubGlobal('fetch', mockFetch);
 
     const unprocessed: Array<{ ref: string; reason: string }> = [];
-    const docs = await fetchDocumentsImpl(['d1'], unprocessed, 'http://doc-svc');
+    const docs = await fetchDocumentsImpl(['d1'], unprocessed, 'http://doc-svc', 'tenant-test');
 
     expect(docs).toHaveLength(1);
     expect(docs[0]?.doc_id).toBe('d1');
@@ -25,7 +25,7 @@ describe('fetchDocuments', () => {
     vi.stubGlobal('fetch', mockFetch);
 
     const unprocessed: Array<{ ref: string; reason: string }> = [];
-    const docs = await fetchDocumentsImpl(['d2'], unprocessed, 'http://doc-svc');
+    const docs = await fetchDocumentsImpl(['d2'], unprocessed, 'http://doc-svc', 'tenant-test');
 
     expect(docs).toHaveLength(0);
     expect(unprocessed[0]).toMatchObject({ ref: 'd2', reason: 'quarantined' });
@@ -36,7 +36,7 @@ describe('fetchDocuments', () => {
     vi.stubGlobal('fetch', mockFetch);
 
     const unprocessed: Array<{ ref: string; reason: string }> = [];
-    await fetchDocumentsImpl(['d3'], unprocessed, 'http://doc-svc');
+    await fetchDocumentsImpl(['d3'], unprocessed, 'http://doc-svc', 'tenant-test');
 
     expect(unprocessed[0]).toMatchObject({ ref: 'd3', reason: 'not_found' });
   });

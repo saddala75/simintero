@@ -13,12 +13,15 @@ export type SpanMap = Record<string, Span[]>;
 export async function parseSegmentImpl(
   docs: DocMeta[],
   docServiceUrl: string,
+  tenantId: string,
 ): Promise<SpanMap> {
   const spanMap: SpanMap = {};
 
   for (const doc of docs) {
     try {
-      const res = await fetch(`${docServiceUrl}/documents/${doc.doc_id}/span?page=1&region=0,0,612,792`);
+      const res = await fetch(`${docServiceUrl}/documents/${doc.doc_id}/span?page=1&region=0,0,612,792`, {
+        headers: { 'x-sim-tenant-id': tenantId },
+      });
       if (!res.ok) { spanMap[doc.doc_id] = []; continue; }
       const text = await res.text();
       const hash = `sha256:${crypto.createHash('sha256').update(text).digest('hex')}`;
@@ -39,6 +42,6 @@ export async function parseSegmentImpl(
 
 const DOC_SERVICE_URL = process.env['DOCUMENT_SERVICE_URL'] ?? 'http://localhost:4070';
 
-export async function parseSegment(docs: DocMeta[]): Promise<SpanMap> {
-  return parseSegmentImpl(docs, DOC_SERVICE_URL);
+export async function parseSegment(docs: DocMeta[], tenantId: string): Promise<SpanMap> {
+  return parseSegmentImpl(docs, DOC_SERVICE_URL, tenantId);
 }
