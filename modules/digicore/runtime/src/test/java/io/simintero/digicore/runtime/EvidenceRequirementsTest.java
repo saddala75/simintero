@@ -14,7 +14,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Integration test for the evidence-requirements:resolve endpoint.
- * Verifies that service_code=knee_arthroscopy returns exactly three requirements.
+ *
+ * The endpoint is now data-driven (resolves coverage_rule artifacts via
+ * RuleResolver). In the bare Spring context no rule artifacts are seeded,
+ * so every service_code resolves to empty requirements while the response
+ * shape ({service_code, requirements}) is preserved.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
@@ -24,7 +28,7 @@ class EvidenceRequirementsTest {
     private MockMvc mockMvc;
 
     @Test
-    void kneeArthroscopy_returnsThreeRequirements() throws Exception {
+    void unseededServiceCode_returnsEmptyRequirementsWithShapePreserved() throws Exception {
         String body = """
                 {
                   "service_code": "knee_arthroscopy"
@@ -35,13 +39,8 @@ class EvidenceRequirementsTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.requirements", hasSize(3)))
-                .andExpect(jsonPath("$.requirements[*].requirement_id",
-                        containsInAnyOrder(
-                                "diagnosis_documented",
-                                "conservative_therapy_tried",
-                                "imaging_documented"
-                        )));
+                .andExpect(jsonPath("$.service_code").value("knee_arthroscopy"))
+                .andExpect(jsonPath("$.requirements", hasSize(0)));
     }
 
     @Test
