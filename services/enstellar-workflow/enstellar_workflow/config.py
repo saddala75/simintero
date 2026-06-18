@@ -24,7 +24,14 @@ class Settings(BaseSettings):
     # when the relay already connects as a BYPASSRLS principal via its own DSN).
     relay_db_role: str | None = "sim_relay"
 
-    agent_layer_url: str = "http://agent-layer:8000"
+    # --- Document Service + Revital (I2b clinical-review pipeline) -----------
+    # The ClinicalReviewConsumer resolves a case's documents from the platform
+    # Document Service by case_ref (= correlation_id), then submits them to the
+    # Revital summarization pipeline and polls for the result.
+    document_service_url: str = "http://document-service:3010"
+    revital_base_url: str = "http://revital-pipeline:3014"
+    revital_poll_interval_seconds: float = 5.0
+    revital_poll_timeout_seconds: float = 300.0
 
     # --- Keycloak JWT / OIDC (realm `simintero`) + OPA -----------------------
     # Adopted from the platform `simintero-authz` package. The JWKS URL and

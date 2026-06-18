@@ -15,7 +15,7 @@ describe('parseSegment', () => {
       object_key: 'tenant/docs/d1/raw',
     }];
 
-    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc');
+    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc', 'tenant-test');
 
     expect(spanMap['d1']).toBeDefined();
     expect(spanMap['d1']!.length).toBeGreaterThan(0);
@@ -26,7 +26,7 @@ describe('parseSegment', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('not found')));
 
     const docs = [{ doc_id: 'd2', virus_scan_status: 'clean', text_key: null, object_key: 'k' }];
-    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc');
+    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc', 'tenant-test');
 
     expect(spanMap['d2']).toEqual([]);
   });
@@ -35,7 +35,7 @@ describe('parseSegment', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 451 }));
 
     const docs = [{ doc_id: 'd3', virus_scan_status: 'clean', text_key: 'k', object_key: 'k' }];
-    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc');
+    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc', 'tenant-test');
 
     expect(spanMap['d3']).toEqual([]);
   });

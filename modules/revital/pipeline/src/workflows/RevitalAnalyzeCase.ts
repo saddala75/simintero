@@ -45,12 +45,12 @@ export async function revitalAnalyzeCase(input: AnalysisInput): Promise<Analysis
   const unprocessed: Array<{ ref: string; reason: string }> = [];
   let status: 'complete' | 'partial' | 'failed' = 'complete';
 
-  const docs = await fetchDocuments(input.document_refs, unprocessed).catch(
+  const docs = await fetchDocuments(input.document_refs, unprocessed, input.tenant_id).catch(
     () => { status = 'partial'; return []; }
   );
 
   const spans = docs.length > 0
-    ? await parseSegment(docs).catch(() => { status = 'partial'; return {}; })
+    ? await parseSegment(docs, input.tenant_id).catch(() => { status = 'partial'; return {}; })
     : {};
 
   const extracted = await extractEntities(spans, input).catch(

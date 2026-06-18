@@ -80,6 +80,6 @@ export async function triageAdvise(
   completeness: CompletenessBlock | null,
   input: AnalysisInput,
 ): Promise<TriageBlock> {
-  const tenantId = process.env['SIM_TENANT_ID'] ?? 'unknown';
+  const tenantId = input.tenant_id;
   return triageAdviseImpl(summary, completeness, input, GATEWAY_URL, tenantId);
 }

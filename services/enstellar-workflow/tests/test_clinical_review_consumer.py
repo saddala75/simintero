@@ -1,23 +1,29 @@
 """Tests for ClinicalReviewConsumer.
 
+This consumer no longer calls the agent-layer. On a clinical_review transition it:
+  1. Resolves the case's document_refs from the Document Service (by case_ref).
+  2. Submits a C-2 analysis (completeness + triage) to the real Revital pipeline.
+  3. Records a revital_inflight row (a background poller picks up the result).
+
 Invariants verified:
-  #2  No LLM on the decision path — consumer writes advisory rows only.
-  #3  PHI-minimum: member name, DOB, MRN must NOT appear in case_summary.
-  #4  tenant_id on every row and log line.
-  #5  abstained=True → no rows written (only AGENT_ASSIST_FAILED event).
+  #2  No LLM on the decision path — Revital output is advisory only.
+  #3  PHI-minimum: member name, DOB, MRN must NOT appear in the case_context.
+  #4  tenant_id on every submit + row.
+  Never-block: a Revital/doc failure emits AGENT_ASSIST_FAILED and returns —
+      the case is never blocked, and no inflight row is written.
 """
 from __future__ import annotations
 
 import json
-import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import asyncpg
 import pytest
 
 from canonical_model import Case, Status
 from simintero_outbox import SchemaRef, make_envelope
+
+from enstellar_connectors.revital.models import RevitalUnavailableError
 
 from enstellar_workflow.cases.repository import CaseRepository
 from enstellar_workflow.consumers.clinical_review_consumer import (
@@ -32,13 +38,19 @@ from tests.conftest import make_case
 # ---------------------------------------------------------------------------
 
 def _make_clinical_review_event(case: Case):
-    """Build a CASE_STATE_CHANGED event with to_state=clinical_review."""
+    """Build a CASE_STATE_CHANGED event with to_state=clinical_review.
+
+    The event's correlation_id is a PER-TRANSITION value, deliberately DISTINCT
+    from the case's stable business correlation_id. The consumer must use
+    case.correlation_id (not event.correlation_id) for the Revital/doc/inflight
+    path — documents were ingested under the case's stable id.
+    """
     return make_envelope(
         SchemaRef.CASE_STATE_CHANGED,
         tenant_id=case.tenant_id,
         actor_id="system",
         actor_type="system",
-        correlation_id=case.correlation_id,
+        correlation_id=f"{case.correlation_id}-to-clinical",
         payload={
             "case_id": str(case.case_id),
             "from_state": "auto_determination",
@@ -47,165 +59,81 @@ def _make_clinical_review_event(case: Case):
     )
 
 
-def _make_completeness_output(case: Case, abstained: bool = False) -> dict:
-    """Build a realistic completeness AgentOutput dict."""
-    if abstained:
-        return {
-            "agent_id": "completeness-v1",
-            "tenant_id": case.tenant_id,
-            "case_id": str(case.case_id),
-            "confidence": 0.0,
-            "citations": [],
-            "abstained": True,
-            "abstention_reason": "low confidence",
-            "result": None,
-            "provenance": {
-                "model_name": "test-model",
-                "timestamp": "2024-01-01T00:00:00+00:00",
-            },
-        }
-    return {
-        "agent_id": "completeness-v1",
-        "tenant_id": case.tenant_id,
-        "case_id": str(case.case_id),
-        "confidence": 0.8,
-        "citations": ["Da Vinci PA IG 4.0.0 §3.2"],
-        "abstained": False,
-        "abstention_reason": None,
-        "result": {
-            "gaps": [
-                {
-                    "description": "Missing operative report",
-                    "required_document_type": "operative_report",
-                    "citation": "Da Vinci PA IG 4.0.0 §3.2",
-                }
-            ],
-            "rfi_draft": {
-                "subject": "Missing documentation",
-                "body": "Please provide the following documents.",
-                "required_documents": ["operative_report"],
-                "due_date_days": 14,
-            },
-            "confidence": 0.8,
-            "citations": ["Da Vinci PA IG 4.0.0 §3.2"],
-        },
-        "provenance": {
-            "model_name": "test-model",
-            "input_hash": "abc123",
-            "timestamp": "2024-01-01T00:00:00+00:00",
-        },
-    }
+def _stub_collaborators(
+    consumer: ClinicalReviewConsumer,
+    *,
+    refs: list[str] | None = None,
+    analysis_id: str = "an-123",
+    submit_exc: Exception | None = None,
+    resolve_exc: Exception | None = None,
+    exists: bool = False,
+):
+    """Replace _docs, _revital, _inflight, _outbox with AsyncMocks.
 
+    Returns the (docs, revital, inflight, outbox) mocks for assertions.
+    """
+    docs = AsyncMock()
+    if resolve_exc is not None:
+        docs.resolve_refs.side_effect = resolve_exc
+    else:
+        docs.resolve_refs.return_value = refs if refs is not None else ["doc-1", "doc-2"]
 
-def _make_triage_output(case: Case, abstained: bool = False) -> dict:
-    """Build a realistic triage AgentOutput dict."""
-    if abstained:
-        return {
-            "agent_id": "triage-v1",
-            "tenant_id": case.tenant_id,
-            "case_id": str(case.case_id),
-            "confidence": 0.0,
-            "citations": [],
-            "abstained": True,
-            "abstention_reason": "low confidence",
-            "result": None,
-            "provenance": {
-                "model_name": "test-model",
-                "timestamp": "2024-01-01T00:00:00+00:00",
-            },
-        }
-    return {
-        "agent_id": "triage-v1",
-        "tenant_id": case.tenant_id,
-        "case_id": str(case.case_id),
-        "confidence": 0.85,
-        "citations": ["urgency: standard", "procedure: 99213"],
-        "abstained": False,
-        "abstention_reason": None,
-        "result": {
-            "suggested_queue": "standard",
-            "rationale": "Routine procedure code 99213 with standard urgency.",
-            "confidence": 0.85,
-            "citations": ["urgency: standard"],
-        },
-        "provenance": {
-            "model_name": "test-model",
-            "input_hash": "def456",
-            "timestamp": "2024-01-01T00:00:00+00:00",
-        },
-    }
+    revital = AsyncMock()
+    if submit_exc is not None:
+        revital.submit.side_effect = submit_exc
+    else:
+        revital.submit.return_value = analysis_id
 
+    inflight = AsyncMock()
+    inflight.exists_processing_for_case.return_value = exists
+    inflight.insert.return_value = None
 
-def _make_http_mock(completeness_data: dict, triage_data: dict):
-    """Build a mock httpx.AsyncClient that returns different responses per URL."""
+    outbox = AsyncMock()
 
-    def _side_effect(url: str, **kwargs):
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status.return_value = None
-        if "completeness" in url:
-            mock_resp.json.return_value = completeness_data
-        else:
-            mock_resp.json.return_value = triage_data
-        return mock_resp
-
-    mock_client = AsyncMock()
-    mock_client.post.side_effect = _side_effect
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
-    return mock_client
+    consumer._docs = docs
+    consumer._revital = revital
+    consumer._inflight = inflight
+    consumer._outbox = outbox
+    return docs, revital, inflight, outbox
 
 
 # ---------------------------------------------------------------------------
-# Unit test — PHI invariant
+# Unit test — PHI invariant (no DB required)
 # ---------------------------------------------------------------------------
 
 def test_phi_not_in_agent_input():
-    """INVARIANT #3: member name, DOB, MRN must not appear in case_summary.
-
-    This is a unit test — no DB required.
-    """
+    """INVARIANT #3: member name, DOB, MRN must not appear in case_summary."""
     case = make_case()
     agent_input = _build_agent_input(case, case.correlation_id)
 
     summary_str = json.dumps(agent_input["case_summary"])
 
-    # PHI fields must be absent
-    assert case.member.first_name not in summary_str, (
-        f"first_name {case.member.first_name!r} leaked into case_summary"
-    )
-    assert case.member.last_name not in summary_str, (
-        f"last_name {case.member.last_name!r} leaked into case_summary"
-    )
-    assert str(case.member.date_of_birth) not in summary_str, (
-        f"date_of_birth {case.member.date_of_birth} leaked into case_summary"
-    )
+    assert case.member.first_name not in summary_str
+    assert case.member.last_name not in summary_str
+    assert str(case.member.date_of_birth) not in summary_str
     if case.member.mrn is not None:
-        assert case.member.mrn not in summary_str, (
-            f"mrn {case.member.mrn!r} leaked into case_summary"
-        )
+        assert case.member.mrn not in summary_str
 
-    # Expected safe fields must be present
     assert "procedure_codes" in agent_input["case_summary"]
     assert "99213" in agent_input["case_summary"]["procedure_codes"]
     assert "urgency" in agent_input["case_summary"]
     assert "lob" in agent_input["case_summary"]
 
-    # tenant_id and case_id are required for routing — present at top level
     assert agent_input["tenant_id"] == case.tenant_id
     assert agent_input["case_id"] == str(case.case_id)
 
 
 # ---------------------------------------------------------------------------
-# Integration tests — require pg_pool
+# Integration tests — require pg_pool (for tenant_transaction)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_non_clinical_review_transition_is_ignored(pg_pool: asyncpg.Pool):
-    """Events with to_state != 'clinical_review' must be ignored without DB writes."""
+    """Events with to_state != 'clinical_review' must be ignored — no submit/insert."""
     consumer = ClinicalReviewConsumer(pg_pool)
+    docs, revital, inflight, _ = _stub_collaborators(consumer)
     case = make_case()
 
-    # Seed the case so a DB hit would be possible if the guard fails
     async with pg_pool.acquire() as conn:
         async with conn.transaction():
             await CaseRepository().insert(conn, case)
@@ -223,210 +151,141 @@ async def test_non_clinical_review_transition_is_ignored(pg_pool: asyncpg.Pool):
         },
     )
 
-    # Should return immediately — no HTTP calls, no DB writes
     await consumer.handle(event)
 
-    # Verify no criteria rows were written for this case
-    async with pg_pool.acquire() as conn:
-        count = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_criteria WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            case.tenant_id,
-        )
-    assert count == 0
+    docs.resolve_refs.assert_not_called()
+    revital.submit.assert_not_called()
+    inflight.insert.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_criteria_written_on_completeness_success(pg_pool: asyncpg.Pool, monkeypatch):
-    """On success: one criteria gap row and one suggestion row must be written."""
-    case = make_case(status=Status.clinical_review)
+async def test_submits_to_revital_and_records_inflight(pg_pool: asyncpg.Pool):
+    """On clinical_review: resolve refs → submit to Revital → record inflight.
 
-    # Seed the case in workflow_instances
-    async with pg_pool.acquire() as conn:
-        async with conn.transaction():
-            await CaseRepository().insert(conn, case)
-
-    completeness_data = _make_completeness_output(case, abstained=False)
-    triage_data = _make_triage_output(case, abstained=False)
-    mock_client = _make_http_mock(completeness_data, triage_data)
-
-    monkeypatch.setenv("WORKFLOW_AGENT_LAYER_URL", "http://agent-layer:8000")
-    import enstellar_workflow.config as cfg_mod
-    cfg_mod._settings = None
-
-    consumer = ClinicalReviewConsumer(pg_pool)
-    event = _make_clinical_review_event(case)
-
-    with patch(
-        "enstellar_workflow.consumers.clinical_review_consumer.httpx.AsyncClient",
-        return_value=mock_client,
-    ):
-        await consumer.handle(event)
-
-    # Criteria row must exist
-    async with pg_pool.acquire() as conn:
-        criteria_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_criteria WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            case.tenant_id,
-        )
-        criteria_row = await conn.fetchrow(
-            "SELECT criterion_id, text, status FROM case_criteria "
-            "WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            case.tenant_id,
-        )
-        # Suggestion row must exist
-        suggestion_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_suggestions WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            case.tenant_id,
-        )
-
-    assert criteria_count == 1, f"Expected 1 criteria row, got {criteria_count}"
-    assert criteria_row["criterion_id"] == "operative_report"
-    assert criteria_row["status"] == "gap"
-    assert suggestion_count == 1, f"Expected 1 suggestion row, got {suggestion_count}"
-
-
-@pytest.mark.asyncio
-async def test_no_rows_written_when_abstained(pg_pool: asyncpg.Pool, monkeypatch):
-    """INVARIANT #5: abstained=True → zero criteria and suggestion rows written."""
-    case = make_case(status=Status.clinical_review)
+    The CASE's stable correlation_id (under which I2a ingested documents) must be
+    used for resolve_refs / submit / inflight — NOT the event's per-transition id.
+    """
+    case = make_case(status=Status.clinical_review, correlation_id="corr-stable")
 
     async with pg_pool.acquire() as conn:
         async with conn.transaction():
             await CaseRepository().insert(conn, case)
 
-    completeness_data = _make_completeness_output(case, abstained=True)
-    triage_data = _make_triage_output(case, abstained=True)
-    mock_client = _make_http_mock(completeness_data, triage_data)
-
-    monkeypatch.setenv("WORKFLOW_AGENT_LAYER_URL", "http://agent-layer:8000")
-    import enstellar_workflow.config as cfg_mod
-    cfg_mod._settings = None
-
     consumer = ClinicalReviewConsumer(pg_pool)
-    event = _make_clinical_review_event(case)
-
-    with patch(
-        "enstellar_workflow.consumers.clinical_review_consumer.httpx.AsyncClient",
-        return_value=mock_client,
-    ):
-        await consumer.handle(event)
-
-    async with pg_pool.acquire() as conn:
-        criteria_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_criteria WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            case.tenant_id,
-        )
-        suggestion_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_suggestions WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            case.tenant_id,
-        )
-
-    assert criteria_count == 0, (
-        f"INVARIANT #5 violated: {criteria_count} criteria rows written despite abstention"
-    )
-    assert suggestion_count == 0, (
-        f"INVARIANT #5 violated: {suggestion_count} suggestion rows written despite abstention"
+    docs, revital, inflight, _ = _stub_collaborators(
+        consumer, refs=["doc-a", "doc-b"], analysis_id="an-999"
     )
 
+    event = _make_clinical_review_event(case)
+    # Guard the premise: the event carries a DIFFERENT (per-transition) id.
+    assert event.correlation_id == "corr-stable-to-clinical"
+    assert event.correlation_id != case.correlation_id
+
+    await consumer.handle(event)
+
+    # 1. resolve_refs called with case_ref=CASE correlation_id (not the event's)
+    docs.resolve_refs.assert_awaited_once_with(
+        case_ref="corr-stable", tenant_id=case.tenant_id
+    )
+    assert docs.resolve_refs.await_args.kwargs["case_ref"] != event.correlation_id
+
+    # 2. submit called with completeness+triage, resolved refs, PHI-min context, tenant
+    revital.submit.assert_awaited_once()
+    kwargs = revital.submit.await_args.kwargs
+    assert kwargs["case_ref"] == "corr-stable"
+    assert kwargs["case_ref"] != event.correlation_id
+    assert kwargs["analysis_kinds"] == ["completeness", "triage"]
+    assert kwargs["document_refs"] == ["doc-a", "doc-b"]
+    assert kwargs["tenant_id"] == case.tenant_id
+
+    ctx = kwargs["case_context"]
+    # PHI-min context — codes/urgency/lob, no member PHI
+    assert ctx["procedure_codes"] == ["99213"]
+    assert ctx["urgency"] == case.urgency.value
+    assert ctx["lob"] == case.lob
+    ctx_str = json.dumps(ctx)
+    assert case.member.first_name not in ctx_str
+    assert case.member.last_name not in ctx_str
+    assert str(case.member.date_of_birth) not in ctx_str
+
+    # 3. inflight insert with the returned analysis_id
+    inflight.insert.assert_awaited_once()
+    ins_kwargs = inflight.insert.await_args.kwargs
+    assert ins_kwargs["analysis_id"] == "an-999"
+    assert ins_kwargs["case_id"] == case.case_id
+    assert ins_kwargs["tenant_id"] == case.tenant_id
+    assert ins_kwargs["correlation_id"] == "corr-stable"
+    assert ins_kwargs["correlation_id"] != event.correlation_id
+
 
 @pytest.mark.asyncio
-async def test_no_rows_written_on_http_error(pg_pool: asyncpg.Pool, monkeypatch):
-    """HTTP error from agent-layer must not crash the consumer and must not write rows."""
+async def test_no_agent_layer_http_call(pg_pool: asyncpg.Pool):
+    """The consumer must make NO agent-layer HTTP POST (agent-layer is dropped)."""
     case = make_case(status=Status.clinical_review)
 
     async with pg_pool.acquire() as conn:
         async with conn.transaction():
             await CaseRepository().insert(conn, case)
 
-    # Both agents return HTTP errors
-    def _raise(url: str, **kwargs):
-        raise httpx.ConnectError("connection refused")
-
-    mock_client = AsyncMock()
-    mock_client.post.side_effect = _raise
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
-
-    monkeypatch.setenv("WORKFLOW_AGENT_LAYER_URL", "http://agent-layer:8000")
-    import enstellar_workflow.config as cfg_mod
-    cfg_mod._settings = None
-
     consumer = ClinicalReviewConsumer(pg_pool)
+    _stub_collaborators(consumer)
     event = _make_clinical_review_event(case)
 
-    import httpx as _httpx  # noqa: PLC0415 — needed for patch target
+    # The old code used httpx.AsyncClient in this module to POST to the agent-layer.
+    # Guard: if any such client is constructed, fail.
+    import enstellar_workflow.consumers.clinical_review_consumer as mod
 
-    with patch(
-        "enstellar_workflow.consumers.clinical_review_consumer.httpx.AsyncClient",
-        return_value=mock_client,
-    ):
-        # Must NOT raise — errors are logged and swallowed
+    if hasattr(mod, "httpx"):
+        with patch.object(mod.httpx, "AsyncClient") as ac:
+            await consumer.handle(event)
+        ac.assert_not_called()
+    else:  # pragma: no cover - httpx still imported for HTTPError typing
         await consumer.handle(event)
-
-    async with pg_pool.acquire() as conn:
-        criteria_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_criteria WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            case.tenant_id,
-        )
-    assert criteria_count == 0
-
-    async with pg_pool.acquire() as conn:
-        count_suggestions = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_suggestions WHERE case_id = $1", case.case_id
-        )
-    assert count_suggestions == 0
 
 
 @pytest.mark.asyncio
-async def test_tenant_isolation(pg_pool: asyncpg.Pool, monkeypatch):
-    """Criteria rows must carry the tenant_id from the case, not a cross-tenant value."""
-    tenant_a = "tenant-A-cr"
-    case = make_case(tenant_id=tenant_a, status=Status.clinical_review)
+async def test_revital_unavailable_emits_failed_no_inflight(pg_pool: asyncpg.Pool):
+    """submit raising RevitalUnavailableError → AGENT_ASSIST_FAILED, no inflight insert."""
+    case = make_case(status=Status.clinical_review)
 
     async with pg_pool.acquire() as conn:
         async with conn.transaction():
             await CaseRepository().insert(conn, case)
 
-    completeness_data = _make_completeness_output(case, abstained=False)
-    triage_data = _make_triage_output(case, abstained=False)
-    mock_client = _make_http_mock(completeness_data, triage_data)
-
-    monkeypatch.setenv("WORKFLOW_AGENT_LAYER_URL", "http://agent-layer:8000")
-    import enstellar_workflow.config as cfg_mod
-    cfg_mod._settings = None
-
     consumer = ClinicalReviewConsumer(pg_pool)
+    docs, revital, inflight, outbox = _stub_collaborators(
+        consumer, submit_exc=RevitalUnavailableError("revital down")
+    )
     event = _make_clinical_review_event(case)
 
-    with patch(
-        "enstellar_workflow.consumers.clinical_review_consumer.httpx.AsyncClient",
-        return_value=mock_client,
-    ):
-        await consumer.handle(event)
+    # Must not raise — never-block invariant
+    await consumer.handle(event)
 
-    # Query with tenant-B must see nothing
+    revital.submit.assert_awaited_once()
+    inflight.insert.assert_not_called()
+
+    # An AGENT_ASSIST_FAILED event was published
+    outbox.publish.assert_awaited()
+    published = outbox.publish.await_args.args[1]
+    assert published.schema_ref == SchemaRef.AGENT_ASSIST_FAILED
+
+
+@pytest.mark.asyncio
+async def test_duplicate_inflight_skips_submit(pg_pool: asyncpg.Pool):
+    """exists_processing_for_case True → no second submit, no insert."""
+    case = make_case(status=Status.clinical_review)
+
     async with pg_pool.acquire() as conn:
-        cross_tenant_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_criteria WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            "tenant-B-cr",
-        )
-        correct_tenant_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM case_criteria WHERE case_id = $1 AND tenant_id = $2",
-            case.case_id,
-            tenant_a,
-        )
+        async with conn.transaction():
+            await CaseRepository().insert(conn, case)
 
-    assert cross_tenant_count == 0, "Criteria row visible under wrong tenant — invariant #4"
-    assert correct_tenant_count == 1
+    consumer = ClinicalReviewConsumer(pg_pool)
+    docs, revital, inflight, _ = _stub_collaborators(consumer, exists=True)
+    event = _make_clinical_review_event(case)
 
+    await consumer.handle(event)
 
-# Import httpx at module level so the patch target below resolves correctly.
-import httpx  # noqa: E402, F401
+    inflight.exists_processing_for_case.assert_awaited_once()
+    docs.resolve_refs.assert_not_called()
+    revital.submit.assert_not_called()
+    inflight.insert.assert_not_called()

@@ -42,7 +42,7 @@ class ConnectorSettings(BaseSettings):
 
     # Revital — validation_alias bypasses DIGICORE_ prefix for this field only
     revital_base_url: str = Field(
-        default="http://mock-revital:8000",
+        default="http://revital-pipeline:3014",
         validation_alias="REVITAL_BASE_URL",
         description="Base URL for the Revital summarization API. Override with REVITAL_BASE_URL.",
     )

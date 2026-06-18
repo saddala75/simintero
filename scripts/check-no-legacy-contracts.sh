@@ -119,3 +119,15 @@ for f in modules/claims/service/src/index.ts modules/search/query-api/src/index.
   fi
 done
 echo "F1 invariant OK: every service image is self-contained and the formerly-dead services boot."
+
+# --- I2b invariant: agent-layer + mock-revital retired; Revital is the advisor ---
+if grep -Eq '^[[:space:]]*(agent-layer|mock-revital):' docker-compose.yml; then
+  echo "I2b INVARIANT FAILED: agent-layer/mock-revital still in docker-compose.yml" >&2; exit 1
+fi
+if [ -d services/enstellar-agent-layer ] || [ -d services/enstellar-compose/mocks/revital ]; then
+  echo "I2b INVARIANT FAILED: retired service source dirs still present" >&2; exit 1
+fi
+if grep -q "agent_layer_url" services/enstellar-workflow/enstellar_workflow/consumers/clinical_review_consumer.py 2>/dev/null; then
+  echo "I2b INVARIANT FAILED: clinical_review_consumer still references agent_layer_url" >&2; exit 1
+fi
+echo "I2b invariant OK: Revital is the clinical_review advisor (agent-layer + mock-revital retired)."

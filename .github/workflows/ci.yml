@@ -105,7 +105,6 @@ jobs:
       - run: uv run pytest services/enstellar-connectors -q -m "not integration"
       - run: uv run pytest services/enstellar-workflow -q
       - run: uv run pytest services/enstellar-portal-bff -q
-      - run: uv run pytest services/enstellar-agent-layer/tests -q
 
   enstellar-interop:
     runs-on: ubuntu-latest

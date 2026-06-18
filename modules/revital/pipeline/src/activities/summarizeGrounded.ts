@@ -113,6 +113,6 @@ export async function summarizeGrounded(
   completeness: CompletenessBlock | null,
   input: AnalysisInput,
 ): Promise<SummaryBlock> {
-  const tenantId = process.env['SIM_TENANT_ID'] ?? 'unknown';
+  const tenantId = input.tenant_id;
   return summarizeGroundedImpl(spanMap, completeness, input, GATEWAY_URL, tenantId);
 }
