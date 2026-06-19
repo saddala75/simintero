@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { ulid } from 'ulid';
 import { withTenant } from './db/withTenant.js';
 import { appendTaskEvent } from './outbox.js';
+import { transitionStatus, StatusTransitionError, type TaskStatus } from './lifecycle.js';
 
 export function tenantOf(req: Request, res: Response): string | null {
   const t = req.headers['x-sim-tenant-id'] as string | undefined;
@@ -74,6 +75,52 @@ export function createTaskRouter(): Router {
       if (!row) { res.status(404).json({ code: 'NOT_FOUND', detail: 'task not found' }); return; }
       res.json(row);
     } catch (err) {
+      next(err);
+    }
+  });
+
+  router.patch('/v1/tasks/:id', async (req, res, next) => {
+    const tenant = tenantOf(req, res);
+    if (!tenant) return;
+    const taskId = req.params['id'];
+    const b = req.body as Record<string, any>;
+    try {
+      const pool = req.app.locals['pool'];
+      const result = await withTenant(pool, tenant, async (client) => {
+        const { rows } = await client.query(
+          `SELECT status, assignee, assignee_queue FROM task.task WHERE task_id = $1`, [taskId]);
+        if (!rows[0]) return { notFound: true } as const;
+        const cur = rows[0].status as TaskStatus;
+
+        const sets: string[] = ['updated_at = now()'];
+        const params: any[] = [];
+        if (b.status) {
+          transitionStatus(cur, b.status); // throws StatusTransitionError → 422
+          params.push(b.status);
+          sets.push(`status = $${params.length}`);
+          if (b.status === 'resolved' || b.status === 'cancelled') sets.push('resolved_at = now()');
+        }
+        let assigned = false;
+        for (const col of ['assignee', 'assignee_queue', 'due_at'] as const) {
+          if (col in b) {
+            params.push(b[col] ?? null);
+            sets.push(`${col} = $${params.length}`);
+            if (col !== 'due_at') assigned = true;
+          }
+        }
+        params.push(taskId);
+        const { rows: updated } = await client.query(
+          `UPDATE task.task SET ${sets.join(', ')} WHERE task_id = $${params.length} RETURNING *`, params);
+
+        if (assigned) await appendTaskEvent(client, tenant, 'TaskAssigned', taskId, { assignee: b.assignee ?? null, assignee_queue: b.assignee_queue ?? null });
+        if (b.status === 'resolved') await appendTaskEvent(client, tenant, 'TaskResolved', taskId, { status: 'resolved' });
+        if (b.status === 'cancelled') await appendTaskEvent(client, tenant, 'TaskCancelled', taskId, { status: 'cancelled' });
+        return { task: updated[0] } as const;
+      });
+      if ('notFound' in result) { res.status(404).json({ code: 'NOT_FOUND', detail: 'task not found' }); return; }
+      res.json(result.task);
+    } catch (err) {
+      if (err instanceof StatusTransitionError) { res.status(422).json({ code: 'INVALID_TRANSITION', detail: err.message }); return; }
       next(err);
     }
   });
