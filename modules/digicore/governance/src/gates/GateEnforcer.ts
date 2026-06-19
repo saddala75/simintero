@@ -9,6 +9,8 @@ export interface ArtifactApprovalState {
   artifact_id: string;
   created_by: string;
   approvals: ApprovalRecord[];
+  cql_library_url?: string;
+  version?: string;
 }
 
 export type Gate = 'clinical' | 'compliance';

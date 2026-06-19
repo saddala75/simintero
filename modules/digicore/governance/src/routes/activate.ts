@@ -5,7 +5,7 @@ import type { ArtifactApprovalState } from '../gates/GateEnforcer.js';
 import { GovernanceNotifier } from '../notifications/GovernanceNotifier.js';
 
 export interface VkasClient {
-  activate(artifactId: string): Promise<void>;
+  activate(canonicalUrl: string, version: string): Promise<void>;
 }
 
 export interface ActivateInput {
@@ -41,7 +41,16 @@ export async function handleActivate(
     };
   }
 
-  await vkasClient.activate(input.artifact_id);
+  // A rule = a coverage_rule (artifact_id) + a cql_library (cql_library_url).
+  // Both artifacts must transition to active. Activate the cql_library FIRST so
+  // the rule's logic is live before its registry entry, then the coverage_rule.
+  const version = state.version ?? '1.0.0';
+
+  if (state.cql_library_url !== undefined && state.cql_library_url.length > 0) {
+    await vkasClient.activate(state.cql_library_url, version);
+  }
+  await vkasClient.activate(input.artifact_id, version);
+
   await notifier.notifyActivation(input.artifact_id);
 
   return {

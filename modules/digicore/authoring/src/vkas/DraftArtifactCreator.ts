@@ -3,12 +3,9 @@ export interface VkasHttpClient {
 }
 
 export interface DraftArtifactInput {
-  artifact_type: 'cql_library';
+  artifact_type: 'cql_library' | 'coverage_rule';
   canonical_url: string;
-  content: {
-    cql: string;
-    elm: unknown;
-  };
+  content: Record<string, unknown>;
   metadata: Record<string, unknown>;
 }
 
