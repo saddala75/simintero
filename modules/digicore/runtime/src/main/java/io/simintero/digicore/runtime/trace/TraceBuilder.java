@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.stereotype.Component;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -51,17 +53,45 @@ public class TraceBuilder {
         String traceRef = "trace:" + UUID.randomUUID();
         String eventId = UUID.randomUUID().toString();
         try {
-            jdbc.update(
-                """
-                INSERT INTO shared.outbox (event_id, topic, key, envelope, tenant_id)
-                VALUES (?, 'sim.case.trace', ?, ?::jsonb, ?)
-                ON CONFLICT (event_id) DO NOTHING
-                """,
-                eventId,
-                traceRef,
-                buildEnvelopeJson(traceRef, tenantId, eventId),
-                tenantId
-            );
+            // The shared.outbox table is FORCE-RLS: an INSERT only succeeds when the
+            // sim.tenant_id GUC is set on the SAME connection within the same
+            // transaction. JdbcOperations.update() may grab a different pooled
+            // connection per call, and set_config(..., true) is transaction-local, so
+            // both statements are executed inside a single ConnectionCallback with
+            // autocommit disabled. This guarantees one connection AND one transaction:
+            // the GUC set by set_config survives until the INSERT and the pair commits
+            // atomically.
+            String envelopeJson = buildEnvelopeJson(traceRef, tenantId, eventId);
+            jdbc.execute((Connection conn) -> {
+                boolean priorAutoCommit = conn.getAutoCommit();
+                conn.setAutoCommit(false);
+                try {
+                    try (PreparedStatement guc =
+                            conn.prepareStatement("SELECT set_config('sim.tenant_id', ?, true)")) {
+                        guc.setString(1, tenantId);
+                        guc.execute();
+                    }
+                    try (PreparedStatement ins = conn.prepareStatement(
+                            """
+                            INSERT INTO shared.outbox (event_id, topic, key, envelope, tenant_id)
+                            VALUES (?, 'sim.case.trace', ?, ?::jsonb, ?)
+                            ON CONFLICT (event_id) DO NOTHING
+                            """)) {
+                        ins.setString(1, eventId);
+                        ins.setString(2, traceRef);
+                        ins.setString(3, envelopeJson);
+                        ins.setString(4, tenantId);
+                        ins.executeUpdate();
+                    }
+                    conn.commit();
+                } catch (Exception inner) {
+                    conn.rollback();
+                    throw inner;
+                } finally {
+                    conn.setAutoCommit(priorAutoCommit);
+                }
+                return null;
+            });
         } catch (Exception e) {
             // Non-fatal: outbox write failure must not block evaluation
             log.warn("Failed to persist trace event to shared.outbox for tenant '{}': {}", tenantId, e.getMessage());
