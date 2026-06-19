@@ -10,11 +10,12 @@ function appWith(statusRow: string | null) {
     if (/SELECT status/i.test(sql)) {
       return { rows: statusRow ? [{ status: statusRow }] : [] };
     }
-    return { rowCount: 1 }; // UPDATE
+    return { rowCount: 1 }; // UPDATE / BEGIN / COMMIT / set_config
   });
+  const client = { query, release: vi.fn() };
   const app = express();
   app.use(express.json());
-  app.locals['pool'] = { query };
+  app.locals['pool'] = { connect: vi.fn(async () => client) };
   app.use(createVkasRouter());
   return { app, query, calls };
 }

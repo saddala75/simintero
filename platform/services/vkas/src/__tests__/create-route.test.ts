@@ -3,7 +3,8 @@ import express from 'express';
 import request from 'supertest';
 import { createVkasRouter } from '../router.js';
 
-function appWith(pool: { query: ReturnType<typeof vi.fn> }) {
+function appWith(client: { query: ReturnType<typeof vi.fn> }) {
+  const pool = { connect: vi.fn(async () => ({ ...client, release: vi.fn() })) };
   const app = express();
   app.use(express.json());
   app.locals['pool'] = pool;
@@ -27,7 +28,7 @@ describe('POST /v1/artifacts (create draft)', () => {
     expect(res.body.version).toBe('1.0.0');
     expect(res.body.status).toBe('draft');
     // INSERT issued with draft status + shared tenant + a content_hash
-    const call = query.mock.calls[0]!;
+    const call = query.mock.calls.find((c) => /INSERT INTO vkas\.artifact/i.test(c[0] as string))!;
     const sql = call[0] as string;
     const params = call[1] as unknown[];
     expect(sql).toMatch(/INSERT INTO vkas\.artifact/i);
