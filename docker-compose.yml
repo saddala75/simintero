@@ -243,6 +243,29 @@ services:
     networks:
       - sim-net
 
+  terminology-service:
+    build:
+      context: .
+      dockerfile: platform/services/terminology-service/Dockerfile
+    environment:
+      VKAS_URL: http://vkas:3040
+      PORT: "3030"
+    ports:
+      - "3030:3030"
+    depends_on:
+      vkas:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3030/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - sim-net
+
   mock-llm:
     build:
       context: platform/services/mock-llm
@@ -536,7 +559,7 @@ services:
       RUNTIME_BASE_URL: http://digicore-runtime:8083
       VKAS_BASE_URL: http://vkas:3040
       GOVERNANCE_BASE_URL: http://digicore-governance:3053
-      TERMINOLOGY_GW_BASE_URL: http://localhost:9
+      TERMINOLOGY_GW_BASE_URL: http://terminology-service:3030
     ports:
       - "3052:3052"
     depends_on:
@@ -546,6 +569,8 @@ services:
         condition: service_healthy
       digicore-governance:
         condition: service_started
+      terminology-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3052/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
