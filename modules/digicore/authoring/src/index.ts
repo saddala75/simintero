@@ -41,6 +41,10 @@ const fetchCompilerClient = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`POST ${url} failed (${res.status}): ${text.slice(0, 200)}`);
+    }
     return res.json() as Promise<unknown>;
   },
 };
@@ -62,6 +66,10 @@ const fetchVkasClient = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`POST ${url} failed (${res.status}): ${text.slice(0, 200)}`);
+    }
     return res.json() as Promise<{ artifact_id: string; version: string }>;
   },
 };
@@ -73,6 +81,10 @@ const fetchGovernanceClient = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`POST ${url} failed (${res.status}): ${text.slice(0, 200)}`);
+    }
     return res.json() as Promise<unknown>;
   },
 };
