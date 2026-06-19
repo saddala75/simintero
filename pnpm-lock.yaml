@@ -736,6 +736,9 @@ importers:
 
   modules/qualitron/execution:
     dependencies:
+      '@sim/qualitron-gaps':
+        specifier: workspace:*
+        version: link:../gaps
       '@temporalio/activity':
         specifier: ^1.10.0
         version: 1.18.1

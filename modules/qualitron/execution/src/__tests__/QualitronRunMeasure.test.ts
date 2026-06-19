@@ -1,10 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import type { Pool } from 'pg';
-import { qualitronRunMeasure } from '../workflows/QualitronRunMeasure.js';
-import { createRunsRouter } from '../routes/runs.js';
-import type { MeasureResult } from '../activities/evaluateMeasure.js';
+import type { Pool, PoolClient } from 'pg';
+import type { MeasureResult, MeasureSpec } from '../activities/evaluateMeasure.js';
+
+// ---------------------------------------------------------------------------
+// Mock the self-contained activities + the gaps handler so we can assert the
+// orchestration calls the right steps. The measure_definition spec and the
+// eligible-member set still come from client.query (the real fetchEligibleMembers
+// is mocked, but the run's spec load is a direct query in the workflow).
+// ---------------------------------------------------------------------------
+
+const { evaluateMeasure, persistMeasureReport, fetchEligibleMembers, handleMeasureReportCompleted } = vi.hoisted(() => ({
+  evaluateMeasure: vi.fn(),
+  persistMeasureReport: vi.fn(),
+  fetchEligibleMembers: vi.fn(),
+  handleMeasureReportCompleted: vi.fn(),
+}));
+
+vi.mock('../activities/evaluateMeasure.js', () => ({ evaluateMeasure }));
+vi.mock('../activities/persistMeasureReport.js', () => ({ persistMeasureReport }));
+vi.mock('../activities/fetchEligibleMembers.js', () => ({ fetchEligibleMembers }));
+vi.mock('@sim/qualitron-gaps', () => ({ handleMeasureReportCompleted }));
+
+const { qualitronRunMeasure } = await import('../workflows/QualitronRunMeasure.js');
+const { createRunsRouter } = await import('../routes/runs.js');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,21 +34,43 @@ function makePool(rows: unknown[] = []): Pool {
   return { query: vi.fn().mockResolvedValue({ rows }) } as unknown as Pool;
 }
 
-const VALID_MEASURE_RESULT: MeasureResult = {
-  member_id: 'mem_001',
-  measure_ref: 'hedis:BCS-E',
-  numerator: true,
-  denominator: true,
-  exclusion: false,
-  evidence_refs: ['ev_1'],
-  trace_ref: 'trace_abc',
+const SPEC: MeasureSpec = {
+  numerator: { resource_type: 'Procedure', code: '77067' },
 };
+
+/**
+ * Build a Pool whose connect() returns a mock client. The client's query is a
+ * spy; the SELECT for the measure_definition spec resolves to `specRows`.
+ */
+function makeTxPool(specRows: Array<{ spec: MeasureSpec }>): { pool: Pool; query: ReturnType<typeof vi.fn> } {
+  const query = vi.fn().mockImplementation((sql: string) => {
+    if (typeof sql === 'string' && sql.includes('qual.measure_definition')) {
+      return Promise.resolve({ rows: specRows });
+    }
+    return Promise.resolve({ rows: [] });
+  });
+  const client = { query, release: vi.fn() } as unknown as PoolClient;
+  const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
+  return { pool, query };
+}
+
+function makeResult(memberId: string): MeasureResult {
+  return {
+    member_id: memberId,
+    measure_ref: 'hedis:BCS-E',
+    numerator: true,
+    denominator: true,
+    exclusion: false,
+    evidence_refs: ['ev_1'],
+    trace_ref: 'trace_abc',
+  };
+}
 
 const RUN_INPUT = {
   run_id: 'run_01J',
   tenant_id: 'tenant_abc',
   measure_ref: 'hedis:BCS-E',
-  measure_version: '2024',
+  measure_version: '1.0.0',
   period_start: '2024-01-01',
   period_end: '2024-12-31',
 };
@@ -38,100 +80,95 @@ const RUN_INPUT = {
 // ---------------------------------------------------------------------------
 
 describe('qualitronRunMeasure', () => {
+  beforeEach(() => {
+    evaluateMeasure.mockReset();
+    persistMeasureReport.mockReset();
+    fetchEligibleMembers.mockReset();
+    handleMeasureReportCompleted.mockReset();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('returns { total: 0, failed: 0 } when no eligible members', async () => {
-    const pool = makePool([]);
-    // First query is UPDATE status='running', second is SELECT members (empty), third is UPDATE status='complete'
-    (pool.query as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({ rows: [] })   // UPDATE running
-      .mockResolvedValueOnce({ rows: [] })   // fetchEligibleMembers
-      .mockResolvedValueOnce({ rows: [] });  // UPDATE complete
+  it('runs inside a tenant transaction: BEGIN, set sim.tenant_id, COMMIT', async () => {
+    const { pool, query } = makeTxPool([{ spec: SPEC }]);
+    fetchEligibleMembers.mockResolvedValue([]);
 
-    const result = await qualitronRunMeasure(RUN_INPUT, pool, 'http://digicore.internal');
+    await qualitronRunMeasure(RUN_INPUT, pool, 'http://task.internal');
 
+    const sqls = query.mock.calls.map((c) => c[0] as string);
+    expect(sqls).toContain('BEGIN');
+    expect(sqls.some((s) => s.includes("set_config('sim.tenant_id'"))).toBe(true);
+    expect(sqls).toContain('COMMIT');
+  });
+
+  it('transitions status running -> complete and loads the spec', async () => {
+    const { pool, query } = makeTxPool([{ spec: SPEC }]);
+    fetchEligibleMembers.mockResolvedValue([]);
+
+    const result = await qualitronRunMeasure(RUN_INPUT, pool, 'http://task.internal');
+
+    const sqls = query.mock.calls.map((c) => c[0] as string);
+    expect(sqls.some((s) => s.includes("status = 'running'") || s.includes("status='running'"))).toBe(true);
+    expect(sqls.some((s) => s.includes("status = 'complete'") || s.includes("status='complete'"))).toBe(true);
+    expect(sqls.some((s) => s.includes('qual.measure_definition'))).toBe(true);
     expect(result).toEqual({ run_id: 'run_01J', total: 0, failed: 0 });
   });
 
-  it('calls evaluateMeasure for each eligible member', async () => {
-    const pool = makePool([]);
-    (pool.query as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({ rows: [] })  // UPDATE running
-      .mockResolvedValueOnce({ rows: [{ member_id: 'mem_001' }, { member_id: 'mem_002' }] })  // fetchEligibleMembers
-      .mockResolvedValue({ rows: [] });     // all subsequent queries (persist x2 x2, UPDATE complete)
+  it('marks the run failed when the measure definition is missing', async () => {
+    const { pool, query } = makeTxPool([]); // no spec row
+    fetchEligibleMembers.mockResolvedValue(['mem_001']);
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ numerator: true, denominator: true }),
-    }));
+    const result = await qualitronRunMeasure(RUN_INPUT, pool, 'http://task.internal');
 
-    const result = await qualitronRunMeasure(RUN_INPUT, pool, 'http://digicore.internal');
-
-    expect(result.total).toBe(2);
-    // fetch called twice — once per member
-    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://digicore.internal/v1/runtime/evaluate');
+    const sqls = query.mock.calls.map((c) => c[0] as string);
+    expect(sqls.some((s) => s.includes("status = 'failed'") || s.includes("status='failed'"))).toBe(true);
+    expect(evaluateMeasure).not.toHaveBeenCalled();
+    expect(result).toEqual({ run_id: 'run_01J', total: 0, failed: 0 });
   });
 
-  it('counts as failed when evaluateMeasure returns null (non-ok response)', async () => {
-    const pool = makePool([]);
-    (pool.query as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({ rows: [] })  // UPDATE running
-      .mockResolvedValueOnce({ rows: [{ member_id: 'mem_001' }, { member_id: 'mem_002' }] })
-      .mockResolvedValue({ rows: [] });     // UPDATE complete
+  it('evaluates, persists, and detects gaps for each eligible member', async () => {
+    const { pool } = makeTxPool([{ spec: SPEC }]);
+    fetchEligibleMembers.mockResolvedValue(['mem_001', 'mem_002']);
+    evaluateMeasure.mockImplementation((_c, m: string) => Promise.resolve(makeResult(m)));
+    persistMeasureReport.mockResolvedValue(undefined);
+    handleMeasureReportCompleted.mockResolvedValue(undefined);
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: false,
-      json: async () => ({}),
-    }));
-
-    const result = await qualitronRunMeasure(RUN_INPUT, pool, 'http://digicore.internal');
+    const result = await qualitronRunMeasure(RUN_INPUT, pool, 'http://task.internal');
 
     expect(result.total).toBe(2);
-    expect(result.failed).toBe(2);
+    expect(result.failed).toBe(0);
+    expect(evaluateMeasure).toHaveBeenCalledTimes(2);
+    expect(persistMeasureReport).toHaveBeenCalledTimes(2);
+    expect(handleMeasureReportCompleted).toHaveBeenCalledTimes(2);
+
+    // evaluateMeasure receives the loaded spec
+    expect(evaluateMeasure.mock.calls[0]?.[3]).toEqual(SPEC);
+
+    // the gap handler is invoked with a MeasureReportCompleted payload
+    const gapPayload = handleMeasureReportCompleted.mock.calls[0]?.[0] as { event_type: string; member_id: string };
+    expect(gapPayload.event_type).toBe('MeasureReportCompleted');
+    expect(gapPayload.member_id).toBe('mem_001');
+    // ...and the task service url is forwarded
+    expect(handleMeasureReportCompleted.mock.calls[0]?.[5]).toBe('http://task.internal');
   });
 
-  it('persists measure report when evaluateMeasure returns a valid result', async () => {
-    const pool = makePool([]);
-    const queryMock = pool.query as ReturnType<typeof vi.fn>;
-    queryMock
-      .mockResolvedValueOnce({ rows: [] })  // UPDATE running
-      .mockResolvedValueOnce({ rows: [{ member_id: 'mem_001' }] })  // fetchEligibleMembers
-      .mockResolvedValueOnce({ rows: [] })  // INSERT measure_report
-      .mockResolvedValueOnce({ rows: [] })  // INSERT shared.outbox
-      .mockResolvedValueOnce({ rows: [] }); // UPDATE complete
+  it('counts a failed member without aborting the run (per-member try/catch)', async () => {
+    const { pool } = makeTxPool([{ spec: SPEC }]);
+    fetchEligibleMembers.mockResolvedValue(['mem_bad', 'mem_ok']);
+    evaluateMeasure.mockImplementation((_c, m: string) => {
+      if (m === 'mem_bad') return Promise.reject(new Error('boom'));
+      return Promise.resolve(makeResult(m));
+    });
+    persistMeasureReport.mockResolvedValue(undefined);
+    handleMeasureReportCompleted.mockResolvedValue(undefined);
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        numerator: true,
-        denominator: true,
-        exclusion: false,
-        evidence_refs: ['ev_1'],
-        trace_ref: 'trace_abc',
-      }),
-    }));
+    const result = await qualitronRunMeasure(RUN_INPUT, pool, 'http://task.internal');
 
-    await qualitronRunMeasure(RUN_INPUT, pool, 'http://digicore.internal');
-
-    // Should have called INSERT INTO qual.measure_report and shared.outbox
-    const insertReportCall = queryMock.mock.calls.find(
-      (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('qual.measure_report'),
-    );
-    const insertOutboxCall = queryMock.mock.calls.find(
-      (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('shared.outbox'),
-    );
-
-    expect(insertReportCall).toBeTruthy();
-    expect(insertOutboxCall).toBeTruthy();
-
-    // Validate outbox payload includes correct event_type
-    const outboxParams = insertOutboxCall?.[1] as unknown[];
-    const payload = JSON.parse(outboxParams?.[2] as string) as { event_type: string };
-    expect(payload.event_type).toBe('MeasureReportCompleted');
+    expect(result.total).toBe(2);
+    expect(result.failed).toBe(1);
+    expect(persistMeasureReport).toHaveBeenCalledTimes(1); // only the good member
   });
 });
 
