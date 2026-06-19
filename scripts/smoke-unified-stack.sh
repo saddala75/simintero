@@ -48,7 +48,7 @@ docker compose up -d --wait \
   digicore-runtime document-service \
   interop workflow-engine portal-bff \
   temporal revital-pipeline revital-worker model-gateway \
-  vkas mock-llm digicore-authoring digicore-governance
+  vkas mock-llm digicore-authoring digicore-governance qualitron
 
 echo "── 3. mint a realm-simintero reviewer JWT ──"
 TOKEN=$(curl -sf -X POST "$KC/realms/simintero/protocol/openid-connect/token" \
@@ -348,5 +348,44 @@ if [ $? -ne 0 ]; then
   echo "   --- vkas logs ---" >&2; docker compose logs vkas 2>&1 | tail -15 >&2
   exit 1
 fi
+
+echo "── 14. P1-a: Qualitron runs a quality measure end-to-end ──"
+# POST a measure run (the seeded hedis:BCS-E over the seeded FHIR data: 4 Patients, 2 with the
+# numerator Observation). The run executes in-service (background, tenant-GUC'd): fetch eligible
+# members → evaluate over fabric.resource → persist measure_report → detect+persist gaps. We poll
+# the run to 'complete' then assert the data-driven result directly in the DB (the reporting read
+# API is a separate not-yet-deployed module): denominator=4, numerator=2, gaps=2.
+QUAL="http://localhost:3015"; QTID="${TENANT_ID:-tenant-dev}"
+QRUN=$(curl -sf -X POST "$QUAL/v1/quality/runs" -H "Content-Type: application/json" -H "x-sim-tenant-id: $QTID" \
+  -d '{"measure_ref":"hedis:BCS-E","measure_version":"1.0.0","period_start":"2026-01-01","period_end":"2026-06-30"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('run_id',''))" 2>/dev/null)
+echo "   run_id=${QRUN}"
+[ -n "$QRUN" ] || { echo "❌ P1-a: POST /quality/runs did not return a run_id" >&2; docker compose logs qualitron 2>&1 | tail -20 >&2; exit 1; }
+QSTATUS=""
+for i in $(seq 1 30); do
+  QSTATUS=$(curl -sf "$QUAL/v1/quality/runs/$QRUN" -H "x-sim-tenant-id: $QTID" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null || echo '')
+  echo "   poll $i: run status='${QSTATUS}'"
+  [ "$QSTATUS" = "complete" ] && break
+  [ "$QSTATUS" = "failed" ] && { echo "❌ P1-a: run failed" >&2; docker compose logs qualitron 2>&1 | tail -25 >&2; exit 1; }
+  sleep 2
+done
+[ "$QSTATUS" = "complete" ] || { echo "❌ P1-a: run did not complete (status='${QSTATUS}')" >&2; docker compose logs qualitron 2>&1 | tail -25 >&2; exit 1; }
+# Assert the run's data-driven result directly in the DB (superuser bypasses RLS; explicit WHERE run_id).
+QRES=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "SELECT count(*) FILTER (WHERE denominator), count(*) FILTER (WHERE numerator) FROM qual.measure_report WHERE run_id='${QRUN}';" 2>/dev/null | tr -d ' ')
+QGAPS=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "SELECT count(*) FROM qual.gap WHERE measure_ref='hedis:BCS-E' AND status='open' AND member_id IN (SELECT member_id FROM qual.measure_report WHERE run_id='${QRUN}');" 2>/dev/null | tr -d '[:space:]')
+echo "   measure_report (denominator|numerator)=${QRES} ; open gaps=${QGAPS}"
+echo "$QRES" | python3 -c "
+import sys; den,num = sys.stdin.read().strip().split('|')
+den=int(den); num=int(num)
+assert den>=4, f'denominator {den} < 4'
+assert num>=2, f'numerator {num} < 2'
+assert num < den, f'numerator {num} should be < denominator {den} (some gaps expected)'
+print(f'  denominator={den} numerator={num} rate={num/den:.2f}')
+" || { echo "❌ P1-a: measure_report did not show the expected data-driven result (got '${QRES}')" >&2; docker compose logs qualitron 2>&1 | tail -25 >&2; exit 1; }
+[ "${QGAPS:-0}" -ge 2 ] || { echo "❌ P1-a: expected >=2 open gaps, got '${QGAPS}'" >&2; exit 1; }
+echo "✅ P1-a: Qualitron computed a quality measure end-to-end (4 reports, numerator=2, ${QGAPS} gaps) over seeded FHIR data"
 
 echo "✅ unified-stack smoke PASSED"

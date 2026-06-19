@@ -1,8 +1,20 @@
 import { Router } from 'express';
 import { ulid } from 'ulid';
 import type { Pool } from 'pg';
+import {
+  qualitronRunMeasure,
+  type RunMeasureInput,
+  type RunMeasureResult,
+} from '../workflows/QualitronRunMeasure.js';
 
-export function createRunsRouter(pool: Pool): Router {
+export interface RunsRouterOpts {
+  taskServiceUrl?: string;
+  runner?: (input: RunMeasureInput, pool: Pool, taskServiceUrl: string) => Promise<RunMeasureResult>;
+}
+
+export function createRunsRouter(pool: Pool, opts: RunsRouterOpts = {}): Router {
+  const taskServiceUrl = opts.taskServiceUrl ?? process.env['TASK_SERVICE_URL'] ?? 'http://localhost:9';
+  const run = opts.runner ?? qualitronRunMeasure;
   const router = Router();
 
   router.post('/v1/quality/runs', async (req, res, next) => {
@@ -37,6 +49,32 @@ export function createRunsRouter(pool: Pool): Router {
          VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
         [run_id, tenantId, measure_ref, measure_version, period_start, period_end],
       );
+
+      // Kick off the measure run in the background (non-awaited): the run sets
+      // its own tenant transaction and transitions running -> complete. On
+      // failure, mark the measure_run row failed.
+      void run(
+        {
+          run_id,
+          tenant_id: tenantId,
+          measure_ref,
+          measure_version,
+          period_start,
+          period_end,
+        },
+        pool,
+        taskServiceUrl,
+      ).catch(async (err) => {
+        console.error('[qualitron] run failed', run_id, err);
+        try {
+          await pool.query(
+            `UPDATE qual.measure_run SET status='failed', completed_at=NOW() WHERE run_id=$1`,
+            [run_id],
+          );
+        } catch {
+          /* swallow: best-effort failure marking */
+        }
+      });
 
       res.status(202).json({ run_id, status: 'accepted' });
     } catch (err) {

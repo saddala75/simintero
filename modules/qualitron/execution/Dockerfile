@@ -6,11 +6,14 @@ RUN npm install -g pnpm@10
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY modules/qualitron/execution/package.json ./modules/qualitron/execution/
+COPY modules/qualitron/gaps/package.json ./modules/qualitron/gaps/
 
 RUN pnpm install --frozen-lockfile --filter @sim/qualitron-execution...
 
 COPY modules/qualitron/execution/ ./modules/qualitron/execution/
-RUN pnpm --filter @sim/qualitron-execution run build
+COPY modules/qualitron/gaps/ ./modules/qualitron/gaps/
+# Build the workspace dependency (@sim/qualitron-gaps) too, so its dist/ exists for the import.
+RUN pnpm --filter @sim/qualitron-execution... run build
 RUN pnpm --filter @sim/qualitron-execution deploy --prod --legacy /app/deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────

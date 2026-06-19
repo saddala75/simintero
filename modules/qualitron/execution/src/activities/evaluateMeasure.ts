@@ -1,3 +1,12 @@
+import type { PoolClient } from 'pg';
+import { ulid } from 'ulid';
+
+export interface MeasureSpec {
+  denominator?: { resource_type: string };
+  numerator: { resource_type: string; code: string };
+  exclusion?: { resource_type: string; code: string };
+}
+
 export interface MeasureResult {
   member_id: string;
   measure_ref: string;
@@ -8,55 +17,63 @@ export interface MeasureResult {
   trace_ref: string | null;
 }
 
-export async function evaluateMeasure(
-  memberId: string,
-  measureRef: string,
-  measureVersion: string,
+async function matchingResources(
+  client: PoolClient,
+  memberRef: string,
+  resourceType: string,
+  code: string,
   periodStart: string,
   periodEnd: string,
-  digicoreUrl: string,
-): Promise<MeasureResult | null> {
-  try {
-    const res = await fetch(`${digicoreUrl}/v1/runtime/evaluate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        measure_ref: measureRef,
-        measure_version: measureVersion,
-        member_id: memberId,
-        period_start: periodStart,
-        period_end: periodEnd,
-        evidence_query: {
-          fabric_filter: { member_id: memberId, period: { start: periodStart, end: periodEnd } },
-        },
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
+): Promise<string[]> {
+  const { rows } = await client.query<{ fhir_id: string }>(
+    `SELECT fhir_id FROM fabric.resource
+     WHERE tenant_id = current_setting('sim.tenant_id', true)
+       AND member_ref = $1 AND resource_type = $2
+       AND content->'code'->'coding'->0->>'code' = $3
+       AND last_updated >= $4::timestamptz AND last_updated <= $5::timestamptz`,
+    [memberRef, resourceType, code, periodStart, periodEnd],
+  );
+  return rows.map((r) => r.fhir_id);
+}
 
-    if (!res.ok) return null;
-
-    const data = await res.json() as {
-      numerator: boolean;
-      denominator: boolean;
-      exclusion?: boolean;
-      evidence_refs?: string[];
-      trace_ref?: string;
-    };
-
-    if (typeof data.numerator !== 'boolean' || typeof data.denominator !== 'boolean') {
-      return null;
-    }
-
-    return {
-      member_id: memberId,
-      measure_ref: measureRef,
-      numerator: data.numerator,
-      denominator: data.denominator,
-      exclusion: data.exclusion ?? false,
-      evidence_refs: data.evidence_refs ?? [],
-      trace_ref: data.trace_ref ?? null,
-    };
-  } catch {
-    return null;
+/** Evaluate a measure for one member against fabric.resource (self-contained, no digicore). */
+export async function evaluateMeasure(
+  client: PoolClient,
+  memberRef: string,
+  measureRef: string,
+  spec: MeasureSpec,
+  periodStart: string,
+  periodEnd: string,
+): Promise<MeasureResult> {
+  const denominator = true; // member is in the eligible Patient population (fetched as denominator)
+  const numEvidence = await matchingResources(
+    client,
+    memberRef,
+    spec.numerator.resource_type,
+    spec.numerator.code,
+    periodStart,
+    periodEnd,
+  );
+  const numerator = numEvidence.length > 0;
+  let exclusion = false;
+  if (spec.exclusion) {
+    const exEvidence = await matchingResources(
+      client,
+      memberRef,
+      spec.exclusion.resource_type,
+      spec.exclusion.code,
+      periodStart,
+      periodEnd,
+    );
+    exclusion = exEvidence.length > 0;
   }
+  return {
+    member_id: memberRef,
+    measure_ref: measureRef,
+    numerator,
+    denominator,
+    exclusion,
+    evidence_refs: numEvidence,
+    trace_ref: 'qual-trace:' + ulid(),
+  };
 }

@@ -1,18 +1,12 @@
-import type { Pool } from 'pg';
+import type { PoolClient } from 'pg';
 
-export async function fetchEligibleMembers(
-  pool: Pool,
-  periodStart: string,
-  periodEnd: string,
-): Promise<string[]> {
-  const { rows } = await pool.query<{ member_id: string }>(
-    `SELECT DISTINCT member_id
-     FROM ens.case
+/** The denominator population: distinct member_refs of Patient resources in the tenant. */
+export async function fetchEligibleMembers(client: PoolClient): Promise<string[]> {
+  const { rows } = await client.query<{ member_ref: string }>(
+    `SELECT DISTINCT member_ref FROM fabric.resource
      WHERE tenant_id = current_setting('sim.tenant_id', true)
-       AND period_start <= $1
-       AND period_end >= $2
-       AND status IN ('DETERMINED', 'CLOSED')`,
-    [periodEnd, periodStart],
+       AND resource_type = 'Patient' AND member_ref IS NOT NULL
+     ORDER BY member_ref`,
   );
-  return rows.map((r) => r.member_id);
+  return rows.map((r) => r.member_ref);
 }
