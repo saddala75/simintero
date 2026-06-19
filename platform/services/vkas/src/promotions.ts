@@ -1,4 +1,9 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
+
+// Accepts either a connection pool or a pooled client (e.g. from withTenant,
+// which runs inside a transaction with the sim.tenant_id GUC set). Both expose
+// a compatible `.query(...)`.
+type Queryable = Pool | PoolClient;
 
 // Blast-radius threshold — any single artifact with outcome deltas exceeding these
 // values requires an extra clinical-override approval gate before promotion.
@@ -50,7 +55,7 @@ interface ApprovalRow {
 
 export async function evaluateBlastRadius(
   set: PromotionSet,
-  pool: Pool,
+  pool: Queryable,
 ): Promise<BlastRadiusResult> {
   const itemResults: BlastRadiusItemResult[] = [];
 
@@ -93,7 +98,7 @@ export async function evaluateBlastRadius(
 
 export async function applyPromotion(
   set: PromotionSet,
-  pool: Pool,
+  pool: Queryable,
 ): Promise<DiffItem[]> {
   const diffs: DiffItem[] = [];
 

@@ -35,6 +35,8 @@ export class TenantEventPublisher {
 
     const topic = topicFor(eventType);
 
+    await client.query("SELECT set_config('sim.tenant_id', $1, true)", [tenantId]);
+
     await client.query(
       `INSERT INTO shared.outbox (event_id, topic, key, envelope, tenant_id)
        VALUES ($1, $2, $3, $4, $5)

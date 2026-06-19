@@ -1,15 +1,21 @@
 import crypto from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
+import type { PoolClient } from "pg";
 import { resolveEffectiveVersion, type ArtifactRow } from "./resolve.js";
 import { transitionStatus, StatusTransitionError, type ArtifactStatus } from "./lifecycle.js";
 import { evaluateBlastRadius, applyPromotion, type PromotionSet } from "./promotions.js";
+import { withTenant } from "./db/withTenant.js";
+
+function tenantOf(req: Request): string {
+  return (req.header('x-sim-tenant-id') ?? '').trim();
+}
 
 async function currentStatus(
-  pool: { query: (sql: string, params: unknown[]) => Promise<{ rows: { status: string }[] }> },
+  client: { query: (sql: string, params: unknown[]) => Promise<{ rows: { status: string }[] }> },
   url: string,
   version: string,
 ): Promise<string | null> {
-  const { rows } = await pool.query(
+  const { rows } = await client.query(
     `SELECT status FROM vkas.artifact WHERE canonical_url=$1 AND version=$2`, [url, version]);
   return rows[0]?.status ?? null;
 }
@@ -32,14 +38,14 @@ export function createVkasRouter(): Router {
       const content_hash = 'sha256:' + crypto.createHash('sha256')
         .update(JSON.stringify(b['content'])).digest('hex');
       const pool = req.app.locals['pool'];
-      const { rowCount } = await pool.query(
+      const { rowCount } = await withTenant(pool, tenantOf(req), (client: PoolClient) => client.query(
         `INSERT INTO vkas.artifact
            (canonical_url, version, tenant_id, artifact_type, status, content, content_hash, applicability, metadata, created_by)
          VALUES ($1,$2,$3,$4,'draft',$5::jsonb,$6,$7::jsonb,$8::jsonb,$9)
          ON CONFLICT (canonical_url, version) DO NOTHING`,
         [canonical_url, version, tenant_id, b['artifact_type'], JSON.stringify(b['content']), content_hash,
           JSON.stringify(b['applicability'] ?? {}), JSON.stringify(b['metadata'] ?? {}), created_by],
-      );
+      ));
       if (rowCount === 0) {
         res.status(409).json({ error: `artifact ${canonical_url}@${version} already exists` });
         return;
@@ -60,14 +66,14 @@ export function createVkasRouter(): Router {
         return;
       }
       const pool = req.app.locals['pool'];
-      const { rows } = await pool.query(
+      const { rows } = await withTenant(pool, tenantOf(req), (client: PoolClient) => client.query(
         `SELECT canonical_url, version, tenant_id, artifact_type, status,
                 effective_from, effective_to, applicability, content, content_hash,
                 relations, metadata, created_by, created_at
          FROM vkas.artifact
          WHERE canonical_url = $1`,
         [canonical_url],
-      );
+      ));
       const candidates: ArtifactRow[] = rows.map((r: Record<string, unknown>) => ({
         ...r,
         effective_from: r['effective_from'] ? new Date(r['effective_from'] as string) : null,
@@ -100,12 +106,16 @@ export function createVkasRouter(): Router {
     try {
       const { canonical_url, version } = req.body as { canonical_url: string; version: string };
       const pool = req.app.locals['pool'];
-      const cur = await currentStatus(pool, canonical_url, version);
-      if (!cur) { res.status(404).json({ error: 'artifact not found' }); return; }
-      transitionStatus(cur as ArtifactStatus, 'in_review');
-      await pool.query(
-        `UPDATE vkas.artifact SET status='in_review' WHERE canonical_url=$1 AND version=$2`,
-        [canonical_url, version]);
+      const result = await withTenant(pool, tenantOf(req), async (client: PoolClient) => {
+        const cur = await currentStatus(client, canonical_url, version);
+        if (!cur) { return { notFound: true } as const; }
+        transitionStatus(cur as ArtifactStatus, 'in_review');
+        await client.query(
+          `UPDATE vkas.artifact SET status='in_review' WHERE canonical_url=$1 AND version=$2`,
+          [canonical_url, version]);
+        return { notFound: false } as const;
+      });
+      if (result.notFound) { res.status(404).json({ error: 'artifact not found' }); return; }
       res.status(200).json({ canonical_url, version, status: 'in_review' });
     } catch (err) {
       if (err instanceof StatusTransitionError) { res.status(422).json({ error: err.message }); return; }
@@ -118,14 +128,18 @@ export function createVkasRouter(): Router {
     try {
       const { canonical_url, version } = req.body as { canonical_url: string; version: string };
       const pool = req.app.locals['pool'];
-      const cur = await currentStatus(pool, canonical_url, version);
-      if (!cur) { res.status(404).json({ error: 'artifact not found' }); return; }
-      let s: ArtifactStatus = cur as ArtifactStatus;
-      if (s === 'in_review') { transitionStatus(s, 'approved'); s = 'approved'; }
-      transitionStatus(s, 'active');
-      await pool.query(
-        `UPDATE vkas.artifact SET status='active', effective_from=CURRENT_DATE WHERE canonical_url=$1 AND version=$2`,
-        [canonical_url, version]);
+      const result = await withTenant(pool, tenantOf(req), async (client: PoolClient) => {
+        const cur = await currentStatus(client, canonical_url, version);
+        if (!cur) { return { notFound: true } as const; }
+        let s: ArtifactStatus = cur as ArtifactStatus;
+        if (s === 'in_review') { transitionStatus(s, 'approved'); s = 'approved'; }
+        transitionStatus(s, 'active');
+        await client.query(
+          `UPDATE vkas.artifact SET status='active', effective_from=CURRENT_DATE WHERE canonical_url=$1 AND version=$2`,
+          [canonical_url, version]);
+        return { notFound: false } as const;
+      });
+      if (result.notFound) { res.status(404).json({ error: 'artifact not found' }); return; }
       res.status(200).json({ canonical_url, version, status: 'active' });
     } catch (err) {
       if (err instanceof StatusTransitionError) { res.status(422).json({ error: err.message }); return; }
@@ -139,19 +153,28 @@ export function createVkasRouter(): Router {
       const set = req.body as PromotionSet;
       const pool = req.app.locals['pool'];
 
-      const blastResult = await evaluateBlastRadius(set, pool);
-      if (!blastResult.passed) {
+      // Run blast-radius eval + apply in one transaction with the sim.tenant_id
+      // GUC set, so the FORCE-RLS vkas.artifact reads/writes target the right tenant.
+      const result = await withTenant(pool, tenantOf(req), async (client: PoolClient) => {
+        const blastResult = await evaluateBlastRadius(set, client);
+        if (!blastResult.passed) {
+          return { blocked: true, blastResult } as const;
+        }
+        const diff = await applyPromotion(set, client);
+        return { blocked: false, diff } as const;
+      });
+
+      if (result.blocked) {
         res.status(422).json({
           type: 'https://errors.simintero.io/SIM-VKAS-BLAST_RADIUS',
           code: 'SIM-VKAS-BLAST_RADIUS',
           detail: 'Promotion blocked by blast-radius gate',
-          items: blastResult.items.filter(i => !i.passed),
+          items: result.blastResult.items.filter(i => !i.passed),
         });
         return;
       }
 
-      const diff = await applyPromotion(set, pool);
-      res.status(201).json({ status: 'promoted', diff });
+      res.status(201).json({ status: 'promoted', diff: result.diff });
     } catch (err) {
       next(err);
     }

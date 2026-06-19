@@ -4,7 +4,8 @@ import request from 'supertest';
 import { createVkasRouter } from '../router.js';
 
 function appWith(rows: unknown[]) {
-  const pool = { query: vi.fn().mockResolvedValue({ rows }) };
+  const client = { query: vi.fn().mockResolvedValue({ rows }), release: vi.fn() };
+  const pool = { connect: vi.fn(async () => client) };
   const app = express();
   app.use(express.json());
   app.locals['pool'] = pool;

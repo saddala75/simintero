@@ -6,6 +6,7 @@ import {
   type RunMeasureInput,
   type RunMeasureResult,
 } from '../workflows/QualitronRunMeasure.js';
+import { withTenant } from '../db/withTenant.js';
 
 export interface RunsRouterOpts {
   taskServiceUrl?: string;
@@ -43,11 +44,13 @@ export function createRunsRouter(pool: Pool, opts: RunsRouterOpts = {}): Router 
 
       const run_id = ulid();
 
-      await pool.query(
-        `INSERT INTO qual.measure_run
-           (run_id, tenant_id, measure_ref, measure_version, period_start, period_end, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
-        [run_id, tenantId, measure_ref, measure_version, period_start, period_end],
+      await withTenant(pool, tenantId, (client) =>
+        client.query(
+          `INSERT INTO qual.measure_run
+             (run_id, tenant_id, measure_ref, measure_version, period_start, period_end, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
+          [run_id, tenantId, measure_ref, measure_version, period_start, period_end],
+        ),
       );
 
       // Kick off the measure run in the background (non-awaited): the run sets
@@ -67,9 +70,11 @@ export function createRunsRouter(pool: Pool, opts: RunsRouterOpts = {}): Router 
       ).catch(async (err) => {
         console.error('[qualitron] run failed', run_id, err);
         try {
-          await pool.query(
-            `UPDATE qual.measure_run SET status='failed', completed_at=NOW() WHERE run_id=$1`,
-            [run_id],
+          await withTenant(pool, tenantId, (client) =>
+            client.query(
+              `UPDATE qual.measure_run SET status='failed', completed_at=NOW() WHERE run_id=$1`,
+              [run_id],
+            ),
           );
         } catch {
           /* swallow: best-effort failure marking */
@@ -91,9 +96,11 @@ export function createRunsRouter(pool: Pool, opts: RunsRouterOpts = {}): Router 
         return;
       }
 
-      const { rows } = await pool.query(
-        `SELECT * FROM qual.measure_run WHERE run_id = $1 AND tenant_id = $2`,
-        [req.params['runId'], tenantId],
+      const { rows } = await withTenant(pool, tenantId, (client) =>
+        client.query(
+          `SELECT * FROM qual.measure_run WHERE run_id = $1 AND tenant_id = $2`,
+          [req.params['runId'], tenantId],
+        ),
       );
 
       if (!rows[0]) {
