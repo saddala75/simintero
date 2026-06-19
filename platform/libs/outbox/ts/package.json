@@ -11,6 +11,10 @@
     "./relay": {
       "types": "./src/relay.ts",
       "default": "./dist/relay.js"
+    },
+    "./append": {
+      "types": "./src/append.ts",
+      "default": "./dist/append.js"
     }
   },
   "files": ["src", "dist"],
@@ -19,6 +23,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint src/"
+  },
+  "dependencies": {
+    "ulid": "^2.3.0"
   },
   "devDependencies": {
     "vitest": "^2.0.0",
