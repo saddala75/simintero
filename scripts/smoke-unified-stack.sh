@@ -48,7 +48,7 @@ docker compose up -d --wait \
   digicore-runtime document-service \
   interop workflow-engine portal-bff \
   temporal revital-pipeline revital-worker model-gateway \
-  vkas mock-llm
+  vkas mock-llm digicore-authoring digicore-governance
 
 echo "── 3. mint a realm-simintero reviewer JWT ──"
 TOKEN=$(curl -sf -X POST "$KC/realms/simintero/protocol/openid-connect/token" \
@@ -266,5 +266,87 @@ MRI2=$(b2a_eval 72148 '{"conservative_therapy_6wk":true,"neuro_deficit_or_red_fl
 echo "   lumbar-MRI(72148) partial-evidence → ${MRI2}"
 [ "$MRI2" = "not_met False" ] || { echo "❌ b2a: 72148 not_met path failed (got '${MRI2}')" >&2; exit 1; }
 echo "✅ P1-b2a: digicore is data-driven — knee + non-knee rules resolved from VKAS, evaluated correctly"
+
+echo "── 13. P1-b2b: author a rule through the full governance lifecycle ──"
+# Author a BRAND-NEW procedure (CPT 29826 shoulder arthroscopy, NOT in the V018 seed) end to
+# end via the live authoring (:3052) + governance (:3053) services, then prove digicore (:8083)
+# resolves + evaluates the authored rule. Proves author→approve(clinical+compliance,SOD)→activate→
+# digicore-resolves, distinct from the seeded rules.
+python3 - <<'PYEOF'
+import json, sys, time, urllib.request
+AUTH="http://localhost:3052"; GOV="http://localhost:3053"; DIGI="http://localhost:8083"
+def post(url, body):
+    req=urllib.request.Request(url, data=json.dumps(body).encode(),
+        headers={"Content-Type":"application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.status, json.load(r)
+def fail(msg):
+    print("❌ b2b:", msg, file=sys.stderr); sys.exit(1)
+
+CQL = ("library ShoulderArthroscopy version '1.0.0'\n"
+       'parameter "imaging_confirms_pathology" Boolean\n'
+       'parameter "failed_conservative_therapy" Boolean\n'
+       'define "Imaging Confirms Pathology": "imaging_confirms_pathology"\n'
+       'define "Failed Conservative Therapy": "failed_conservative_therapy"\n'
+       'define "Meets All Criteria":\n'
+       '  "Imaging Confirms Pathology" and "Failed Conservative Therapy"')
+
+# 1. author → compile → drafts(cql_library+coverage_rule) → submit both → enqueue
+try:
+    st, rule = post(f"{AUTH}/v1/authoring/rules", {
+        "procedure_code":"29826","slug":"shoulder-arthroscopy","cql":CQL,
+        "pa_required":True,"pins":["urn:sim:policy:shoulder-arthroscopy:1.0.0"],
+        "dtr_package_ref":"urn:sim:dtr:shoulder-arthroscopy:1.0.0",
+        "evidence_requirements":[
+            {"requirement_id":"imaging_confirms_pathology","display":"Imaging confirms pathology","required":True},
+            {"requirement_id":"failed_conservative_therapy","display":"Failed conservative therapy","required":True}],
+        "created_by":"author-x"})
+except Exception as e:
+    fail(f"authoring /rules failed: {e}")
+rid = rule.get("rule_id")
+print(f"   authored rule_id={rid} status={rule.get('status')}")
+if not rid: fail("authoring /rules returned no rule_id")
+
+# 2. governance approvals (SOD: approvers != author-x), 2 distinct gates
+for gate, approver in [("clinical","reviewer-a"), ("compliance","reviewer-b")]:
+    try:
+        st,_ = post(f"{GOV}/v1/governance/approve",
+            {"artifact_id":rid,"gate":gate,"decision":"approved","approver":approver})
+    except Exception as e:
+        fail(f"{gate} approval failed: {e}")
+    print(f"   approved gate={gate} by {approver}")
+
+# 3. activate (both gates ready → both artifacts → active)
+try:
+    st, act = post(f"{GOV}/v1/governance/activate", {"artifact_id":rid})
+except Exception as e:
+    fail(f"activate failed: {e}")
+print(f"   activated: {act}")
+
+# 4. digicore resolves + evaluates the AUTHORED rule
+time.sleep(2)
+try:
+    st, cov = post(f"{DIGI}/v1/runtime/coverage-discovery", {"service_code":"29826","procedure_code":"29826"})
+except Exception as e:
+    fail(f"coverage-discovery failed: {e}")
+print(f"   coverage-discovery(29826).pa_required={cov.get('pa_required')}")
+if cov.get("pa_required") is not True: fail(f"authored rule 29826 not resolvable (pa_required={cov.get('pa_required')})")
+try:
+    st, ev = post(f"{DIGI}/v1/runtime/evaluate", {"case_id":"s","service_code":"29826","pins":[],
+        "evidence":{"imaging_confirms_pathology":True,"failed_conservative_therapy":True}})
+except Exception as e:
+    fail(f"evaluate failed: {e}")
+outcome=ev.get("outcome"); eligible=ev.get("auto_determination",{}).get("eligible")
+print(f"   evaluate(29826) outcome={outcome} eligible={eligible}")
+if not (outcome=="meets_all" and eligible is True):
+    fail(f"authored rule 29826 did not evaluate to meets_all/eligible (got {outcome}/{eligible})")
+print("✅ P1-b2b: rule authored → approved (clinical+compliance) → activated → digicore resolves + evaluates it")
+PYEOF
+if [ $? -ne 0 ]; then
+  echo "   --- digicore-authoring logs ---" >&2; docker compose logs digicore-authoring 2>&1 | tail -20 >&2
+  echo "   --- digicore-governance logs ---" >&2; docker compose logs digicore-governance 2>&1 | tail -20 >&2
+  echo "   --- vkas logs ---" >&2; docker compose logs vkas 2>&1 | tail -15 >&2
+  exit 1
+fi
 
 echo "✅ unified-stack smoke PASSED"
