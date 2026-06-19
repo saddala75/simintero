@@ -48,7 +48,7 @@ docker compose up -d --wait \
   digicore-runtime document-service \
   interop workflow-engine portal-bff \
   temporal revital-pipeline revital-worker model-gateway \
-  vkas mock-llm digicore-authoring digicore-governance qualitron task-service
+  vkas mock-llm digicore-authoring digicore-governance qualitron task-service terminology-service
 
 echo "── 3. mint a realm-simintero reviewer JWT ──"
 TOKEN=$(curl -sf -X POST "$KC/realms/simintero/protocol/openid-connect/token" \
@@ -413,4 +413,37 @@ echo "   resolved status=${RSTATUS}"
 [ "$RSTATUS" = "resolved" ] || { echo "❌ P1-c: resolve did not set status=resolved (got '${RSTATUS}')" >&2; exit 1; }
 echo "✅ P1-c: quality gap → Task-service task → worklist (assign) → resolved"
 
+echo "── 15. P1-d: terminology service validates codes against seeded value-sets ──"
+TS_BASE="http://localhost:3030"
+KNEE_VS="http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.1498"
+BOGUS_VS="http://example.org/fhir/ValueSet/does-not-exist"
+
+# (a) direct gateway asserts
+SEEDED_CODE=$(curl -sS -o /dev/null -w "%{http_code}" "${TS_BASE}/fhir/ValueSet/\$validate-code?url=${KNEE_VS}")
+BOGUS_CODE=$(curl -sS -o /dev/null -w "%{http_code}" "${TS_BASE}/fhir/ValueSet/\$validate-code?url=${BOGUS_VS}")
+echo "   validate-code seeded=${SEEDED_CODE} ; bogus=${BOGUS_CODE}"
+{ [ "$SEEDED_CODE" = "200" ] && [ "$BOGUS_CODE" = "404" ]; } || { echo "❌ P1-d: validate-code resolvability wrong (seeded=${SEEDED_CODE} bogus=${BOGUS_CODE})" >&2; docker compose logs terminology-service 2>&1 | tail -20 >&2; exit 1; }
+
+MEMBER=$(curl -sS "${TS_BASE}/fhir/ValueSet/\$validate-code?url=${KNEE_VS}&system=http://snomed.info/sct&code=239873007" | python3 -c "import sys,json; ps=json.load(sys.stdin)['parameter']; print(next(p['valueBoolean'] for p in ps if p['name']=='result'))")
+NONMEMBER=$(curl -sS "${TS_BASE}/fhir/ValueSet/\$validate-code?url=${KNEE_VS}&system=http://snomed.info/sct&code=000000" | python3 -c "import sys,json; ps=json.load(sys.stdin)['parameter']; print(next(p['valueBoolean'] for p in ps if p['name']=='result'))")
+echo "   member(239873007)=${MEMBER} ; non-member(000000)=${NONMEMBER}"
+{ [ "$MEMBER" = "True" ] && [ "$NONMEMBER" = "False" ]; } || { echo "❌ P1-d: code membership wrong (member=${MEMBER} non-member=${NONMEMBER})" >&2; exit 1; }
+
+CONCEPTS=$(curl -sS "${TS_BASE}/fhir/ValueSet/\$expand?url=${KNEE_VS}" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['expansion']['contains']))")
+echo "   expand concepts=${CONCEPTS}"
+[ "${CONCEPTS:-0}" -ge 1 ] || { echo "❌ P1-d: \$expand returned no concepts" >&2; exit 1; }
+
+# (b) end-to-end: digicore-authoring validate drives the live terminology service
+VALIDATE_RESP=$(curl -sS -X POST "http://localhost:3052/v1/authoring/validate" \
+  -H 'content-type: application/json' \
+  -d '{"cql":"library SmokeTerminology version '"'"'1.0.0'"'"'\nvalueset \"Knee Conditions\": '"'"'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.1498'"'"'\nvalueset \"Bogus Unseeded\": '"'"'http://example.org/fhir/ValueSet/does-not-exist'"'"'\n"}')
+echo "   authoring validate → ${VALIDATE_RESP}"
+echo "$VALIDATE_RESP" | python3 -c "
+import sys, json
+r = json.load(sys.stdin)
+assert r['valid'] is False, f'expected valid:false, got {r}'
+assert r['unresolvedValueSets'] == ['http://example.org/fhir/ValueSet/does-not-exist'], f'unexpected unresolved set: {r}'
+print('   authoring resolved the seeded value-set and flagged only the bogus one')
+"
+echo "✅ P1-d: terminology service live — code membership + \$expand + authoring \$validate-code wiring"
 echo "✅ unified-stack smoke PASSED"
