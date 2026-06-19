@@ -150,7 +150,7 @@ services:
       context: .
       dockerfile: platform/services/document/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       NODE_ENV: development
@@ -174,7 +174,7 @@ services:
       context: .
       dockerfile: platform/services/model-gateway/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       OPA_URL: http://opa:8181
@@ -206,7 +206,7 @@ services:
       context: .
       dockerfile: platform/services/vkas/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       PORT: "3040"
     ports:
       - "3040:3040"
@@ -227,7 +227,7 @@ services:
       context: .
       dockerfile: platform/services/task-service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       PORT: "3021"
     ports:
       - "3021:3021"
@@ -288,7 +288,7 @@ services:
       context: .
       dockerfile: platform/services/control-plane/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       KEYCLOAK_URL: "${KEYCLOAK_URL:-http://keycloak:8080}"
@@ -315,7 +315,7 @@ services:
       context: .
       dockerfile: modules/revital/pipeline/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       MODEL_GATEWAY_URL: http://model-gateway:3011
@@ -344,7 +344,7 @@ services:
       dockerfile: modules/revital/pipeline/Dockerfile
     command: ["node", "dist/worker.js"]
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       MODEL_GATEWAY_URL: http://model-gateway:3011
@@ -363,7 +363,7 @@ services:
       context: .
       dockerfile: modules/qualitron/execution/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       DIGICORE_RUNTIME_URL: http://digicore-runtime:8083
@@ -389,7 +389,7 @@ services:
       context: .
       dockerfile: modules/claims/service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       CLEARINGHOUSE_URL: "${CLEARINGHOUSE_URL:-}"
@@ -416,7 +416,7 @@ services:
       context: .
       dockerfile: modules/automation/service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       OPA_URL: http://opa:8181
@@ -441,7 +441,7 @@ services:
       context: .
       dockerfile: modules/market-bundles/service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       NODE_ENV: development
@@ -465,7 +465,7 @@ services:
       context: .
       dockerfile: modules/search/query-api/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       SEARCH_INDEX_SIZE: "10000"
@@ -490,7 +490,7 @@ services:
       context: .
       dockerfile: modules/analytics/service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       NODE_ENV: development
@@ -611,7 +611,7 @@ services:
       SERVER_PORT: "8083"
       POSTGRES_URL: jdbc:postgresql://postgres:5432/simintero
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/simintero
-      SPRING_DATASOURCE_USERNAME: sim
+      SPRING_DATASOURCE_USERNAME: sim_app
       SPRING_DATASOURCE_PASSWORD: devpassword
       VKAS_URL: http://vkas:3040
     ports:
