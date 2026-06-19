@@ -30,6 +30,14 @@ jobs:
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+      - name: Apply Flyway migrations to test DB
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}/platform/services/db-migrations/migrations:/flyway/sql:ro" \
+            flyway/flyway:10-alpine \
+            -url=jdbc:postgresql://localhost:5432/simintero_test \
+            -user=postgres -password=test \
+            -locations=filesystem:/flyway/sql -connectRetries=10 migrate
       - run: pnpm rls-harness
         env:
           DATABASE_URL: postgresql://postgres:test@localhost/simintero_test
