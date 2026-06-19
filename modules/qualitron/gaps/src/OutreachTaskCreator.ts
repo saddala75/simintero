@@ -18,7 +18,7 @@ export async function createOutreachTask(
   try {
     const res = await fetch(`${taskServiceUrl}/v1/tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-sim-tenant-id': input.tenant_id },
       body: JSON.stringify({
         task_kind: 'quality-outreach',
         member_id: input.member_id,

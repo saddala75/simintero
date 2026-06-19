@@ -48,7 +48,7 @@ docker compose up -d --wait \
   digicore-runtime document-service \
   interop workflow-engine portal-bff \
   temporal revital-pipeline revital-worker model-gateway \
-  vkas mock-llm digicore-authoring digicore-governance qualitron
+  vkas mock-llm digicore-authoring digicore-governance qualitron task-service
 
 echo "── 3. mint a realm-simintero reviewer JWT ──"
 TOKEN=$(curl -sf -X POST "$KC/realms/simintero/protocol/openid-connect/token" \
@@ -387,5 +387,30 @@ print(f'  denominator={den} numerator={num} rate={num/den:.2f}')
 " || { echo "❌ P1-a: measure_report did not show the expected data-driven result (got '${QRES}')" >&2; docker compose logs qualitron 2>&1 | tail -25 >&2; exit 1; }
 [ "${QGAPS:-0}" -ge 2 ] || { echo "❌ P1-a: expected >=2 open gaps, got '${QGAPS}'" >&2; exit 1; }
 echo "✅ P1-a: Qualitron computed a quality measure end-to-end (4 reports, numerator=2, ${QGAPS} gaps) over seeded FHIR data"
+
+echo "── 14b. P1-c: quality gaps produced Task-service tasks (gap→task→worklist→resolve) ──"
+# With TASK_SERVICE_URL now live, the Qualitron run's OutreachTaskCreator (sending x-sim-tenant-id)
+# created a quality-outreach task per gap in the Task service + linked it via qual.outreach_task_ref.
+# Assert the rows exist (no longer lenient), then exercise the Task API: worklist → assign → resolve.
+TASKSVC="http://localhost:3021"
+OTR=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "SELECT count(*) FROM qual.outreach_task_ref;" 2>/dev/null | tr -d '[:space:]')
+TT=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "SELECT count(*) FROM task.task WHERE task_kind='quality-outreach';" 2>/dev/null | tr -d '[:space:]')
+echo "   outreach_task_ref=${OTR} ; task.task(quality-outreach)=${TT}"
+{ [ "${OTR:-0}" -ge 1 ] && [ "${TT:-0}" -ge 1 ]; } || { echo "❌ P1-c: gap did not create a task (outreach_task_ref=${OTR}, task.task=${TT})" >&2; docker compose logs task-service 2>&1 | tail -20 >&2; docker compose logs qualitron 2>&1 | tail -20 >&2; exit 1; }
+# Task worklist API: list → assign → resolve a quality-outreach task
+TASKID=$(curl -sf "$TASKSVC/v1/tasks?task_kind=quality-outreach&status=open" -H "x-sim-tenant-id: tenant-dev" \
+  | python3 -c "import sys,json; t=json.load(sys.stdin)['tasks']; print(t[0]['task_id'] if t else '')" 2>/dev/null)
+echo "   worklist open task_id=${TASKID}"
+[ -n "$TASKID" ] || { echo "❌ P1-c: worklist returned no open quality-outreach task" >&2; docker compose logs task-service 2>&1 | tail -15 >&2; exit 1; }
+curl -sf -X PATCH "$TASKSVC/v1/tasks/$TASKID" -H "Content-Type: application/json" -H "x-sim-tenant-id: tenant-dev" \
+  -d '{"assignee":"reviewer-a","assignee_queue":"quality"}' -o /dev/null \
+  || { echo "❌ P1-c: assign failed" >&2; exit 1; }
+RSTATUS=$(curl -sf -X PATCH "$TASKSVC/v1/tasks/$TASKID" -H "Content-Type: application/json" -H "x-sim-tenant-id: tenant-dev" \
+  -d '{"status":"resolved"}' | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+echo "   resolved status=${RSTATUS}"
+[ "$RSTATUS" = "resolved" ] || { echo "❌ P1-c: resolve did not set status=resolved (got '${RSTATUS}')" >&2; exit 1; }
+echo "✅ P1-c: quality gap → Task-service task → worklist (assign) → resolved"
 
 echo "✅ unified-stack smoke PASSED"

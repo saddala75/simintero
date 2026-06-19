@@ -222,6 +222,27 @@ services:
     networks:
       - sim-net
 
+  task-service:
+    build:
+      context: .
+      dockerfile: platform/services/task-service/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim:devpassword@postgres:5432/simintero
+      PORT: "3021"
+    ports:
+      - "3021:3021"
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3021/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - sim-net
+
   mock-llm:
     build:
       context: platform/services/mock-llm
@@ -323,6 +344,7 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       DIGICORE_RUNTIME_URL: http://digicore-runtime:8083
+      TASK_SERVICE_URL: http://task-service:3021
       NODE_ENV: development
       PORT: "3015"
     ports:
