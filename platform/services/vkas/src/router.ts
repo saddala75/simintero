@@ -153,19 +153,28 @@ export function createVkasRouter(): Router {
       const set = req.body as PromotionSet;
       const pool = req.app.locals['pool'];
 
-      const blastResult = await evaluateBlastRadius(set, pool);
-      if (!blastResult.passed) {
+      // Run blast-radius eval + apply in one transaction with the sim.tenant_id
+      // GUC set, so the FORCE-RLS vkas.artifact reads/writes target the right tenant.
+      const result = await withTenant(pool, tenantOf(req), async (client: PoolClient) => {
+        const blastResult = await evaluateBlastRadius(set, client);
+        if (!blastResult.passed) {
+          return { blocked: true, blastResult } as const;
+        }
+        const diff = await applyPromotion(set, client);
+        return { blocked: false, diff } as const;
+      });
+
+      if (result.blocked) {
         res.status(422).json({
           type: 'https://errors.simintero.io/SIM-VKAS-BLAST_RADIUS',
           code: 'SIM-VKAS-BLAST_RADIUS',
           detail: 'Promotion blocked by blast-radius gate',
-          items: blastResult.items.filter(i => !i.passed),
+          items: result.blastResult.items.filter(i => !i.passed),
         });
         return;
       }
 
-      const diff = await applyPromotion(set, pool);
-      res.status(201).json({ status: 'promoted', diff });
+      res.status(201).json({ status: 'promoted', diff: result.diff });
     } catch (err) {
       next(err);
     }
