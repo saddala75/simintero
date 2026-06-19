@@ -40,5 +40,43 @@ export function createTaskRouter(): Router {
     }
   });
 
+  router.get('/v1/tasks', async (req, res, next) => {
+    const tenant = tenantOf(req, res);
+    if (!tenant) return;
+    try {
+      const { status, task_kind, assignee, assignee_queue } = req.query as Record<string, string>;
+      const page = Math.max(1, parseInt((req.query['page'] as string) ?? '1', 10) || 1);
+      const pageSize = Math.min(200, Math.max(1, parseInt((req.query['page_size'] as string) ?? '50', 10) || 50));
+      const where: string[] = [];
+      const params: any[] = [];
+      for (const [col, val] of [['status', status], ['task_kind', task_kind], ['assignee', assignee], ['assignee_queue', assignee_queue]] as const) {
+        if (val) { params.push(val); where.push(`${col} = $${params.length}`); }
+      }
+      params.push(pageSize, (page - 1) * pageSize);
+      const sql = `SELECT task_id, task_kind, status, assignee, assignee_queue, due_at, payload, created_at, updated_at, resolved_at
+                   FROM task.task ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+                   ORDER BY due_at NULLS LAST, created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
+      const pool = req.app.locals['pool'];
+      const tasks = await withTenant(pool, tenant, async (c) => (await c.query(sql, params)).rows);
+      res.json({ tasks, page, page_size: pageSize });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/v1/tasks/:id', async (req, res, next) => {
+    const tenant = tenantOf(req, res);
+    if (!tenant) return;
+    try {
+      const pool = req.app.locals['pool'];
+      const row = await withTenant(pool, tenant, async (c) =>
+        (await c.query(`SELECT * FROM task.task WHERE task_id = $1`, [req.params['id']])).rows[0]);
+      if (!row) { res.status(404).json({ code: 'NOT_FOUND', detail: 'task not found' }); return; }
+      res.json(row);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }
