@@ -6,7 +6,28 @@ import { buildIRORouter } from '../routes/iro.js';
 
 function makePool(responses: Array<{ rows: unknown[] }>) {
   let i = 0;
-  return { query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })) } as any;
+  // Outbox writes now go through a withTenant transaction: pool.connect() -> client.query.
+  const client = {
+    query: vi.fn().mockImplementation(() => Promise.resolve({ rows: [] })),
+    release: vi.fn(),
+  };
+  const pool = {
+    query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })),
+    connect: vi.fn().mockImplementation(() => Promise.resolve(client)),
+  } as any;
+  pool.client = client;
+  return pool;
+}
+
+// Extract the domain payload from the canonical envelope written to the outbox on a pooled client.
+function outboxEnvelope(pool: any): Record<string, unknown> {
+  const call = pool.client.query.mock.calls.find(
+    (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('INSERT INTO shared.outbox'),
+  );
+  const params = call[1] as unknown[];
+  // canonical params: [event_id, topic, key, envelope, tenant_id]
+  const envelope = JSON.parse(params[3] as string) as Record<string, unknown>;
+  return envelope['payload'] as Record<string, unknown>;
 }
 function makeApp(pool: ReturnType<typeof makePool>) {
   const app = express();
@@ -17,16 +38,21 @@ function makeApp(pool: ReturnType<typeof makePool>) {
 
 describe('iroRoutingWorkflow', () => {
   it('emits IRO referral outbox event with IDs only (no clinical content)', async () => {
-    const pool = makePool([{ rows: [] }, { rows: [] }]);
+    const pool = makePool([{ rows: [] }]);
     await iroRoutingWorkflow('appeal-uuid', 't1', pool);
 
-    expect(pool.query).toHaveBeenCalledTimes(2);
+    // Outbox INSERT now flows through a pooled client; the ens.case UPDATE stays on pool.query.
+    const clientSqls = pool.client.query.mock.calls.map((c: unknown[]) => c[0] as string);
+    const setConfigIdx = clientSqls.findIndex((s: string) => s.includes("set_config('sim.tenant_id'"));
+    const insertIdx = clientSqls.findIndex((s: string) => s.includes('INSERT INTO shared.outbox'));
+    expect(setConfigIdx).toBeGreaterThanOrEqual(0);
+    expect(insertIdx).toBeGreaterThan(setConfigIdx); // tenant GUC set before the INSERT
+    expect(clientSqls[insertIdx]).toContain('(event_id, topic, key, envelope, tenant_id)');
 
-    const firstCallSql = pool.query.mock.calls[0][0] as string;
-    expect(firstCallSql).toContain('sim.claims.iro');
+    const insertParams = pool.client.query.mock.calls[insertIdx][1] as unknown[];
+    expect(insertParams[1]).toBe('sim.claims.iro'); // topic
 
-    const payloadJson = pool.query.mock.calls[0][1][1] as string;
-    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    const payload = outboxEnvelope(pool);
 
     expect(payload['event_type']).toBe('IROReferred');
     expect(payload['appeal_case_ref']).toBe('appeal-uuid');
@@ -39,25 +65,24 @@ describe('iroRoutingWorkflow', () => {
   });
 
   it('updates ens.case state to IRO_PENDING', async () => {
-    const pool = makePool([{ rows: [] }, { rows: [] }]);
+    const pool = makePool([{ rows: [] }]);
     await iroRoutingWorkflow('appeal-uuid', 't1', pool);
 
-    const secondCallSql = pool.query.mock.calls[1][0] as string;
-    expect(secondCallSql).toContain('IRO_PENDING');
-
-    const secondCallParams = pool.query.mock.calls[1][1] as unknown[];
-    expect(secondCallParams).toContain('appeal-uuid');
+    const updateCall = pool.query.mock.calls.find(
+      (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('IRO_PENDING'),
+    );
+    expect(updateCall).toBeDefined();
+    expect(updateCall![1] as unknown[]).toContain('appeal-uuid');
   });
 
   it('uses IRO_VENDOR_ID from process.env when set', async () => {
     // The workflow reads the env var lazily at call time, so setting it before calling works
     process.env['IRO_VENDOR_ID'] = 'test-iro';
     try {
-      const pool = makePool([{ rows: [] }, { rows: [] }]);
+      const pool = makePool([{ rows: [] }]);
       await iroRoutingWorkflow('appeal-uuid', 't1', pool);
 
-      const payloadJson = pool.query.mock.calls[0][1][1] as string;
-      const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+      const payload = outboxEnvelope(pool);
       expect(payload['iro_vendor_id']).toBe('test-iro');
     } finally {
       delete process.env['IRO_VENDOR_ID'];

@@ -1,5 +1,7 @@
 import express from 'express';
 import type { Pool } from 'pg';
+import { appendEvent } from '@sim/outbox-ts/append';
+import { withTenant } from '../db/withTenant.js';
 
 export function buildIRORouter(pool: Pool): express.Router {
   const router = express.Router();
@@ -31,15 +33,19 @@ export function buildIRORouter(pool: Pool): express.Router {
     );
 
     // Emit lifecycle event
-    await pool.query(
-      `INSERT INTO shared.outbox (tenant_id, topic, payload)
-       VALUES ($1, 'sim.claims.lifecycle', $2)`,
-      [tenantId, JSON.stringify({
-        event_type: 'IRODecisionReceived',
-        appeal_case_ref,
-        decision,
-        iro_vendor_id,
-      })],
+    await withTenant(pool, tenantId, (client) =>
+      appendEvent(client, {
+        topic: 'sim.claims.lifecycle',
+        schemaRef: 'sim.claims.lifecycle/IroRequested/v1',
+        tenantId,
+        payload: {
+          event_type: 'IRODecisionReceived',
+          appeal_case_ref,
+          decision,
+          iro_vendor_id,
+        },
+        correlationId: appeal_case_ref,
+      }),
     );
 
     return res.status(200).json({ appeal_case_ref, decision, new_state: newState });

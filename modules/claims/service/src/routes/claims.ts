@@ -2,6 +2,8 @@ import express from 'express';
 import type { Pool } from 'pg';
 import { ulid } from 'ulid';
 import { ClearinghouseClient } from '@sim/connector-clearinghouse';
+import { appendEvent } from '@sim/outbox-ts/append';
+import { withTenant } from '../db/withTenant.js';
 
 function buildClearinghouseClient(): ClearinghouseClient | null {
   const baseUrl = process.env['CLEARINGHOUSE_URL'];
@@ -61,10 +63,14 @@ export function buildClaimsRouter(pool: Pool): express.Router {
     }
 
     // Emit lifecycle event to outbox
-    await pool.query(
-      `INSERT INTO shared.outbox (tenant_id, topic, envelope)
-       VALUES ($1, 'sim.claims.lifecycle', $2)`,
-      [tenantId, JSON.stringify({ event_type: 'CaseOpened', case_ref: caseId, case_type: 'claim', claim_id: claimId })],
+    await withTenant(pool, tenantId, (client) =>
+      appendEvent(client, {
+        topic: 'sim.claims.lifecycle',
+        schemaRef: 'sim.claims.lifecycle/CaseOpened/v1',
+        tenantId,
+        payload: { event_type: 'CaseOpened', case_ref: caseId, case_type: 'claim', claim_id: claimId },
+        correlationId: caseId,
+      }),
     );
 
     return res.status(201).json({ case_ref: caseId, claim_id: claimId });

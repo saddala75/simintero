@@ -5,7 +5,17 @@ import { buildClaimsRouter } from '../routes/claims.js';
 
 function makePool(responses: Array<{ rows: unknown[] }>) {
   let i = 0;
-  return { query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })) } as any;
+  // Outbox writes now go through a withTenant transaction: pool.connect() -> client.query.
+  const client = {
+    query: vi.fn().mockImplementation(() => Promise.resolve({ rows: [] })),
+    release: vi.fn(),
+  };
+  const pool = {
+    query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })),
+    connect: vi.fn().mockImplementation(() => Promise.resolve(client)),
+  } as any;
+  pool.client = client;
+  return pool;
 }
 
 function makeApp(pool: ReturnType<typeof makePool>) {
@@ -63,10 +73,9 @@ describe('POST / (create claim)', () => {
     expect(typeof res.body.claim_id).toBe('string');
   });
 
-  it('calls pool.query 3 times on valid request (ens.case, claims.claim, outbox)', async () => {
+  it('writes outbox via canonical envelope inside a tenant transaction', async () => {
     const pool = makePool([
       { rows: [{ case_id: 'test-uuid-1234' }] },
-      { rows: [] },
       { rows: [] },
     ]);
     await supertest(makeApp(pool))
@@ -78,7 +87,17 @@ describe('POST / (create claim)', () => {
         service_date_end: '2024-02-15',
         total_billed_usd: '2500.75',
       });
-    expect(pool.query).toHaveBeenCalledTimes(3);
+
+    // ens.case + claims.claim go through pool.query; outbox goes through a pooled client.
+    expect(pool.query).toHaveBeenCalledTimes(2);
+    expect(pool.connect).toHaveBeenCalledTimes(1);
+
+    const clientSqls = pool.client.query.mock.calls.map((c: unknown[]) => c[0] as string);
+    const setConfigIdx = clientSqls.findIndex((s: string) => s.includes("set_config('sim.tenant_id'"));
+    const insertIdx = clientSqls.findIndex((s: string) => s.includes('INSERT INTO shared.outbox'));
+    expect(setConfigIdx).toBeGreaterThanOrEqual(0);
+    expect(insertIdx).toBeGreaterThan(setConfigIdx); // tenant GUC set before the INSERT
+    expect(clientSqls[insertIdx]).toContain('(event_id, topic, key, envelope, tenant_id)');
   });
 });
 
