@@ -920,6 +920,9 @@ importers:
 
   modules/search/indexer:
     dependencies:
+      '@sim/outbox-ts':
+        specifier: workspace:*
+        version: link:../../../platform/libs/outbox/ts
       express:
         specifier: ^4.19.0
         version: 4.22.2

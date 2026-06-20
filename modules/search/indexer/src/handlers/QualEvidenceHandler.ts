@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
+import { appendEvent } from '@sim/outbox-ts/append';
 import type { IndexClient } from '../IndexClient.js';
+import { withTenant } from '../db/withTenant.js';
 
 export interface QualEvidenceEvent {
   event_id: string;
@@ -56,17 +58,19 @@ export async function handleQualEvidenceEvent(
     [event.event_id, event.tenant_id, 'gap', event.gap_id],
   );
 
-  // 6. Emit to outbox
-  await pool.query(
-    `INSERT INTO shared.outbox (tenant_id, topic, payload) VALUES ($1, 'sim.search.indexed', $2)`,
-    [
-      event.tenant_id,
-      JSON.stringify({
+  // 6. Emit to outbox (canonical envelope, tenant-scoped via RLS GUC)
+  await withTenant(pool, event.tenant_id, (client) =>
+    appendEvent(client, {
+      schemaRef: 'sim.search.indexed/QualEvidenceIndexed/v1',
+      tenantId: event.tenant_id,
+      topic: 'sim.search.indexed',
+      correlationId: event.gap_id,
+      payload: {
         event_type: 'EntityIndexed',
         entity_type: 'gap',
         entity_id: event.gap_id,
         source_event_id: event.event_id,
-      }),
-    ],
+      },
+    }),
   );
 }
