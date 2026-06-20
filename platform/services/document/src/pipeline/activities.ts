@@ -1,5 +1,7 @@
 import type { Pool } from 'pg';
+import { appendEvent } from '@sim/outbox-ts/append';
 import type { ObjectStore } from '../store/ObjectStore.js';
+import { withTenant } from '../db/withTenant.js';
 
 export interface ActivityDeps {
   pool: Pool;
@@ -38,10 +40,28 @@ export async function extractTextLayer(deps: ActivityDeps, docId: string): Promi
 }
 
 export async function emitDocumentReady(deps: ActivityDeps, docId: string): Promise<void> {
-  await deps.pool.query(
-    `INSERT INTO shared.outbox (tenant_id, topic, payload)
-     SELECT tenant_id, $1, $2
-     FROM docs.document WHERE doc_id = $3`,
-    ['sim.evidence', JSON.stringify({ kind: 'document', correlation_id: docId }), docId],
+  // Resolve the tenant for this document, then emit a canonical DocumentReady event
+  // via appendEvent (5-column: event_id, topic, key, envelope, tenant_id).
+  //
+  // NOTE (slice 0.4 wiring): docs.document is FORCE-RLS, so under sim_app this lookup
+  // returns 0 rows unless the GUC sim.tenant_id is already set. The Temporal worker
+  // that runs this activity (0.4) must either set the GUC for the lookup connection or
+  // pass the tenant in via ActivityDeps; at that point prefer threading tenantId from
+  // the call site and dropping this lookup entirely.
+  const { rows } = await deps.pool.query(
+    `SELECT tenant_id FROM docs.document WHERE doc_id = $1`,
+    [docId],
+  );
+  const tenantId = rows[0]?.['tenant_id'] as string | undefined;
+  if (!tenantId) return;
+
+  await withTenant(deps.pool, tenantId, (client) =>
+    appendEvent(client, {
+      topic: 'sim.evidence',
+      schemaRef: 'sim.evidence/DocumentReady/v1',
+      tenantId,
+      payload: { kind: 'document', doc_id: docId },
+      correlationId: docId,
+    }),
   );
 }

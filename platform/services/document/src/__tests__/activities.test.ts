@@ -42,13 +42,62 @@ describe('Document pipeline activities', () => {
     expect(updateCall).toBeTruthy();
   });
 
-  it('emitDocumentReady inserts an outbox row with sim.evidence topic', async () => {
-    const deps = makeDeps();
-    (deps.pool.query as ReturnType<typeof vi.fn>).mockResolvedValue({ rows: [] });
+  it('emitDocumentReady writes the canonical 5-column envelope inside withTenant', async () => {
+    const clientQuery = vi.fn().mockResolvedValue({ rows: [] });
+    const release = vi.fn();
+    const poolQuery = vi
+      .fn()
+      // tenant lookup
+      .mockResolvedValueOnce({ rows: [{ tenant_id: 't1' }] });
+    const deps = {
+      pool: {
+        query: poolQuery,
+        connect: vi.fn().mockResolvedValue({ query: clientQuery, release }),
+      } as unknown as import('pg').Pool,
+      store: { put: vi.fn(), get: vi.fn(), delete: vi.fn() },
+      ocrEndpoint: 'http://ocr-mock',
+    } satisfies ActivityDeps;
+
     await emitDocumentReady(deps, 'd1');
-    const insertCall = (deps.pool.query as ReturnType<typeof vi.fn>).mock.calls[0] as unknown[];
-    expect(insertCall[0]).toContain('shared.outbox');
+
+    // tenant lookup ran on the bare pool
+    expect((poolQuery.mock.calls[0] as unknown[])[0]).toContain('SELECT tenant_id FROM docs.document');
+
+    const clientCalls = clientQuery.mock.calls.map((c) => c[0] as string);
+    // GUC is set (set_config) before any INSERT
+    const gucIdx = clientCalls.findIndex((sql) => sql.includes('set_config'));
+    const insertIdx = clientCalls.findIndex((sql) => sql.includes('INSERT INTO shared.outbox'));
+    expect(gucIdx).toBeGreaterThanOrEqual(0);
+    expect(insertIdx).toBeGreaterThan(gucIdx);
+
+    const insertCall = clientQuery.mock.calls[insertIdx] as unknown[];
+    const insertSql = insertCall[0] as string;
+    // canonical 5-column shape, no phantom payload column
+    expect(insertSql).toContain('(event_id, topic, key, envelope, tenant_id)');
+    expect(insertSql).not.toMatch(/\bpayload\b/);
+
     const params = insertCall[1] as unknown[];
-    expect(params[0]).toContain('sim.evidence');
+    expect(params[1]).toBe('sim.evidence'); // topic
+    expect(params[4]).toBe('t1'); // tenant_id
+    const envelope = JSON.parse(params[3] as string) as Record<string, unknown>;
+    expect(envelope['schema_ref']).toBe('sim.evidence/DocumentReady/v1');
+    expect(envelope['payload']).toEqual({ kind: 'document', doc_id: 'd1' });
+    expect(release).toHaveBeenCalled();
+  });
+
+  it('emitDocumentReady is a no-op when the document/tenant is not found', async () => {
+    const connect = vi.fn();
+    const deps = {
+      pool: {
+        query: vi.fn().mockResolvedValue({ rows: [] }),
+        connect,
+      } as unknown as import('pg').Pool,
+      store: { put: vi.fn(), get: vi.fn(), delete: vi.fn() },
+      ocrEndpoint: 'http://ocr-mock',
+    } satisfies ActivityDeps;
+
+    await emitDocumentReady(deps, 'missing');
+    // never opened a tenant-scoped connection -> no outbox write
+    expect(connect).not.toHaveBeenCalled();
   });
 });

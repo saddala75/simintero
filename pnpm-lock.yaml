@@ -1102,6 +1102,9 @@ importers:
 
   platform/services/document:
     dependencies:
+      '@sim/outbox-ts':
+        specifier: workspace:*
+        version: link:../../libs/outbox/ts
       '@temporalio/activity':
         specifier: ^1.10.0
         version: 1.18.1
