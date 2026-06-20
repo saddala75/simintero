@@ -5,7 +5,17 @@ import { buildDispositionsRouter } from '../routes/dispositions.js';
 
 function makePool(responses: Array<{ rows: unknown[] }>) {
   let i = 0;
-  return { query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })) };
+  // Outbox writes now go through a withTenant transaction: pool.connect() -> client.query.
+  const client = {
+    query: vi.fn().mockImplementation(() => Promise.resolve({ rows: [] })),
+    release: vi.fn(),
+  };
+  const pool = {
+    query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })),
+    connect: vi.fn().mockImplementation(() => Promise.resolve(client)),
+  } as any;
+  pool.client = client;
+  return pool;
 }
 function makeApp(pool: ReturnType<typeof makePool>) {
   const app = express();
@@ -103,13 +113,11 @@ describe('POST / dispositions', () => {
   });
 
   it('200 with status=dry_run when entitlement absent and OPA allows', async () => {
-    // Pool call ordering:
+    // Pool call ordering (outbox now writes via pooled client, not pool.query):
     // Call 0: ctrl.entitlement (for OPA input + dry_run) → rows: [] → live = false → dry_run = true
-    // Call 1: shared.outbox INSERT
-    // Call 2: automation.disposition_log INSERT
+    // Call 1: automation.disposition_log INSERT
     const pool = makePool([
       { rows: [] }, // entitlement (live disabled → dry_run)
-      { rows: [] }, // outbox insert
       { rows: [] }, // disposition_log insert
     ]);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -137,15 +145,13 @@ describe('POST / dispositions', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       json: () => Promise.resolve({ result: { allow: true, deny_reasons: [] } }),
     }));
-    // Pool calls in live path:
+    // Pool calls in live path (outbox now writes via pooled client, not pool.query):
     // 0: ctrl.entitlement (for OPA input + dry_run) → value: true
     // 1: UPDATE ens.case → { rows: [] }
-    // 2: shared.outbox INSERT → { rows: [] }
-    // 3: automation.disposition_log INSERT → { rows: [] }
+    // 2: automation.disposition_log INSERT → { rows: [] }
     const pool = makePool([
       { rows: [{ value: true }] },  // entitlement: live enabled
       { rows: [] },                  // UPDATE ens.case
-      { rows: [] },                  // outbox INSERT
       { rows: [] },                  // disposition_log INSERT
     ]);
     const app = makeApp(pool);
@@ -159,6 +165,33 @@ describe('POST / dispositions', () => {
     // Verify UPDATE ens.case was called
     const calls = (pool.query as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0] as string);
     expect(calls.some((sql: string) => sql.includes('UPDATE ens.case'))).toBe(true);
+  });
+
+  it('writes the disposition outbox event via canonical envelope inside a tenant transaction', async () => {
+    const pool = makePool([
+      { rows: [] }, // entitlement (live disabled → dry_run)
+      { rows: [] }, // disposition_log insert
+    ]);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ result: { allow: true, deny_reasons: [] } }),
+    }));
+    const app = makeApp(pool);
+    await supertest(app)
+      .post('/')
+      .set('x-sim-tenant-id', 'tenant-abc')
+      .set('x-sim-user-id', 'system-agent-1')
+      .send(validBody);
+
+    expect(pool.connect).toHaveBeenCalledTimes(1);
+    const clientSqls = pool.client.query.mock.calls.map((c: unknown[]) => c[0] as string);
+    const setConfigIdx = clientSqls.findIndex((s: string) => s.includes("set_config('sim.tenant_id'"));
+    const insertIdx = clientSqls.findIndex((s: string) => s.includes('INSERT INTO shared.outbox'));
+    expect(setConfigIdx).toBeGreaterThanOrEqual(0);
+    expect(insertIdx).toBeGreaterThan(setConfigIdx); // tenant GUC set before the INSERT
+    expect(clientSqls[insertIdx]).toContain('(event_id, topic, key, envelope, tenant_id)');
+    // No outbox write should leak onto the raw pool (would bypass the tenant GUC / RLS).
+    const poolSqls = (pool.query as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0] as string);
+    expect(poolSqls.some((s: string) => s.includes('shared.outbox'))).toBe(false);
   });
 
   it('400 when required fields are missing', async () => {

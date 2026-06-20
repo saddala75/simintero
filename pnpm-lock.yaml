@@ -454,6 +454,9 @@ importers:
 
   modules/automation/service:
     dependencies:
+      '@sim/outbox-ts':
+        specifier: workspace:*
+        version: link:../../../platform/libs/outbox/ts
       express:
         specifier: ^4.19.0
         version: 4.22.2
@@ -665,6 +668,9 @@ importers:
 
   modules/market-bundles/service:
     dependencies:
+      '@sim/outbox-ts':
+        specifier: workspace:*
+        version: link:../../../platform/libs/outbox/ts
       express:
         specifier: ^4.19.0
         version: 4.22.2
@@ -871,6 +877,9 @@ importers:
 
   modules/revital/pipeline:
     dependencies:
+      '@sim/outbox-ts':
+        specifier: workspace:*
+        version: link:../../../platform/libs/outbox/ts
       '@sim/revital-extraction':
         specifier: workspace:*
         version: link:../extraction
@@ -6402,14 +6411,14 @@ snapshots:
       chai: 5.3.3
       tinyrainbow: 1.2.0
 
-  '@vitest/mocker@2.1.9(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(vite@5.4.21(@types/node@20.19.43)(terser@5.48.0))':
+  '@vitest/mocker@2.1.9(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(vite@5.4.21(@types/node@25.9.3)(terser@5.48.0))':
     dependencies:
       '@vitest/spy': 2.1.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
       msw: 2.14.6(@types/node@20.19.43)(typescript@5.9.3)
-      vite: 5.4.21(@types/node@20.19.43)(terser@5.48.0)
+      vite: 5.4.21(@types/node@25.9.3)(terser@5.48.0)
 
   '@vitest/mocker@2.1.9(msw@2.14.6(@types/node@25.9.3)(typescript@5.9.3))(vite@5.4.21(@types/node@25.9.3)(terser@5.48.0))':
     dependencies:
@@ -8523,7 +8532,7 @@ snapshots:
   vitest@2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(terser@5.48.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(vite@5.4.21(@types/node@20.19.43)(terser@5.48.0))
+      '@vitest/mocker': 2.1.9(msw@2.14.6(@types/node@20.19.43)(typescript@5.9.3))(vite@5.4.21(@types/node@25.9.3)(terser@5.48.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9

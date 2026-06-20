@@ -1,6 +1,8 @@
 import express from 'express';
 import type { Pool } from 'pg';
 import { ulid } from 'ulid';
+import { appendEvent } from '@sim/outbox-ts/append';
+import { withTenant } from '../db/withTenant.js';
 
 const ADVERSE_OUTCOMES = new Set(['deny', 'partial_deny', 'modify']);
 const OPA_GATEWAY_URL = process.env['OPA_GATEWAY_URL'] ?? 'http://localhost:8181';
@@ -90,9 +92,14 @@ export function buildDispositionsRouter(pool: Pool): express.Router {
       );
     }
 
-    await pool.query(
-      `INSERT INTO shared.outbox (tenant_id, topic, payload) VALUES ($1, 'sim.automation.disposition', $2)`,
-      [tenantId, JSON.stringify({ event_type: 'DispositionAttempted', case_ref, proposed_outcome, dry_run: dryRun, disposition_id: dispositionId })],
+    await withTenant(pool, tenantId, (client) =>
+      appendEvent(client, {
+        topic: 'sim.automation.disposition',
+        schemaRef: 'sim.automation.disposition/DispositionAttempted/v1',
+        tenantId,
+        payload: { event_type: 'DispositionAttempted', case_ref, proposed_outcome, dry_run: dryRun, disposition_id: dispositionId },
+        correlationId: dispositionId,
+      }),
     );
 
     await pool.query(

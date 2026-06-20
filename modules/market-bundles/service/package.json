@@ -13,7 +13,8 @@
   "dependencies": {
     "express": "^4.19.0",
     "pg": "^8.12.0",
-    "ulid": "^2.3.0"
+    "ulid": "^2.3.0",
+    "@sim/outbox-ts": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^2.0.0",
