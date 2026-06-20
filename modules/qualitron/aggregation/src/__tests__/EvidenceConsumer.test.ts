@@ -42,12 +42,31 @@ const baseCaseEvent: CaseLifecycleEvent = {
 
 describe('handleEvidenceEvent', () => {
   it('skips processing if event is already in the outbox (idempotency)', async () => {
-    const pool = makePool([{ rows: [{}] }]); // SELECT returns a row — already processed
+    // The idempotency SELECT now runs on the withTenant client (client.query),
+    // reading the canonical envelope column. Make it return a row.
+    const pool = makePool();
+    pool.__client.query.mockImplementation((sql: string) =>
+      /SELECT 1 FROM shared\.outbox/.test(sql)
+        ? Promise.resolve({ rows: [{}] }) // already processed
+        : Promise.resolve({ rows: [] }),
+    );
     await handleEvidenceEvent(baseEvidenceEvent, pool);
 
-    expect(pool.query).toHaveBeenCalledTimes(1); // only the SELECT, no outbox write
-    expect(pool.query.mock.calls[0]![0]).toContain('SELECT 1');
-    expect(pool.connect).not.toHaveBeenCalled();
+    // No idempotency SELECT on the bare pool — it routes through withTenant.
+    expect(pool.query).not.toHaveBeenCalled();
+    expect(pool.connect).toHaveBeenCalledTimes(1);
+
+    const calls = pool.__client.query.mock.calls as Array<[string, unknown[]?]>;
+    // Idempotency read uses the envelope column with the tenant GUC set (BEGIN/set_config first).
+    const select = calls.find((c) => /SELECT 1 FROM shared\.outbox/.test(c[0]))!;
+    expect(select).toBeDefined();
+    expect(select[0]).toContain("envelope->'payload'->>'source_event_id'");
+    expect(select[0]).not.toMatch(/payload->>'source_event_id'/); // not the dropped column
+    // SELECT runs after the GUC is set inside the transaction
+    expect(calls[0]![0]).toBe('BEGIN');
+    expect(calls[1]![0]).toContain('set_config');
+    // No outbox INSERT was attempted (skipped)
+    expect(calls.some((c) => /INSERT INTO shared\.outbox/.test(c[0]))).toBe(false);
   });
 
   it('does nothing for DocumentQuarantined events', async () => {
@@ -58,21 +77,25 @@ describe('handleEvidenceEvent', () => {
     };
     await handleEvidenceEvent(quarantinedEvent, pool);
 
-    // SELECT runs (idempotency check), but no outbox write
-    expect(pool.query).toHaveBeenCalledTimes(1);
-    expect(pool.query.mock.calls[0]![0]).toContain('SELECT 1');
+    // Non-DocumentReady returns before any DB access.
+    expect(pool.query).not.toHaveBeenCalled();
     expect(pool.connect).not.toHaveBeenCalled();
   });
 
   it('emits a canonical EvidenceIndexed outbox envelope for DocumentReady', async () => {
-    const pool = makePool([{ rows: [] }]); // not already processed
+    const pool = makePool(); // idempotency SELECT returns [] (no row) by default
     await handleEvidenceEvent(baseEvidenceEvent, pool);
 
-    // pool.query: SELECT only. Outbox INSERT routes through pool.connect -> client.query.
-    expect(pool.query).toHaveBeenCalledTimes(1);
+    // Everything (idempotency SELECT + INSERT) routes through pool.connect -> client.query.
+    expect(pool.query).not.toHaveBeenCalled();
     expect(pool.connect).toHaveBeenCalledTimes(1);
 
     const calls = pool.__client.query.mock.calls as Array<[string, unknown[]?]>;
+
+    // Idempotency read uses the envelope column inside the tenant transaction.
+    const select = calls.find((c) => /SELECT 1 FROM shared\.outbox/.test(c[0]))!;
+    expect(select).toBeDefined();
+    expect(select[0]).toContain("envelope->'payload'->>'source_event_id'");
 
     // withTenant opens a transaction and sets the RLS GUC on the same client
     expect(calls[0]![0]).toBe('BEGIN');
