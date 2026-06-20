@@ -2,6 +2,8 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import type { Pool } from 'pg';
 import { ulid } from 'ulid';
+import { appendEvent } from '@sim/outbox-ts/append';
+import { withTenant } from '../db/withTenant.js';
 
 export function createSupplementalRouter(pool: Pool): Router {
   const router = Router();
@@ -31,18 +33,18 @@ export function createSupplementalRouter(pool: Pool): Router {
 
     const docId = ulid();
 
-    await pool.query(
-      `INSERT INTO shared.outbox (tenant_id, topic, payload)
-       VALUES ($1, $2, $3)`,
-      [
+    await withTenant(pool, tenantId, (client) =>
+      appendEvent(client, {
+        schemaRef: 'sim.qual.supplemental/SupplementalIngested/v1',
         tenantId,
-        'sim.qual.supplemental',
-        JSON.stringify({
+        topic: 'sim.qual.supplemental',
+        correlationId: member_id,
+        payload: {
           doc_id: docId,
           member_id,
           filename: filename ?? null,
-        }),
-      ],
+        },
+      }),
     );
 
     res.status(202).json({ doc_id: docId, status: 'accepted' });
