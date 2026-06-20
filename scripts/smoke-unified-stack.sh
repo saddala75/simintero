@@ -48,7 +48,7 @@ docker compose up -d --wait \
   digicore-runtime document-service \
   interop workflow-engine portal-bff \
   temporal revital-pipeline revital-worker model-gateway \
-  vkas mock-llm digicore-authoring digicore-governance qualitron task-service terminology-service
+  vkas mock-llm digicore-authoring digicore-governance qualitron task-service terminology-service relay
 
 echo "── 3. mint a realm-simintero reviewer JWT ──"
 TOKEN=$(curl -sf -X POST "$KC/realms/simintero/protocol/openid-connect/token" \
@@ -446,4 +446,19 @@ assert r['unresolvedValueSets'] == ['http://example.org/fhir/ValueSet/does-not-e
 print('   authoring resolved the seeded value-set and flagged only the bogus one')
 "
 echo "✅ P1-d: terminology service live — code membership + \$expand + authoring \$validate-code wiring"
+echo "── 16. P0-0.2: relay ships substrate events to the broker ──"
+RELAY_TASK=$(curl -sS -XPOST localhost:3021/v1/tasks -H 'content-type: application/json' -H 'x-sim-tenant-id: tenant-dev' \
+  -d '{"task_kind":"relay-smoke","payload":{"probe":true}}')
+echo "   created task: ${RELAY_TASK}"
+PUB=0
+for i in $(seq 1 10); do
+  PUB=$(docker compose exec -T postgres psql -U sim -d simintero -tAc "SELECT count(*) FROM shared.outbox WHERE topic='sim.task.lifecycle' AND published_at IS NOT NULL;")
+  [ "${PUB:-0}" -ge 1 ] && break; sleep 1
+done
+echo "   sim.task.lifecycle rows published_at set: ${PUB}"
+{ [ "${PUB:-0}" -ge 1 ]; } || { echo "❌ P0-0.2: relay did not drain sim.task.lifecycle" >&2; docker compose logs relay 2>&1 | tail -30 >&2; exit 1; }
+BROKER_MSG=$(docker compose exec -T redpanda rpk topic consume sim.task.lifecycle --num 1 --offset oldest --format '%v\n' 2>/dev/null | head -1)
+echo "   broker envelope: ${BROKER_MSG}"
+echo "$BROKER_MSG" | python3 -c "import sys,json; e=json.load(sys.stdin); assert e['schema_ref'].startswith('sim.task.lifecycle/'), e; print('   broker carries a sim.task.lifecycle envelope')"
+echo "✅ P0-0.2: substrate event flowed producer → simintero.shared.outbox → relay → redpanda"
 echo "✅ unified-stack smoke PASSED"
