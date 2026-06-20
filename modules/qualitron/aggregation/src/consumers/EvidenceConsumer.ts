@@ -1,4 +1,6 @@
 import type { Pool } from 'pg';
+import { appendEvent } from '@sim/outbox-ts/append';
+import { withTenant } from '../db/withTenant.js';
 
 export interface EvidenceEvent {
   event_id: string;
@@ -13,27 +15,30 @@ export async function handleEvidenceEvent(
   event: EvidenceEvent,
   pool: Pool,
 ): Promise<void> {
-  // Idempotency: skip if already processed
-  const { rows: seen } = await pool.query(
-    `SELECT 1 FROM shared.outbox WHERE payload->>'source_event_id' = $1 LIMIT 1`,
-    [event.event_id],
-  );
-  if (seen.length > 0) return;
-
   if (event.event_type !== 'DocumentReady') return;
 
-  await pool.query(
-    `INSERT INTO shared.outbox (tenant_id, topic, payload)
-     VALUES ($1, $2, $3)`,
-    [
-      event.tenant_id,
-      'sim.qual.evidence',
-      JSON.stringify({
+  await withTenant(pool, event.tenant_id, async (client) => {
+    // Idempotency: skip if already processed. Read the payload from the canonical
+    // `envelope` JSONB column (the dropped `payload` column no longer exists), and
+    // run inside withTenant so the tenant GUC is set and FORCE-RLS lets sim_app
+    // see this tenant's prior outbox rows.
+    const { rows: seen } = await client.query(
+      `SELECT 1 FROM shared.outbox WHERE envelope->'payload'->>'source_event_id' = $1 LIMIT 1`,
+      [event.event_id],
+    );
+    if (seen.length > 0) return;
+
+    await appendEvent(client, {
+      schemaRef: 'sim.qual.evidence/EvidenceIndexed/v1',
+      tenantId: event.tenant_id,
+      topic: 'sim.qual.evidence',
+      correlationId: event.correlation_id,
+      payload: {
         event_type: 'EvidenceIndexed',
         source_event_id: event.event_id,
         doc_id: event.doc_id,
         case_ref: event.correlation_id,
-      }),
-    ],
-  );
+      },
+    });
+  });
 }

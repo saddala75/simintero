@@ -19,7 +19,7 @@ export async function relayBatch(
 ): Promise<number> {
   return db.transaction(async (client) => {
     const { rows } = await client.query(
-      `SELECT seq, topic, key, envelope
+      `SELECT seq, topic, key, envelope::text AS envelope
        FROM shared.outbox
        WHERE published_at IS NULL
        ORDER BY seq

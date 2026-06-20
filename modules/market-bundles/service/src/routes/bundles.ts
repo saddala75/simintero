@@ -1,6 +1,8 @@
 import express from 'express';
 import type { Pool } from 'pg';
 import { ulid } from 'ulid';
+import { appendEvent } from '@sim/outbox-ts/append';
+import { withTenant } from '../db/withTenant.js';
 
 export function buildBundlesRouter(pool: Pool): express.Router {
   const router = express.Router();
@@ -97,10 +99,14 @@ export function buildBundlesRouter(pool: Pool): express.Router {
       );
     }
 
-    await pool.query(
-      `INSERT INTO shared.outbox (tenant_id, topic, payload)
-       VALUES ($1, 'sim.market.bundle.provisioned', $2)`,
-      [tenantId, JSON.stringify({ event_type: 'BundleProvisioned', bundle_ref: bundleRef, bundle_id: bundleId, lob: 'MA', status: 'draft' })],
+    await withTenant(pool, tenantId, (client) =>
+      appendEvent(client, {
+        topic: 'sim.market.bundle.provisioned',
+        schemaRef: 'sim.market.bundle/BundleProvisioned/v1',
+        tenantId,
+        payload: { event_type: 'BundleProvisioned', bundle_ref: bundleRef, bundle_id: bundleId, lob: 'MA', status: 'draft' },
+        correlationId: bundleId,
+      }),
     );
 
     return res.status(201).json({

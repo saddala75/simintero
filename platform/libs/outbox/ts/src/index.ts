@@ -1,6 +1,6 @@
 import type { DbClient, TenantDb } from "./types.js";
 
-export type { DbClient, TenantDb } from "./types.js";
+export type { DbClient, TenantDb, RelayDb } from "./types.js";
 
 export interface EventActor {
   type: "human" | "service" | "model_agent";

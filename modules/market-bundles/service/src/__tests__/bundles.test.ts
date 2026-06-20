@@ -5,7 +5,17 @@ import { buildBundlesRouter } from '../routes/bundles.js';
 
 function makePool(responses: Array<{ rows: unknown[] }>) {
   let i = 0;
-  return { query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })) };
+  // Outbox writes now go through a withTenant transaction: pool.connect() -> client.query.
+  const client = {
+    query: vi.fn().mockImplementation(() => Promise.resolve({ rows: [] })),
+    release: vi.fn(),
+  };
+  const pool = {
+    query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })),
+    connect: vi.fn().mockImplementation(() => Promise.resolve(client)),
+  } as any;
+  pool.client = client;
+  return pool;
 }
 function makeApp(pool: ReturnType<typeof makePool>) {
   const app = express();
@@ -138,7 +148,7 @@ describe('POST /:bundleRef/provision', () => {
       { rows: [] },                                  // INSERT into market.bundle_artifact
       { rows: [{ artifact_id: 'art-002' }] },        // vkas lookup for second artifact
       { rows: [] },                                  // INSERT into market.bundle_artifact
-      { rows: [] },                                  // INSERT into shared.outbox
+      // outbox INSERT now goes via the pooled client (withTenant), not pool.query
     ]);
     const app = makeApp(pool);
 
@@ -161,6 +171,17 @@ describe('POST /:bundleRef/provision', () => {
     expect(res.body.lob).toBe('MA');
     expect(res.body.bundle_ref).toBe('ma-starter');
     expect(res.body.bundle_id).toBeDefined();
+
+    // Outbox write goes through a tenant transaction with the canonical envelope.
+    expect(pool.connect).toHaveBeenCalledTimes(1);
+    const clientSqls = pool.client.query.mock.calls.map((c: unknown[]) => c[0] as string);
+    const setConfigIdx = clientSqls.findIndex((s: string) => s.includes("set_config('sim.tenant_id'"));
+    const insertIdx = clientSqls.findIndex((s: string) => s.includes('INSERT INTO shared.outbox'));
+    expect(setConfigIdx).toBeGreaterThanOrEqual(0);
+    expect(insertIdx).toBeGreaterThan(setConfigIdx);
+    expect(clientSqls[insertIdx]).toContain('(event_id, topic, key, envelope, tenant_id)');
+    const poolSqls = (pool.query as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0] as string);
+    expect(poolSqls.some((s: string) => s.includes('shared.outbox'))).toBe(false);
   });
 
   it('skips missing artifacts gracefully and still provisions the bundle', async () => {
@@ -168,7 +189,7 @@ describe('POST /:bundleRef/provision', () => {
       { rows: [] },           // existing check — not found
       { rows: [] },           // INSERT into market.bundle
       { rows: [] },           // vkas lookup returns nothing — artifact missing
-      { rows: [] },           // INSERT into shared.outbox
+      // outbox INSERT now goes via the pooled client (withTenant), not pool.query
     ]);
     const app = makeApp(pool);
 

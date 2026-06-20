@@ -4,15 +4,24 @@ import request from 'supertest';
 import type { Pool } from 'pg';
 import { createSupplementalRouter } from '../routes/supplemental.js';
 
-function makePool(): Pool {
-  return {
+// Pool mock: the route's outbox write routes through pool.connect -> client.query
+// (withTenant + appendEvent → canonical envelope, RLS GUC set on the same client).
+function makePool() {
+  const client = {
     query: vi.fn().mockResolvedValue({ rows: [] }),
-  } as unknown as Pool;
+    release: vi.fn(),
+  };
+  const pool = {
+    query: vi.fn().mockResolvedValue({ rows: [] }),
+    connect: vi.fn().mockResolvedValue(client),
+  } as any;
+  pool.__client = client;
+  return pool as Pool & { __client: typeof client; connect: ReturnType<typeof vi.fn> };
 }
 
 describe('POST /v1/quality/supplemental', () => {
   let app: ReturnType<typeof express>;
-  let pool: Pool;
+  let pool: ReturnType<typeof makePool>;
 
   beforeEach(() => {
     pool = makePool();
@@ -62,16 +71,35 @@ describe('POST /v1/quality/supplemental', () => {
     expect(res.body.doc_id.length).toBeGreaterThan(0);
     expect(res.body.status).toBe('accepted');
 
-    const queryMock = pool.query as ReturnType<typeof vi.fn>;
-    expect(queryMock).toHaveBeenCalledTimes(1);
-    const [, insertArgs] = queryMock.mock.calls[0]! as [string, unknown[]];
-    expect(insertArgs![0]).toBe('tenant_abc');
-    expect(insertArgs![1]).toBe('sim.qual.supplemental');
-    const payload = JSON.parse(insertArgs![2] as string) as Record<string, unknown>;
+    // Outbox write routes through pool.connect -> client.query (withTenant).
+    expect(pool.connect).toHaveBeenCalledTimes(1);
+    const calls = pool.__client.query.mock.calls as Array<[string, unknown[]?]>;
+
+    // withTenant sets the RLS GUC on the same client before the INSERT
+    const setConfig = calls.find((c) => /set_config/.test(c[0]))!;
+    expect(setConfig[0]).toContain('sim.tenant_id');
+    expect(setConfig[1]).toEqual(['tenant_abc']);
+
+    // canonical 5-column INSERT — no phantom payload column
+    const insert = calls.find((c) => /INSERT INTO shared\.outbox/.test(c[0]))!;
+    expect(insert).toBeDefined();
+    expect(insert[0]).toContain('event_id');
+    expect(insert[0]).toContain('envelope');
+    expect(insert[0]).not.toContain('payload)');
+
+    const params = insert[1] as unknown[];
+    expect(params[1]).toBe('sim.qual.supplemental'); // topic
+    expect(params[4]).toBe('tenant_abc'); // tenant_id
+    const envelope = JSON.parse(params[3] as string) as Record<string, unknown>;
+    expect(envelope['schema_ref']).toBe('sim.qual.supplemental/SupplementalIngested/v1');
+    expect(envelope['correlation_id']).toBe('mem_001');
+    const payload = envelope['payload'] as Record<string, unknown>;
     expect(payload['doc_id']).toBe(res.body.doc_id);
     expect(payload['member_id']).toBe('mem_001');
     expect(payload['filename']).toBe('test.pdf');
-    // raw content must NOT be in the outbox payload
-    expect(JSON.stringify(payload)).not.toContain('aGVsbG8=');
+    // raw content must NOT be in the outbox envelope at all
+    expect(JSON.stringify(envelope)).not.toContain('aGVsbG8=');
+
+    expect(calls.some((c) => c[0] === 'COMMIT')).toBe(true);
   });
 });
