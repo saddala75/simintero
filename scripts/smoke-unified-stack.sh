@@ -45,7 +45,7 @@ echo "── 2. bring up the stack (waits for healthchecks) ──"
 # `depends_on` (e.g. interop → hapi), and none of those deps are the broken 7.
 docker compose up -d --wait \
   postgres keycloak redpanda minio opa \
-  digicore-runtime document-service \
+  digicore-runtime document-service document-worker \
   interop workflow-engine portal-bff \
   temporal revital-pipeline revital-worker model-gateway \
   vkas mock-llm digicore-authoring digicore-governance qualitron task-service terminology-service relay
@@ -111,6 +111,28 @@ else
   echo "❌ I2a bridge: no document found for case_ref=${CORRELATION_ID}" >&2
   exit 1
 fi
+
+echo "── 7b. P0-0.4: ingest pipeline ran under RLS + bytes durable in MinIO ──"
+DID=$(echo "$DOCS" | python3 -c "import sys,json; d=json.load(sys.stdin); docs=d.get('documents') if isinstance(d,dict) else d; print(docs[0]['doc_id'])")
+[ -n "$DID" ] || { echo "❌ P0-0.4: no doc_id from the I2a list" >&2; exit 1; }
+# the document-worker ran the activities under the GUC → virus_scan_status=clean + text_key set
+ST=""; for i in $(seq 1 20); do
+  ST=$(docker compose exec -T postgres psql -U sim -d simintero -tAc "SELECT virus_scan_status||'/'||coalesce(text_key,'-') FROM docs.document WHERE doc_id='$DID';")
+  echo "$ST" | grep -q "clean/.\+" && break; sleep 1
+done
+echo "   pipeline status=$ST"
+echo "$ST" | grep -q "clean/.\+" || { echo "❌ P0-0.4: ingest pipeline did not run (status=$ST)" >&2; docker compose logs document-worker 2>&1 | tail -30 >&2; exit 1; }
+# emitDocumentReady ran under the GUC → a sim.evidence outbox row
+EV=$(docker compose exec -T postgres psql -U sim -d simintero -tAc "SELECT count(*) FROM shared.outbox WHERE topic='sim.evidence' AND key='$DID';")
+echo "   sim.evidence outbox rows=$EV"
+[ "${EV:-0}" -ge 1 ] || { echo "❌ P0-0.4: no sim.evidence event for $DID" >&2; exit 1; }
+# DURABILITY: fresh container (wipes /tmp; MinIO external) → content still readable
+docker compose up -d --force-recreate --no-deps document-service >/dev/null 2>&1
+docker compose up -d --wait document-service >/dev/null 2>&1
+RB=$(curl -sS -o /dev/null -w "%{http_code}" "${DOCS_URL}/documents/$DID/span" -H "x-sim-tenant-id: ${TENANT_ID}")
+echo "   readback after recreate=$RB"
+[ "$RB" = "200" ] || { echo "❌ P0-0.4: content not durable after container recreate (readback=$RB)" >&2; docker compose logs document-service 2>&1 | tail -20 >&2; exit 1; }
+echo "✅ P0-0.4: ingest pipeline ran under RLS + bytes durable in MinIO (survived container recreate)"
 
 echo "── 7. case surfaces in portal-bff worklist ──"
 # queue_id "default" → all tenant cases (worklist_router), so this is a stable 200.
