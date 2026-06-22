@@ -95,6 +95,17 @@
             <version>3.20.0</version>
         </dependency>
 
+        <!-- HAPI FHIR R4 structures (compile scope). engine-fhir brings HAPI R4 transitively via
+             hapi-fhir-bom:7.4.5 but only at runtime scope; FabricRetrieveProvider's main code imports
+             org.hl7.fhir.r4.model.* and ca.uhn.fhir.context.FhirContext, so an explicit compile-scoped
+             dependency is required. Version pinned to 7.4.5 to match the transitive HAPI brought by
+             engine-fhir (no imported BOM in this pom's dependencyManagement to manage it otherwise). -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-structures-r4</artifactId>
+            <version>7.4.5</version>
+        </dependency>
+
         <!-- PostgreSQL JDBC driver (runtime) -->
         <dependency>
             <groupId>org.postgresql</groupId>
