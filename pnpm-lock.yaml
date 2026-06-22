@@ -1309,6 +1309,9 @@ importers:
 
   platform/services/vkas:
     dependencies:
+      '@sim/outbox-ts':
+        specifier: workspace:*
+        version: link:../../libs/outbox/ts
       express:
         specifier: ^5.0.0
         version: 5.2.1
