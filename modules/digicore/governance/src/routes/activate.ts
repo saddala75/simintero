@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { GateEnforcer } from '../gates/GateEnforcer.js';
-import type { ArtifactApprovalState } from '../gates/GateEnforcer.js';
-import { GovernanceNotifier } from '../notifications/GovernanceNotifier.js';
+import type { GovernanceStore } from '../store/GovernanceStore.js';
 
 export interface VkasClient {
   activate(canonicalUrl: string, version: string): Promise<void>;
@@ -18,12 +17,11 @@ export interface ActivateInput {
  */
 export async function handleActivate(
   input: ActivateInput,
-  store: Map<string, ArtifactApprovalState>,
+  store: GovernanceStore,
   enforcer: GateEnforcer,
   vkasClient: VkasClient,
-  notifier: GovernanceNotifier,
 ): Promise<{ status: number; body: unknown }> {
-  const state = store.get(input.artifact_id);
+  const state = await store.get(input.artifact_id);
 
   if (state === undefined) {
     return { status: 404, body: { error: 'Artifact not found' } };
@@ -51,7 +49,8 @@ export async function handleActivate(
   }
   await vkasClient.activate(input.artifact_id, version);
 
-  await notifier.notifyActivation(input.artifact_id);
+  // Mark activated (event emission is atomic inside the store)
+  await store.markActivated(input.artifact_id);
 
   return {
     status: 200,
@@ -60,10 +59,9 @@ export async function handleActivate(
 }
 
 export function createActivateRouter(
-  store: Map<string, ArtifactApprovalState>,
+  store: GovernanceStore,
   enforcer: GateEnforcer,
   vkasClient: VkasClient,
-  notifier: GovernanceNotifier,
 ): Router {
   const router = Router();
 
@@ -80,7 +78,6 @@ export function createActivateRouter(
       store,
       enforcer,
       vkasClient,
-      notifier,
     );
     res.status(result.status).json(result.body);
   });

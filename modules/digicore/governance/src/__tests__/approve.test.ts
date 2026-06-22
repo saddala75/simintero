@@ -1,28 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { handleApprove } from '../routes/approve.js';
 import type { ApproveInput } from '../routes/approve.js';
 import { GateEnforcer } from '../gates/GateEnforcer.js';
-import { GovernanceNotifier } from '../notifications/GovernanceNotifier.js';
-import type { ArtifactApprovalState } from '../gates/GateEnforcer.js';
+import { InMemoryGovernanceStore } from '../store/InMemoryGovernanceStore.js';
 
 describe('handleApprove', () => {
-  let store: Map<string, ArtifactApprovalState>;
+  let store: InMemoryGovernanceStore;
   let enforcer: GateEnforcer;
-  let notifier: GovernanceNotifier;
-  let emitSpy: ReturnType<typeof vi.fn>;
 
-  beforeEach(() => {
-    store = new Map<string, ArtifactApprovalState>();
-    store.set('artifact-1', {
-      artifact_id: 'artifact-1',
-      created_by: 'author-1',
-      approvals: [],
-    });
+  beforeEach(async () => {
+    store = new InMemoryGovernanceStore();
+    await store.submit({ artifactId: 'artifact-1', createdBy: 'author-1' });
 
     enforcer = new GateEnforcer();
-
-    emitSpy = vi.fn().mockResolvedValue(undefined);
-    notifier = new GovernanceNotifier({ emit: emitSpy });
   });
 
   it('recording clinical gate updates approval state and does NOT trigger activation', async () => {
@@ -33,7 +23,7 @@ describe('handleApprove', () => {
       approver: 'reviewer-1',
     };
 
-    const result = await handleApprove(input, store, enforcer, notifier);
+    const result = await handleApprove(input, store, enforcer);
 
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({
@@ -42,7 +32,7 @@ describe('handleApprove', () => {
       decision: 'approved',
     });
 
-    const state = store.get('artifact-1');
+    const state = await store.get('artifact-1');
     expect(state?.approvals).toHaveLength(1);
     expect(state?.approvals.at(0)).toMatchObject({
       gate: 'clinical',
@@ -50,16 +40,15 @@ describe('handleApprove', () => {
       approver: 'reviewer-1',
     });
 
-    // Should call notifyApproval (emit with approval_recorded event), NOT notifyActivation
-    expect(emitSpy).toHaveBeenCalledOnce();
-    expect(emitSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event_type: 'sim.artifact.approval_recorded',
-        artifact_id: 'artifact-1',
-        gate: 'clinical',
-        decision: 'approved',
-      }),
-    );
+    // Should emit an ApprovalRecorded event, NOT an Activated event
+    expect(store.events.map(e => e.schemaRef)).toEqual([
+      'sim.artifact/ApprovalRecorded/v1',
+    ]);
+    expect(store.events.at(0)?.payload).toMatchObject({
+      artifact_id: 'artifact-1',
+      gate: 'clinical',
+      decision: 'approved',
+    });
   });
 
   it('returns 403 with SIM-GOV-SOD code when approver equals author', async () => {
@@ -70,25 +59,26 @@ describe('handleApprove', () => {
       approver: 'author-1', // same as created_by
     };
 
-    const result = await handleApprove(input, store, enforcer, notifier);
+    const result = await handleApprove(input, store, enforcer);
 
     expect(result.status).toBe(403);
     expect(result.body).toMatchObject({ code: 'SIM-GOV-SOD' });
     // Store must not be mutated on SOD violation
-    expect(store.get('artifact-1')?.approvals).toHaveLength(0);
-    // Notifier must not be called
-    expect(emitSpy).not.toHaveBeenCalled();
+    expect((await store.get('artifact-1'))?.approvals).toHaveLength(0);
+    // No event must be emitted
+    expect(store.events).toHaveLength(0);
   });
 
   it('returns 409 when the same gate is recorded a second time', async () => {
     // Pre-record clinical gate
-    const state = store.get('artifact-1');
-    state!.approvals.push({
+    await store.recordApproval({
+      artifactId: 'artifact-1',
       gate: 'clinical',
       approver: 'reviewer-1',
       decision: 'approved',
-      recorded_at: new Date().toISOString(),
+      recordedAt: new Date().toISOString(),
     });
+    const eventsBefore = store.events.length;
 
     const input: ApproveInput = {
       artifact_id: 'artifact-1',
@@ -97,13 +87,14 @@ describe('handleApprove', () => {
       approver: 'reviewer-2',
     };
 
-    const result = await handleApprove(input, store, enforcer, notifier);
+    const result = await handleApprove(input, store, enforcer);
 
     expect(result.status).toBe(409);
     expect(result.body).toMatchObject({ error: expect.stringContaining('already approved') });
     // Approval count must remain 1 — no duplicate push
-    expect(store.get('artifact-1')?.approvals).toHaveLength(1);
-    expect(emitSpy).not.toHaveBeenCalled();
+    expect((await store.get('artifact-1'))?.approvals).toHaveLength(1);
+    // No new event must be emitted by the rejected re-approval
+    expect(store.events).toHaveLength(eventsBefore);
   });
 
   it('returns 404 when artifact is not in the store', async () => {
@@ -114,7 +105,7 @@ describe('handleApprove', () => {
       approver: 'reviewer-1',
     };
 
-    const result = await handleApprove(input, store, enforcer, notifier);
+    const result = await handleApprove(input, store, enforcer);
 
     expect(result.status).toBe(404);
   });

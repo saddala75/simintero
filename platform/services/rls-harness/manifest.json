@@ -21,6 +21,8 @@
     { "schema": "search",     "table": "search_log",         "tenant_column": "tenant_id" },
     { "schema": "shared",     "table": "outbox",             "tenant_column": "tenant_id" },
     { "schema": "task",       "table": "task",               "tenant_column": "tenant_id" },
-    { "schema": "vkas",       "table": "artifact",           "tenant_column": "tenant_id" }
+    { "schema": "vkas",       "table": "artifact",           "tenant_column": "tenant_id" },
+    { "schema": "governance", "table": "artifact",           "tenant_column": "tenant_id" },
+    { "schema": "governance", "table": "approval",           "tenant_column": "tenant_id" }
   ]
 }

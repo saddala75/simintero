@@ -273,12 +273,15 @@ echo "── 13. P1-b2b: author a rule through the full governance lifecycle ─
 # resolves + evaluates the authored rule. Proves author→approve(clinical+compliance,SOD)→activate→
 # digicore-resolves, distinct from the seeded rules.
 python3 - <<'PYEOF'
-import json, sys, time, urllib.request
+import json, subprocess, sys, time, urllib.request
 AUTH="http://localhost:3052"; GOV="http://localhost:3053"; DIGI="http://localhost:8083"
 def post(url, body):
     req=urllib.request.Request(url, data=json.dumps(body).encode(),
         headers={"Content-Type":"application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=30) as r:
+        return r.status, json.load(r)
+def get(url):
+    with urllib.request.urlopen(url, timeout=30) as r:
         return r.status, json.load(r)
 def fail(msg):
     print("❌ b2b:", msg, file=sys.stderr); sys.exit(1)
@@ -307,14 +310,43 @@ rid = rule.get("rule_id")
 print(f"   authored rule_id={rid} status={rule.get('status')}")
 if not rid: fail("authoring /rules returned no rule_id")
 
-# 2. governance approvals (SOD: approvers != author-x), 2 distinct gates
-for gate, approver in [("clinical","reviewer-a"), ("compliance","reviewer-b")]:
+# 2. governance approvals (SOD: approvers != author-x), 2 distinct gates.
+#    The clinical approval is recorded FIRST, then digicore-governance is restarted
+#    BETWEEN the two gates to prove the approval persisted to the durable (Postgres)
+#    store. If the store were in-memory the restart would drop the clinical approval
+#    and the later activate would 409 "both gates must be approved"; a green activate
+#    after the restart proves durability.
+try:
+    st,_ = post(f"{GOV}/v1/governance/approve",
+        {"artifact_id":rid,"gate":"clinical","decision":"approved","approver":"reviewer-a"})
+except Exception as e:
+    fail(f"clinical approval failed: {e}")
+print("   approved gate=clinical by reviewer-a")
+
+print("   [P0-0.3] restarting digicore-governance to prove approval durability ...")
+subprocess.run(["docker","compose","restart","digicore-governance"],
+               check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+subprocess.run(["docker","compose","up","-d","--wait","digicore-governance"],
+               check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+# poll the restarted service until the queue endpoint is serving again
+q=None
+for _ in range(30):
     try:
-        st,_ = post(f"{GOV}/v1/governance/approve",
-            {"artifact_id":rid,"gate":gate,"decision":"approved","approver":approver})
-    except Exception as e:
-        fail(f"{gate} approval failed: {e}")
-    print(f"   approved gate={gate} by {approver}")
+        _, q = get(f"{GOV}/v1/governance/queue"); break
+    except Exception:
+        time.sleep(1)
+if q is None: fail("governance queue unreachable after restart")
+m=[a for a in q["artifacts"] if a["artifact_id"]==rid]
+if not (m and any(p["gate"]=="clinical" and p["decision"]=="approved" for p in m[0]["approvals"])):
+    fail("clinical approval lost on restart — governance store is NOT durable")
+print("   [P0-0.3] clinical approval survived restart — governance store is durable")
+
+try:
+    st,_ = post(f"{GOV}/v1/governance/approve",
+        {"artifact_id":rid,"gate":"compliance","decision":"approved","approver":"reviewer-b"})
+except Exception as e:
+    fail(f"compliance approval failed: {e}")
+print("   approved gate=compliance by reviewer-b")
 
 # 3. activate (both gates ready → both artifacts → active)
 try:

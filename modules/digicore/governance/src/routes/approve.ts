@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { GateEnforcer } from '../gates/GateEnforcer.js';
-import type { ArtifactApprovalState, ApprovalRecord } from '../gates/GateEnforcer.js';
-import { GovernanceNotifier } from '../notifications/GovernanceNotifier.js';
+import type { GovernanceStore } from '../store/GovernanceStore.js';
 
 export interface ApproveInput {
   artifact_id: string;
@@ -23,11 +22,10 @@ export interface ApproveSuccess {
  */
 export async function handleApprove(
   input: ApproveInput,
-  store: Map<string, ArtifactApprovalState>,
+  store: GovernanceStore,
   enforcer: GateEnforcer,
-  notifier: GovernanceNotifier,
 ): Promise<{ status: number; body: unknown }> {
-  const state = store.get(input.artifact_id);
+  const state = await store.get(input.artifact_id);
 
   if (state === undefined) {
     return { status: 404, body: { error: 'Artifact not found' } };
@@ -53,16 +51,14 @@ export async function handleApprove(
     };
   }
 
-  // Record the approval
-  const record: ApprovalRecord = {
+  // Record the approval (event emission is atomic inside the store)
+  await store.recordApproval({
+    artifactId: input.artifact_id,
     gate: input.gate,
     approver: input.approver,
     decision: input.decision,
-    recorded_at: new Date().toISOString(),
-  };
-  state.approvals.push(record);
-
-  await notifier.notifyApproval(input.artifact_id, input.gate, input.decision);
+    recordedAt: new Date().toISOString(),
+  });
 
   const success: ApproveSuccess = {
     recorded: true,
@@ -73,9 +69,8 @@ export async function handleApprove(
 }
 
 export function createApproveRouter(
-  store: Map<string, ArtifactApprovalState>,
+  store: GovernanceStore,
   enforcer: GateEnforcer,
-  notifier: GovernanceNotifier,
 ): Router {
   const router = Router();
 
@@ -99,7 +94,7 @@ export function createApproveRouter(
       approver: body['approver'],
     };
 
-    const result = await handleApprove(input, store, enforcer, notifier);
+    const result = await handleApprove(input, store, enforcer);
     res.status(result.status).json(result.body);
   });
 

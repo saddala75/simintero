@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import type { ArtifactApprovalState } from '../gates/GateEnforcer.js';
+import type { GovernanceStore } from '../store/GovernanceStore.js';
 
 export interface EnqueueInput {
   artifact_id: string;
@@ -16,10 +16,10 @@ export interface EnqueueInput {
  * Idempotent: if the artifact is already in the store, the existing entry
  * (including any recorded approvals) is left untouched.
  */
-export function handleEnqueue(
+export async function handleEnqueue(
   input: EnqueueInput,
-  store: Map<string, ArtifactApprovalState>,
-): { status: number; body: unknown } {
+  store: GovernanceStore,
+): Promise<{ status: number; body: unknown }> {
   if (typeof input.artifact_id !== 'string' || input.artifact_id.length === 0) {
     return { status: 400, body: { error: 'artifact_id is required' } };
   }
@@ -27,30 +27,30 @@ export function handleEnqueue(
     return { status: 400, body: { error: 'created_by is required' } };
   }
 
-  if (!store.has(input.artifact_id)) {
-    const state: ArtifactApprovalState = {
-      artifact_id: input.artifact_id,
-      created_by: input.created_by,
-      approvals: [],
-    };
-    if (input.cql_library_url !== undefined) {
-      state.cql_library_url = input.cql_library_url;
-    }
-    if (input.version !== undefined) {
-      state.version = input.version;
-    }
-    store.set(input.artifact_id, state);
+  const submitInput: {
+    artifactId: string;
+    createdBy: string;
+    cqlLibraryUrl?: string;
+    version?: string;
+  } = {
+    artifactId: input.artifact_id,
+    createdBy: input.created_by,
+  };
+  if (input.cql_library_url !== undefined) {
+    submitInput.cqlLibraryUrl = input.cql_library_url;
   }
+  if (input.version !== undefined) {
+    submitInput.version = input.version;
+  }
+  await store.submit(submitInput);
 
   return { status: 201, body: { queued: true, artifact_id: input.artifact_id } };
 }
 
-export function createEnqueueRouter(
-  store: Map<string, ArtifactApprovalState>,
-): Router {
+export function createEnqueueRouter(store: GovernanceStore): Router {
   const router = Router();
 
-  router.post('/v1/governance/queue/submit', (req: Request, res: Response) => {
+  router.post('/v1/governance/queue/submit', async (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
 
     const input: EnqueueInput = {
@@ -64,7 +64,7 @@ export function createEnqueueRouter(
       input.version = body['version'];
     }
 
-    const result = handleEnqueue(input, store);
+    const result = await handleEnqueue(input, store);
     res.status(result.status).json(result.body);
   });
 
