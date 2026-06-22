@@ -34,4 +34,17 @@ class RuleLibraryCompileTest {
                 """;
         assertInstanceOf(CqlCompilerService.CompileSuccess.class, new CqlCompilerService().compile(cql));
     }
+
+    @Test
+    void kneeValueSetRuleCompiles() {
+        String cql = """
+                library KneeVsProof version '1.0.0'
+                using FHIR version '4.0.1'
+                valueset "Knee Condition Codes": 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.1498'
+                context Patient
+                define "Has Knee Condition": exists ([Condition: "Knee Condition Codes"])
+                define "Meets All Criteria": "Has Knee Condition"
+                """;
+        assertInstanceOf(CqlCompilerService.CompileSuccess.class, new CqlCompilerService().compile(cql));
+    }
 }
