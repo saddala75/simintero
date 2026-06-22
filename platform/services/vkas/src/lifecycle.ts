@@ -4,14 +4,16 @@ export type ArtifactStatus =
   | "approved"
   | "active"
   | "retired"
+  | "superseded"
   | "rolled_back";
 
 const ALLOWED_TRANSITIONS: Record<ArtifactStatus, ArtifactStatus[]> = {
   draft: ["in_review"],
   in_review: ["approved", "draft"],         // can send back to draft for revision
   approved: ["active", "in_review"],        // can send back for re-review
-  active: ["retired", "rolled_back"],
+  active: ["retired", "rolled_back", "superseded"],
   retired: [],
+  superseded: ["active"],                   // rollback restores superseded → active
   rolled_back: [],
 };
 

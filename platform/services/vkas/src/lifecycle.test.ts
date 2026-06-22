@@ -22,8 +22,12 @@ describe("transitionStatus", () => {
     expect(transitionStatus("active", "rolled_back")).toBe("rolled_back");
   });
 
-  it("throws on invalid transition (active → superseded)", () => {
-    expect(() => transitionStatus("active", "superseded" as never)).toThrow(StatusTransitionError);
+  it("allows active → superseded (demotion when a newer version activates)", () => {
+    expect(transitionStatus("active", "superseded")).toBe("superseded");
+  });
+
+  it("allows superseded → active (rollback restores prior active)", () => {
+    expect(transitionStatus("superseded", "active")).toBe("active");
   });
 
   it("allows in_review → draft (send back for revision)", () => {

@@ -134,6 +134,13 @@ export function createVkasRouter(): Router {
         let s: ArtifactStatus = cur as ArtifactStatus;
         if (s === 'in_review') { transitionStatus(s, 'approved'); s = 'approved'; }
         transitionStatus(s, 'active');
+        // Demote any currently-active version (≠ target) to superseded so the
+        // rollback handler can restore it.  Touches only status — the V019
+        // immutability trigger does not fire on status-only updates.
+        await client.query(
+          `UPDATE vkas.artifact SET status='superseded'
+           WHERE canonical_url=$1 AND status='active' AND version <> $2`,
+          [canonical_url, version]);
         await client.query(
           `UPDATE vkas.artifact SET status='active', effective_from=CURRENT_DATE WHERE canonical_url=$1 AND version=$2`,
           [canonical_url, version]);

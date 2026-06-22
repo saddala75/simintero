@@ -74,4 +74,73 @@ describe('POST /v1/artifacts/activate', () => {
       .send({ canonical_url: 'u', version: '1.0.0' });
     expect(res.status).toBe(422);
   });
+
+  it('activating v2 demotes the prior active v1 to superseded', async () => {
+    // v2 is in_review (the version being activated); the pool also handles the
+    // demotion UPDATE for any prior active version (returns rowCount: 1).
+    const calls: string[] = [];
+    const query = vi.fn(async (sql: string) => {
+      calls.push(sql);
+      if (/SELECT status/i.test(sql)) {
+        return { rows: [{ status: 'in_review' }] };
+      }
+      // demotion UPDATE or activation UPDATE — both succeed
+      return { rowCount: 1 };
+    });
+    const client = { query, release: vi.fn() };
+    const app = express();
+    app.use(express.json());
+    app.locals['pool'] = { connect: vi.fn(async () => client) };
+    app.use(createVkasRouter());
+
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'policy://pa-criteria/v1', version: '2.0.0' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('active');
+    // The handler must have issued a demotion UPDATE for the prior active version
+    expect(
+      calls.some((s) => /UPDATE vkas\.artifact SET status='superseded'/i.test(s))
+    ).toBe(true);
+    // The demotion must scope to the same canonical_url but a DIFFERENT version
+    expect(
+      calls.some(
+        (s) =>
+          /status='superseded'/i.test(s) &&
+          /status='active'/i.test(s) &&
+          /version <>/i.test(s),
+      )
+    ).toBe(true);
+  });
+
+  it('first-time activation (no prior active) issues no demotion error', async () => {
+    // When rowCount=0 from the demotion UPDATE it simply means no prior active existed;
+    // the handler must still succeed and NOT issue a 422/500.
+    const calls: string[] = [];
+    const query = vi.fn(async (sql: string) => {
+      calls.push(sql);
+      if (/SELECT status/i.test(sql)) {
+        return { rows: [{ status: 'approved' }] };
+      }
+      if (/status='superseded'/i.test(sql)) {
+        return { rowCount: 0 }; // no prior active existed
+      }
+      return { rowCount: 1 };
+    });
+    const client = { query, release: vi.fn() };
+    const app = express();
+    app.use(express.json());
+    app.locals['pool'] = { connect: vi.fn(async () => client) };
+    app.use(createVkasRouter());
+
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'policy://pa-criteria/v1', version: '1.0.0' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('active');
+    // activation UPDATE must still be issued
+    expect(calls.some((s) => /UPDATE vkas\.artifact SET status='active'/i.test(s))).toBe(true);
+  });
 });
