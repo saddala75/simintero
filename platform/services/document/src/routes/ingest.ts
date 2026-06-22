@@ -3,11 +3,15 @@ import type { Pool } from 'pg';
 import type { ObjectStore } from '../store/ObjectStore.js';
 import { withTenant } from '../db/withTenant.js';
 
+export interface WorkflowStarter {
+  start(workflow: string, opts: { workflowId: string; taskQueue: string; args: unknown[] }): Promise<{ workflowId: string }>;
+}
+
 const VALID_CHANNELS = new Set([
   'fhir_document_reference', 'fhir_binary', 'x12_275', 'portal_upload', 'fax_ocr',
 ]);
 
-export function createIngestRouter(pool: Pool, store: ObjectStore): Router {
+export function createIngestRouter(pool: Pool, store: ObjectStore, workflowClient: WorkflowStarter): Router {
   const router = Router();
 
   router.post('/documents/ingest', async (req, res) => {
@@ -45,8 +49,14 @@ export function createIngestRouter(pool: Pool, store: ObjectStore): Router {
          RETURNING doc_id`,
         [case_ref ?? null, channel, objectKey, JSON.stringify({ days: 2555 }), JSON.stringify(created_by)],
       );
-      return rows[0]?.doc_id;
+      return rows[0]?.doc_id as string;
     });
+
+    try {
+      await workflowClient.start('docIngest', { workflowId: docId, taskQueue: 'doc-ingest', args: [docId, tenantId] });
+    } catch (err) {
+      console.error('[document] failed to start docIngest workflow', docId, err);
+    }
 
     res.status(202).json({ doc_id: docId });
   });

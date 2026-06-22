@@ -1,15 +1,20 @@
 # ── Stage 1: build ──────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /repo
 
 RUN npm install -g pnpm@10
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY platform/services/document/package.json ./platform/services/document/
+COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
 
 RUN pnpm install --frozen-lockfile --filter @sim/document...
 
+COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
 COPY platform/services/document/ ./platform/services/document/
+
+# Build workspace lib first, then the service
+RUN pnpm --filter @sim/outbox-ts run build
 RUN pnpm --filter @sim/document run build
 
 # Produce a self-contained deployment dir with REAL (non-symlinked) node_modules.
@@ -18,7 +23,7 @@ RUN pnpm --filter @sim/document run build
 RUN pnpm --filter @sim/document deploy --prod --legacy /app/deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
-FROM node:20-alpine
+FROM node:20-slim
 WORKDIR /app
 
 COPY --from=builder /app/deploy/node_modules ./node_modules
