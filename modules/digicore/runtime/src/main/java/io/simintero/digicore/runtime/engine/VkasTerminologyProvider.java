@@ -60,10 +60,9 @@ public class VkasTerminologyProvider implements TerminologyProvider {
         throw new UnsupportedOperationException("CodeSystem $lookup is out of scope for slice 1.2");
     }
 
-    /** Match by code; require system equality only when BOTH sides carry a system. */
+    /** Membership match: codes equal AND both systems present and equal (a missing system is a non-match — fail-closed). */
     static boolean codesMatch(Code a, Code b) {
         if (a.getCode() == null || !a.getCode().equals(b.getCode())) return false;
-        if (a.getSystem() != null && b.getSystem() != null) return a.getSystem().equals(b.getSystem());
-        return true;
+        return a.getSystem() != null && a.getSystem().equals(b.getSystem());
     }
 }

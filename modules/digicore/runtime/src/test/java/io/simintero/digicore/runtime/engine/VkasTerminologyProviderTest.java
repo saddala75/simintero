@@ -46,4 +46,18 @@ class VkasTerminologyProviderTest {
         var p = new VkasTerminologyProvider(c);
         assertThrows(RuntimeException.class, () -> p.expand(new ValueSetInfo().withId("http://unknown/vs")));
     }
+
+    @Test void codesMatchRequiresSystemEquality() {
+        var snomed = new org.opencds.cqf.cql.engine.runtime.Code().withSystem("http://snomed.info/sct").withCode("239873007");
+        // exact system+code match
+        assertTrue(VkasTerminologyProvider.codesMatch(snomed, new org.opencds.cqf.cql.engine.runtime.Code().withSystem("http://snomed.info/sct").withCode("239873007")));
+        // SAME code, NO system on the candidate -> must NOT match (fail-closed)
+        assertFalse(VkasTerminologyProvider.codesMatch(snomed, new org.opencds.cqf.cql.engine.runtime.Code().withCode("239873007")));
+        // SAME code, DIFFERENT system -> must NOT match
+        assertFalse(VkasTerminologyProvider.codesMatch(snomed, new org.opencds.cqf.cql.engine.runtime.Code().withSystem("http://other").withCode("239873007")));
+        // member (left) with null system -> must NOT match either
+        assertFalse(VkasTerminologyProvider.codesMatch(new org.opencds.cqf.cql.engine.runtime.Code().withCode("239873007"), snomed));
+        // different code -> no match
+        assertFalse(VkasTerminologyProvider.codesMatch(snomed, new org.opencds.cqf.cql.engine.runtime.Code().withSystem("http://snomed.info/sct").withCode("99999999")));
+    }
 }
