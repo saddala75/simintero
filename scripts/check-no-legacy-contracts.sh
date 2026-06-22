@@ -131,3 +131,15 @@ if grep -q "agent_layer_url" services/enstellar-workflow/enstellar_workflow/cons
   echo "I2b INVARIANT FAILED: clinical_review_consumer still references agent_layer_url" >&2; exit 1
 fi
 echo "I2b invariant OK: Revital is the clinical_review advisor (agent-layer + mock-revital retired)."
+
+# --- C5 invariant: the external (now-archived) Enstellar tree + @enstellar/ packages ---
+# must never be referenced by LIVE simintero code. docs/ historical plans, this guard
+# script, and CONVERGENCE.md are excluded (they legitimately name the retired tree).
+if git grep -nE '@enstellar/|Downloads/Simintero/Enstellar|\.\./Enstellar' -- \
+     ':(exclude)docs/**' ':(exclude)scripts/check-no-legacy-contracts.sh' ':(exclude)CONVERGENCE.md' >/dev/null 2>&1; then
+  echo "C5 INVARIANT VIOLATED: a live file references the archived external Enstellar tree / @enstellar package:" >&2
+  git grep -nE '@enstellar/|Downloads/Simintero/Enstellar|\.\./Enstellar' -- \
+    ':(exclude)docs/**' ':(exclude)scripts/check-no-legacy-contracts.sh' ':(exclude)CONVERGENCE.md' >&2
+  exit 1
+fi
+echo "C5 invariant OK: no live reference to the archived external Enstellar tree / @enstellar packages."
