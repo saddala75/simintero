@@ -5,6 +5,7 @@ import { resolveEffectiveVersion, type ArtifactRow } from "./resolve.js";
 import { transitionStatus, StatusTransitionError, type ArtifactStatus } from "./lifecycle.js";
 import { evaluateBlastRadius, applyPromotion, type PromotionSet } from "./promotions.js";
 import { withTenant } from "./db/withTenant.js";
+import { rollbackArtifact } from "./rollback.js";
 
 function tenantOf(req: Request): string {
   return (req.header('x-sim-tenant-id') ?? '').trim();
@@ -150,6 +151,34 @@ export function createVkasRouter(): Router {
       res.status(200).json({ canonical_url, version, status: 'active' });
     } catch (err) {
       if (err instanceof StatusTransitionError) { res.status(422).json({ error: err.message }); return; }
+      next(err);
+    }
+  });
+
+  // POST /v1/artifacts/:canonical_url/:version/rollback — OpenAPI rollback endpoint
+  // The canonical_url param is percent-encoded in the path (it contains slashes);
+  // we decode it before passing to rollbackArtifact so all DB queries use the real URL.
+  router.post('/v1/artifacts/:canonical_url/:version/rollback', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const canonicalUrl = decodeURIComponent(req.params['canonical_url'] as string);
+      const version = req.params['version'] as string;
+      const { reason, incident_ref } = (req.body ?? {}) as { reason?: string; incident_ref?: string | null };
+      if (!reason || typeof reason !== 'string') {
+        res.status(400).json({ error: 'reason is required' });
+        return;
+      }
+      const pool = req.app.locals['pool'];
+      const tenant = tenantOf(req);
+      const result = await withTenant(pool, tenant, (client: PoolClient) =>
+        rollbackArtifact(client, { canonicalUrl, version, reason, incidentRef: incident_ref ?? null, tenantId: tenant }));
+      switch (result.status) {
+        case 'not_found':  res.status(404).json({ error: 'artifact not found' }); return;
+        case 'not_active': res.status(409).json({ error: 'artifact is not in active status' }); return;
+        case 'no_prior':   res.status(409).json({ error: 'no prior version to restore' }); return;
+        case 'ok':         res.status(200).json({ rolled_back: result.rolledBack, restored: result.restored }); return;
+      }
+    } catch (err) {
+      if (err instanceof StatusTransitionError) { res.status(409).json({ error: (err as Error).message }); return; }
       next(err);
     }
   });
