@@ -190,3 +190,19 @@ VALUES
   ('task_sentinel_a', 't_synth_a', 'outreach'),
   ('task_sentinel_b', 't_synth_b', 'outreach')
 ON CONFLICT DO NOTHING;
+
+-- ===========================================================================
+-- governance.artifact  (parent for governance.approval)
+-- ===========================================================================
+INSERT INTO governance.artifact (artifact_id, tenant_id, created_by)
+VALUES
+  ('gov_a', 't_synth_a', 'author-a'),
+  ('gov_b', 't_synth_b', 'author-b')
+ON CONFLICT DO NOTHING;
+
+-- governance.approval  (FK -> governance.artifact.artifact_id)
+INSERT INTO governance.approval (artifact_id, tenant_id, gate, approver, decision)
+VALUES
+  ('gov_a', 't_synth_a', 'clinical', 'rev-a', 'approved'),
+  ('gov_b', 't_synth_b', 'clinical', 'rev-b', 'approved')
+ON CONFLICT DO NOTHING;
