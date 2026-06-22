@@ -14,10 +14,7 @@ import org.opencds.cqf.cql.engine.execution.EvaluationResult;
 import org.opencds.cqf.cql.engine.execution.ExpressionResult;
 import org.opencds.cqf.cql.engine.fhir.model.R4FhirModelResolver;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
-import org.opencds.cqf.cql.engine.runtime.Code;
-import org.opencds.cqf.cql.engine.runtime.Interval;
 import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
-import org.opencds.cqf.cql.engine.terminology.ValueSetInfo;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.stereotype.Component;
 
@@ -39,8 +36,9 @@ import java.util.Map;
  *   <li>an {@link R4FhirModelResolver} + the request's {@link RetrieveProvider}
  *       (either the test override or a {@link FabricRetrieveProvider} reading
  *       {@code fabric.resource} under the tenant GUC) under {@code http://hl7.org/fhir};</li>
- *   <li>a {@link StubTerminologyProvider} that throws on any value-set use (slice 1.2 lands real
- *       terminology) — which the abstain backstop turns into {@code indeterminate}.</li>
+ *   <li>a {@link VkasTerminologyProvider} that resolves value sets from VKAS and performs
+ *       membership; an unresolvable value set / unhonorable code filter throws and the abstain
+ *       backstop turns it into {@code indeterminate}.</li>
  * </ul>
  *
  * <p><b>Safety invariant (the whole point):</b> the entire evaluation is wrapped in a
@@ -59,14 +57,16 @@ public class CqfEvaluator {
 
     private final JdbcOperations jdbc;
     private final FhirContext fhir;
+    private final VkasClient vkas;
 
     /** Matches a CQL library header: {@code library <id> version '<ver>'} (id optionally quoted). */
     private static final java.util.regex.Pattern LIBRARY_HEADER =
             java.util.regex.Pattern.compile("library\\s+\"?([A-Za-z0-9_]+)\"?\\s+version\\s+'([^']+)'");
 
-    public CqfEvaluator(JdbcOperations jdbc, FhirContext fhir) {
+    public CqfEvaluator(JdbcOperations jdbc, FhirContext fhir, VkasClient vkas) {
         this.jdbc = jdbc;
         this.fhir = fhir;
+        this.vkas = vkas;
     }
 
     /**
@@ -114,18 +114,13 @@ public class CqfEvaluator {
                 }
             });
 
-            StubTerminologyProvider terminologyProvider = new StubTerminologyProvider();
+            TerminologyProvider terminologyProvider = new VkasTerminologyProvider(vkas);
             RetrieveProvider baseRetrieve = retrieveOverride != null
                     ? retrieveOverride
                     : new FabricRetrieveProvider(jdbc, fhir, tenantId, memberRef, terminologyProvider);
-            // Slice 1.1 has no terminology: a value-set / code-filtered retrieve cannot be honored.
-            // Rather than silently returning UNFILTERED resources (which would unsafely meets_all),
-            // route any such retrieve through the (throwing) terminology provider -> abstain.
-            RetrieveProvider retrieveProvider =
-                    new TerminologyGatedRetrieveProvider(baseRetrieve, terminologyProvider);
 
             DataProvider dataProvider =
-                    new CompositeDataProvider(new R4FhirModelResolver(), retrieveProvider);
+                    new CompositeDataProvider(new R4FhirModelResolver(), baseRetrieve);
             Environment environment = new Environment(
                     libraryManager,
                     Map.of("http://hl7.org/fhir", dataProvider),
@@ -191,55 +186,5 @@ public class CqfEvaluator {
 
     private static ElmEvaluator.ElmResult indeterminate() {
         return new ElmEvaluator.ElmResult("indeterminate", List.of(), List.of());
-    }
-
-    /**
-     * Decorates a {@link RetrieveProvider} so any value-set- or code-filtered retrieve is forced
-     * through the {@link TerminologyProvider} before delegating.
-     *
-     * <p>Slice 1.1 ships only a type-only retrieve and a throwing {@link StubTerminologyProvider}.
-     * A {@code [Condition: "VS"]} / code-filtered retrieve would otherwise be silently delegated to
-     * a provider that ignores the filter, returning UNFILTERED resources and unsafely producing
-     * {@code meets_all}. Probing the terminology provider here makes the stub throw, so the
-     * evaluator abstains ({@code indeterminate}) instead. Once real terminology lands (slice 1.2),
-     * this probe resolves the value set legitimately rather than aborting.
-     */
-    static final class TerminologyGatedRetrieveProvider implements RetrieveProvider {
-
-        private final RetrieveProvider delegate;
-        private final TerminologyProvider terminology;
-
-        TerminologyGatedRetrieveProvider(RetrieveProvider delegate, TerminologyProvider terminology) {
-            this.delegate = delegate;
-            this.terminology = terminology;
-        }
-
-        @Override
-        public Iterable<Object> retrieve(String context, String contextPath, Object contextValue,
-                                         String dataType, String templateId, String codePath,
-                                         Iterable<Code> codes, String valueSet,
-                                         String datePath, String dateLowPath, String dateHighPath,
-                                         Interval dateRange) {
-            // A value-set- or code-filtered retrieve requires terminology we do not yet have.
-            // Probe the provider so the slice-1.1 stub throws -> CqfEvaluator abstains.
-            //
-            // FAIL-CLOSED: gate on codePath != null too. A code-filtered retrieve can carry a
-            // non-null codePath with an EMPTY codes list / null valueSet (a code/terminology filter
-            // we cannot honor in slice 1.1). Without this guard such a retrieve would slip through
-            // ungated and the delegate (FabricRetrieveProvider) would return UNFILTERED resources
-            // (silent over-match -> unsafe meets_all). A type-only retrieve (e.g. exists [Condition])
-            // passes codePath == null AND valueSet == null AND empty codes, so it still delegates.
-            if (valueSet != null) {
-                terminology.expand(new ValueSetInfo().withId(valueSet));
-            }
-            if (codes != null && codes.iterator().hasNext()) {
-                terminology.expand(new ValueSetInfo().withId(dataType));
-            }
-            if (codePath != null) {
-                terminology.expand(new ValueSetInfo().withId(dataType));
-            }
-            return delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
-                    codePath, codes, valueSet, datePath, dateLowPath, dateHighPath, dateRange);
-        }
     }
 }
