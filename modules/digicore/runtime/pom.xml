@@ -69,6 +69,32 @@
             <version>3.20.0</version>
         </dependency>
 
+        <!-- CQF reference CQL evaluator (slice 1.1). NOTE: the 3.x evaluator is published by the
+             cqframework org as info.cqframework:engine / engine-fhir (released in LOCKSTEP with
+             cql-to-elm:3.20.0). The legacy coordinate org.opencds.cqf.cql:engine was abandoned at
+             2.4.0 and has NO 3.x line. The runtime classes kept their package path
+             (org.opencds.cqf.cql.engine.*); only the Maven coordinate changed.
+             engine-fhir brings HAPI FHIR R4 transitively via hapi-fhir-bom:7.4.5 (jakarta-aligned),
+             so no explicit HAPI dependency is declared (avoids a HAPI version split). -->
+        <dependency>
+            <groupId>info.cqframework</groupId>
+            <artifactId>engine</artifactId>
+            <version>3.20.0</version>
+        </dependency>
+        <dependency>
+            <groupId>info.cqframework</groupId>
+            <artifactId>engine-fhir</artifactId>
+            <version>3.20.0</version>
+        </dependency>
+        <!-- Ships fhir-modelinfo-4.0.1.xml + registers the FHIR ModelInfoProvider SPI
+             (META-INF/services/org.hl7.cql.model.ModelInfoProvider) so that
+             "using FHIR version '4.0.1'" CQL compiles. engine-fhir does NOT pull this transitively. -->
+        <dependency>
+            <groupId>info.cqframework</groupId>
+            <artifactId>quick</artifactId>
+            <version>3.20.0</version>
+        </dependency>
+
         <!-- PostgreSQL JDBC driver (runtime) -->
         <dependency>
             <groupId>org.postgresql</groupId>
