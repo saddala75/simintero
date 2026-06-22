@@ -10,7 +10,7 @@ import { createApproveRouter } from './routes/approve.js';
 import { createActivateRouter } from './routes/activate.js';
 import type { VkasClient } from './routes/activate.js';
 import { createEnqueueRouter } from './routes/enqueue.js';
-import type { ArtifactApprovalState } from './gates/GateEnforcer.js';
+import { InMemoryGovernanceStore } from './store/InMemoryGovernanceStore.js';
 
 // Re-export public types and classes
 export type {
@@ -32,7 +32,7 @@ export type { EnqueueInput } from './routes/enqueue.js';
 export { handleEnqueue, createEnqueueRouter } from './routes/enqueue.js';
 
 // In-memory approval store (Phase 1 — no DB needed)
-const approvalStore = new Map<string, ArtifactApprovalState>();
+const approvalStore = new InMemoryGovernanceStore();
 
 // Minimal fetch-based VKAS client for production wiring
 const vkasBaseUrl = process.env['VKAS_BASE_URL'] ?? 'http://localhost:3040';
@@ -76,8 +76,8 @@ app.get('/health', (_req: Request, res: Response) => {
 
 app.use(createQueueRouter(approvalStore));
 app.use(createEnqueueRouter(approvalStore));
-app.use(createApproveRouter(approvalStore, enforcer, notifier));
-app.use(createActivateRouter(approvalStore, enforcer, fetchVkasClient, notifier));
+app.use(createApproveRouter(approvalStore, enforcer));
+app.use(createActivateRouter(approvalStore, enforcer, fetchVkasClient));
 
 export default app;
 
