@@ -289,6 +289,23 @@ echo "   lumbar-MRI(72148) partial-evidence → ${MRI2}"
 [ "$MRI2" = "not_met False" ] || { echo "❌ b2a: 72148 not_met path failed (got '${MRI2}')" >&2; exit 1; }
 echo "✅ P1-b2a: digicore is data-driven — knee + non-knee rules resolved from VKAS, evaluated correctly"
 
+echo "── 12b. slice 1.1: real CQL-vs-FHIR — digicore retrieves Condition+Procedure from fabric.resource ──"
+# Slice 1.1 seeded: member-001/pat-001 has a Condition + Procedure in fabric.resource under tenant-dev;
+# coverage rule for 29827 = "exists [Condition] and exists [Procedure]".
+# member-003/pat-003 has NO Condition/Procedure seeded → not_met.
+fhir_eval() {  # $1=service_code $2=member_ref → "<outcome> <eligible>"
+  curl -sf -X POST "$DIGI/v1/runtime/evaluate" -H "Content-Type: application/json" \
+    -d "{\"case_id\":\"smoke-fhir\",\"service_code\":\"$1\",\"member_ref\":\"$2\",\"tenant_id\":\"tenant-dev\",\"pins\":[],\"evidence\":{}}" \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('outcome'), d.get('auto_determination',{}).get('eligible'))" 2>/dev/null
+}
+FHIR_POS=$(fhir_eval 29827 member-001)
+echo "   fhir-retrieve(29827, member-001) → ${FHIR_POS}"
+[ "$FHIR_POS" = "meets_all True" ] || { echo "❌ 1.1: FHIR retrieve did not meet_all (got '${FHIR_POS}')" >&2; docker compose logs digicore-runtime 2>&1 | tail -30 >&2; exit 1; }
+FHIR_NEG=$(fhir_eval 29827 member-003)   # pat-003 has no Condition/Procedure seeded
+echo "   fhir-retrieve(29827, member-003) → ${FHIR_NEG}"
+[ "$FHIR_NEG" = "not_met False" ] || { echo "❌ 1.1: FHIR retrieve negative case wrong (got '${FHIR_NEG}')" >&2; exit 1; }
+echo "✅ slice 1.1: real CQL-vs-FHIR — Condition+Procedure retrieved from fabric.resource, evaluated correctly"
+
 echo "── 13. P1-b2b: author a rule through the full governance lifecycle ──"
 # Author a BRAND-NEW procedure (CPT 29826 shoulder arthroscopy, NOT in the V018 seed) end to
 # end via the live authoring (:3052) + governance (:3053) services, then prove digicore (:8083)
