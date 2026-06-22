@@ -47,8 +47,10 @@ export interface RollbackArgs {
   tenantId: string;
 }
 
+// Note: vkas.artifact has no activated_at/retired_at columns — the ArtifactRecord's
+// activated_at/retired_at map to effective_from/effective_to (the activation/retirement dates).
 const SELECT_COLUMNS =
-  'canonical_url, version, artifact_type, status, content, applicability, metadata, created_at, activated_at, retired_at';
+  'canonical_url, version, artifact_type, status, content, applicability, metadata, created_at, effective_from, effective_to';
 
 function toArtifactRecord(row: Record<string, unknown>): ArtifactRecord {
   return {
@@ -60,8 +62,8 @@ function toArtifactRecord(row: Record<string, unknown>): ArtifactRecord {
     applicability: row['applicability'],
     metadata: row['metadata'],
     created_at: row['created_at'] as string,
-    activated_at: (row['activated_at'] as string | null | undefined) ?? null,
-    retired_at: (row['retired_at'] as string | null | undefined) ?? null,
+    activated_at: (row['effective_from'] as string | null | undefined) ?? null,
+    retired_at: (row['effective_to'] as string | null | undefined) ?? null,
   };
 }
 
