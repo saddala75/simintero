@@ -69,4 +69,19 @@ public class RuleResolver {
         elmCache.put(key, elm);
         return Optional.of(elm);
     }
+
+    /**
+     * Resolve a cql_library artifact's raw CQL text (content.cql). Returns empty when the artifact
+     * cannot be resolved or carries no non-blank {@code cql} key. The CQF engine compiles the CQL
+     * on demand, so the controller threads the raw text through (see {@link CqfEvaluator}).
+     */
+    public Optional<String> resolveCql(String elmRef, String elmVersion, RuleContext ctx) {
+        if (elmRef == null) return Optional.empty();
+        Optional<JsonNode> content = vkas.resolveContent(elmRef, elmVersion, ctx);
+        if (content.isEmpty()) return Optional.empty();
+        JsonNode c = content.get();
+        if (!c.has("cql")) return Optional.empty();
+        String cql = c.path("cql").asText();
+        return (cql == null || cql.isBlank()) ? Optional.empty() : Optional.of(cql);
+    }
 }

@@ -82,6 +82,32 @@ class RuleResolverTest {
         assertEquals("X", elm.get().path("library").path("statements").path("def").get(0).path("name").asText());
     }
 
+    @Test
+    void resolveCqlReturnsCqlTextWhenPresent() {
+        VkasClient vkas = new VkasClient() {
+            public java.util.List<String> resolveDefaultPins(String s) { return java.util.List.of(); }
+            public Optional<JsonNode> resolveContent(String url, String v, RuleContext c) {
+                com.fasterxml.jackson.databind.node.ObjectNode o = m.createObjectNode();
+                o.put("cql", KNEE_CQL);
+                return Optional.of(o);
+            }
+        };
+        RuleResolver rr = new RuleResolver(vkas, new CqlCompilerService());
+        var cql = rr.resolveCql("cql-url", "1.0.0", RuleContext.empty());
+        assertTrue(cql.isPresent());
+        assertEquals(KNEE_CQL, cql.get());
+    }
+
+    @Test
+    void resolveCqlEmptyWhenNoCqlKeyOrBlank() {
+        RuleResolver rr = new RuleResolver(stubReturning("{\"elm\":{}}"), new CqlCompilerService());
+        assertTrue(rr.resolveCql("u", "1.0.0", RuleContext.empty()).isEmpty());
+        RuleResolver blank = new RuleResolver(stubReturning("{\"cql\":\"   \"}"), new CqlCompilerService());
+        assertTrue(blank.resolveCql("u", "1.0.0", RuleContext.empty()).isEmpty());
+        RuleResolver unresolved = new RuleResolver(stubReturning(null), new CqlCompilerService());
+        assertTrue(unresolved.resolveCql("u", "1.0.0", RuleContext.empty()).isEmpty());
+    }
+
     private VkasClient stubReturning(String json) {
         return new VkasClient() {
             public java.util.List<String> resolveDefaultPins(String s) { return java.util.List.of(); }

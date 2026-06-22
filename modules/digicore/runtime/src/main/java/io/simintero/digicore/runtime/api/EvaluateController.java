@@ -1,7 +1,7 @@
 package io.simintero.digicore.runtime.api;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.simintero.digicore.runtime.engine.CoverageRule;
+import io.simintero.digicore.runtime.engine.CqfEvaluator;
 import io.simintero.digicore.runtime.engine.ElmEvaluator;
 import io.simintero.digicore.runtime.engine.PinResolver;
 import io.simintero.digicore.runtime.engine.RuleContext;
@@ -27,14 +27,14 @@ import java.util.Optional;
 @RequestMapping("/v1/runtime")
 public class EvaluateController {
 
-    private final ElmEvaluator evaluator;
+    private final CqfEvaluator cqfEvaluator;
     private final PinResolver pinResolver;
     private final TraceBuilder traceBuilder;
     private final RuleResolver ruleResolver;
 
-    public EvaluateController(ElmEvaluator evaluator, PinResolver pinResolver,
+    public EvaluateController(CqfEvaluator cqfEvaluator, PinResolver pinResolver,
                               TraceBuilder traceBuilder, RuleResolver ruleResolver) {
-        this.evaluator = evaluator;
+        this.cqfEvaluator = cqfEvaluator;
         this.pinResolver = pinResolver;
         this.traceBuilder = traceBuilder;
         this.ruleResolver = ruleResolver;
@@ -50,10 +50,11 @@ public class EvaluateController {
         //    (indeterminate) — NEVER fall back to the default knee fixture, NEVER silently approve.
         RuleContext ctx = RuleContext.empty();
         Optional<CoverageRule> rule = ruleResolver.resolveByProcedure(request.serviceCode(), ctx);
-        Optional<JsonNode> elm = rule.flatMap(r -> ruleResolver.resolveElm(r.elmRef(), r.elmVersion(), ctx));
+        Optional<String> cql = rule.flatMap(r -> ruleResolver.resolveCql(r.elmRef(), r.elmVersion(), ctx));
         ElmEvaluator.ElmResult result;
-        if (elm.isPresent()) {
-            result = evaluator.evaluate(request.evidence(), elm.get());
+        if (cql.isPresent()) {
+            result = cqfEvaluator.evaluate(cql.get(), request.evidence(),
+                    request.tenantId(), request.memberRef(), null);
             if (rule.isPresent() && !rule.get().pins().isEmpty()) {
                 resolvedPins = rule.get().pins();
             }

@@ -54,6 +54,17 @@ class CqfEvaluatorTest {
             evaluator.evaluate(cql, "Bool", "1.0.0", Map.of("diagnosis_documented", false), "tenant-dev", "member-001", null).outcome());
     }
 
+    @Test void overloadParsesLibraryHeaderAndEvaluates() {
+        var r = evaluator.evaluate(FHIR_RULE, Map.of(), "tenant-dev", "member-001", conditions(true));
+        assertEquals("meets_all", r.outcome());
+    }
+
+    @Test void overloadAbstainsWhenNoLibraryHeader() {
+        String headerless = "define \"Meets All Criteria\": true";
+        var r = evaluator.evaluate(headerless, Map.of(), "tenant-dev", "member-001", conditions(true));
+        assertEquals("indeterminate", r.outcome());
+    }
+
     @Test void abstainsWhenValueSetRuleHitsStubTerminology() {
         String vs = """
             library VS version '1.0.0'

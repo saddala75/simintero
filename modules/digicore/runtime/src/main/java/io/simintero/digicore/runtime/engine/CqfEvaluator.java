@@ -58,9 +58,32 @@ public class CqfEvaluator {
     private final JdbcOperations jdbc;
     private final FhirContext fhir;
 
+    /** Matches a CQL library header: {@code library <id> version '<ver>'} (id optionally quoted). */
+    private static final java.util.regex.Pattern LIBRARY_HEADER =
+            java.util.regex.Pattern.compile("library\\s+\"?([A-Za-z0-9_]+)\"?\\s+version\\s+'([^']+)'");
+
     public CqfEvaluator(JdbcOperations jdbc, FhirContext fhir) {
         this.jdbc = jdbc;
         this.fhir = fhir;
+    }
+
+    /**
+     * Convenience overload: parse the {@code library <id> version '<ver>'} header out of
+     * {@code cqlText} and delegate to the 7-arg {@link #evaluate}. If the header cannot be parsed,
+     * abstain ({@code indeterminate}) — NEVER {@code meets_all} — exactly like the 7-arg method's
+     * failure path. Lets the evaluate HTTP path pass only the raw CQL text.
+     */
+    public ElmEvaluator.ElmResult evaluate(
+            String cqlText, Map<String, Object> evidence,
+            String tenantId, String memberRef, RetrieveProvider retrieveOverride) {
+        if (cqlText == null) {
+            return indeterminate();
+        }
+        java.util.regex.Matcher m = LIBRARY_HEADER.matcher(cqlText);
+        if (!m.find()) {
+            return indeterminate();
+        }
+        return evaluate(cqlText, m.group(1), m.group(2), evidence, tenantId, memberRef, retrieveOverride);
     }
 
     /**

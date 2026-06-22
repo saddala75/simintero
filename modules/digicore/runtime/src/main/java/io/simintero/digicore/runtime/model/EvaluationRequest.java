@@ -7,5 +7,7 @@ public record EvaluationRequest(
         String caseId,
         Map<String, Object> evidence,
         List<String> pins,
-        String serviceCode
+        String serviceCode,
+        String memberRef,
+        String tenantId
 ) {}
