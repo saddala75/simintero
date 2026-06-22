@@ -55,6 +55,8 @@ public class CqfEvaluator {
 
     private static final String MEETS_ALL_DEF = "Meets All Criteria";
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CqfEvaluator.class);
+
     private final JdbcOperations jdbc;
     private final FhirContext fhir;
 
@@ -81,6 +83,7 @@ public class CqfEvaluator {
         }
         java.util.regex.Matcher m = LIBRARY_HEADER.matcher(cqlText);
         if (!m.find()) {
+            log.warn("CQF evaluation abstained: no 'library X version Y' header in CQL");
             return indeterminate();
         }
         return evaluate(cqlText, m.group(1), m.group(2), evidence, tenantId, memberRef, retrieveOverride);
@@ -148,6 +151,8 @@ public class CqfEvaluator {
             Map<String, ExpressionResult> expressionResults = result.expressionResults;
             if (!expressionResults.containsKey(MEETS_ALL_DEF)) {
                 // No decision expression -> abstain rather than guess.
+                log.warn("CQF evaluation abstained (indeterminate) for library '{}': "
+                        + "no '{}' define found", libraryId, MEETS_ALL_DEF);
                 return indeterminate();
             }
 
@@ -158,6 +163,9 @@ public class CqfEvaluator {
             } else if (Boolean.FALSE.equals(meets)) {
                 outcome = "not_met";
             } else {
+                // Non-Boolean / null decision value -> abstain rather than guess.
+                log.warn("CQF evaluation abstained (indeterminate) for library '{}': "
+                        + "'{}' value is non-Boolean/null ({})", libraryId, MEETS_ALL_DEF, meets);
                 return indeterminate();
             }
 
@@ -175,6 +183,8 @@ public class CqfEvaluator {
             return new ElmEvaluator.ElmResult(outcome, List.copyOf(requirementGaps), List.copyOf(logicPath));
         } catch (Exception e) {
             // Abstain on ANY failure — never approve, never not_met-by-omission.
+            log.warn("CQF evaluation abstained (indeterminate) for library '{}' tenant '{}' member '{}': {}",
+                    libraryId, tenantId, memberRef, e.toString(), e);
             return indeterminate();
         }
     }
@@ -194,7 +204,7 @@ public class CqfEvaluator {
      * evaluator abstains ({@code indeterminate}) instead. Once real terminology lands (slice 1.2),
      * this probe resolves the value set legitimately rather than aborting.
      */
-    private static final class TerminologyGatedRetrieveProvider implements RetrieveProvider {
+    static final class TerminologyGatedRetrieveProvider implements RetrieveProvider {
 
         private final RetrieveProvider delegate;
         private final TerminologyProvider terminology;
@@ -212,10 +222,20 @@ public class CqfEvaluator {
                                          Interval dateRange) {
             // A value-set- or code-filtered retrieve requires terminology we do not yet have.
             // Probe the provider so the slice-1.1 stub throws -> CqfEvaluator abstains.
+            //
+            // FAIL-CLOSED: gate on codePath != null too. A code-filtered retrieve can carry a
+            // non-null codePath with an EMPTY codes list / null valueSet (a code/terminology filter
+            // we cannot honor in slice 1.1). Without this guard such a retrieve would slip through
+            // ungated and the delegate (FabricRetrieveProvider) would return UNFILTERED resources
+            // (silent over-match -> unsafe meets_all). A type-only retrieve (e.g. exists [Condition])
+            // passes codePath == null AND valueSet == null AND empty codes, so it still delegates.
             if (valueSet != null) {
                 terminology.expand(new ValueSetInfo().withId(valueSet));
             }
             if (codes != null && codes.iterator().hasNext()) {
+                terminology.expand(new ValueSetInfo().withId(dataType));
+            }
+            if (codePath != null) {
                 terminology.expand(new ValueSetInfo().withId(dataType));
             }
             return delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
