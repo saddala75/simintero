@@ -78,6 +78,21 @@ class TestMemberMapping:
     def test_member_id_is_uuid(self, mapped_case):
         assert isinstance(mapped_case.member.member_id, UUID)
 
+    def test_member_preserves_fhir_logical_id(self, mapped_case):
+        """The bundle Patient logical id (pat-001) is preserved as a stable
+        member reference in identifiers, not discarded for a random UUID.
+
+        slice 1.1: this is what flows to Digicore as member_ref.
+        """
+        from enstellar_workflow.normalization.mapper import FHIR_LOGICAL_ID_SYSTEM
+
+        refs = [
+            i.value
+            for i in (mapped_case.member.identifiers or [])
+            if i.system == FHIR_LOGICAL_ID_SYSTEM
+        ]
+        assert refs == ["pat-001"]
+
 
 class TestProviderMapping:
     def test_requesting_provider_name(self, mapped_case):

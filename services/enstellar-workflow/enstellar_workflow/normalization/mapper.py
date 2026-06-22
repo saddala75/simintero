@@ -26,6 +26,16 @@ NPI_SYSTEM = "http://hl7.org/fhir/sid/us-npi"
 ICD10_SYSTEM = "http://hl7.org/fhir/sid/icd-10-cm"
 CPT_SYSTEM = "http://www.ama-assn.org/go/cpt"
 
+# Synthetic identifier system used to preserve the bundle Patient's FHIR logical
+# id (e.g. "pat-001") as a STABLE member reference inside Member.identifiers.
+# The canonical Member.member_id is a random UUID (and is a strict UUID-typed
+# generated field we must not repurpose), so we stash the stable ref here so it
+# can flow downstream as Digicore's member_ref (slice 1.1).
+# TODO(slice-data-plane): a member_ref that actually MATCHES Digicore's seeded
+# member fabric depends on the deferred intake→fabric evidence-plane slice; for
+# now we thread the bundle's own logical id as-is to establish the wire contract.
+FHIR_LOGICAL_ID_SYSTEM = "urn:enstellar:fhir-logical-id"
+
 
 class PasBundleMapper:
     """Maps a PAS Claim/$submit Bundle dict to a canonical Case."""
@@ -134,6 +144,16 @@ def _map_member(
         Identifier(system=i.get("system", ""), value=i.get("value", ""))
         for i in raw_identifiers
     ]
+
+    # Preserve the bundle Patient's FHIR logical id as a stable member reference.
+    # member_id itself is a random UUID, so without this the only durable handle
+    # on the originating patient would be lost. This is what flows to Digicore as
+    # member_ref (slice 1.1).
+    logical_id = patient.get("id")
+    if logical_id:
+        identifiers.append(
+            Identifier(system=FHIR_LOGICAL_ID_SYSTEM, value=str(logical_id))
+        )
 
     return Member(
         member_id=member_id,

@@ -41,6 +41,23 @@ logger = logging.getLogger(__name__)
 _ACTOR_ID = "auto-determination"
 _ACTOR_TYPE = "system"
 
+# Synthetic identifier system under which the normalization mapper stashes the
+# bundle Patient's FHIR logical id (kept in sync with
+# enstellar_workflow.normalization.mapper.FHIR_LOGICAL_ID_SYSTEM).
+_FHIR_LOGICAL_ID_SYSTEM = "urn:enstellar:fhir-logical-id"
+
+
+def _stable_member_ref(case: Case) -> str | None:
+    """Return the bundle Patient's FHIR logical id if the mapper preserved it.
+
+    Returns None when no stable reference is available; the Digicore connector
+    then falls back to member_id. See slice 1.1.
+    """
+    for ident in case.member.identifiers or []:
+        if ident.system == _FHIR_LOGICAL_ID_SYSTEM:
+            return ident.value
+    return None
+
 
 class AutoDeterminator:
     """Approve-only auto-determination path.
@@ -94,6 +111,11 @@ class AutoDeterminator:
             member_id=str(case.member.member_id),
             plan_id=case.coverage.plan_id,
             tenant_id=case.tenant_id,
+            # slice 1.1: send a STABLE member reference (the bundle Patient logical
+            # id, preserved by the mapper) so Digicore can retrieve the member's
+            # FHIR resources. Falls back to member_id inside the connector when
+            # no stable ref is present.
+            member_ref=_stable_member_ref(case),
         )
 
         try:

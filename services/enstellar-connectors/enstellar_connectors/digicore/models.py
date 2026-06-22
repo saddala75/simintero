@@ -37,6 +37,14 @@ class DecisionRequest(BaseModel):
         min_length=1,
         description="Required: tenant owning this request — invariant #5",
     )
+    member_ref: str | None = Field(
+        default=None,
+        description=(
+            "Stable member reference (e.g. the bundle Patient logical id) used by "
+            "Digicore to retrieve the member's FHIR resources. Falls back to "
+            "member_id when unset."
+        ),
+    )
     pins: list[Pin] = []
 
     @field_validator("tenant_id")
@@ -75,12 +83,21 @@ class DecisionResponse(BaseModel):
 
 
 class EvaluationRequest(BaseModel):
-    """Outbound request body for the digicore-runtime C-1 evaluate endpoint."""
+    """Outbound request body for the digicore-runtime C-1 evaluate endpoint.
+
+    Wire field naming mirrors the Java contract exactly: the pre-existing fields
+    serialize camelCase (caseId, serviceCode); the member/tenant fields added in
+    slice 1.1 serialize snake_case (member_ref, tenant_id) because that is what
+    the Java POST /v1/runtime/evaluate handler expects. model_dump() with no
+    aliases emits field names verbatim, so the names below ARE the wire keys.
+    """
 
     caseId: str
     evidence: dict = {}
     pins: list[str] = []
     serviceCode: str
+    member_ref: str | None = None
+    tenant_id: str | None = None
 
 
 class EvaluationResponse(BaseModel):

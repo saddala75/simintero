@@ -124,6 +124,12 @@ class DigiCoreClient:
             evidence={},
             pins=[p.pin_id for p in req.pins],
             serviceCode=req.service_code,
+            # slice 1.1: carry the member identifier + tenant so Digicore can
+            # retrieve the member's FHIR resources. Prefer the stable member_ref
+            # threaded from the case (the bundle Patient logical id); fall back to
+            # member_id when no explicit ref is available.
+            member_ref=req.member_ref or req.member_id,
+            tenant_id=req.tenant_id,
         )
         async with httpx.AsyncClient(
             base_url=self._base_url,

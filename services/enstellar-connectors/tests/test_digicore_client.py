@@ -219,6 +219,66 @@ async def test_evaluate_request_sends_correct_body(monkeypatch):
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_evaluate_request_sends_member_ref_and_tenant_id(monkeypatch):
+    """The wire body must carry the member reference and tenant id (slice 1.1).
+
+    Java POST /v1/runtime/evaluate accepts snake_case `member_ref` and
+    `tenant_id`; the Python EvaluationRequest must serialize them snake_case.
+    """
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
+        return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
+    )
+
+    client = DigiCoreClient()
+    req = DecisionRequest(
+        case_id="case-mref",
+        service_code="99215",
+        member_id="m-mref",
+        plan_id="P-mref",
+        tenant_id="tenant-mref",
+        member_ref="pat-001",
+    )
+    await client.evaluate_request(req)
+
+    assert route.called
+    import json as _json
+    body = _json.loads(route.calls.last.request.content)
+    # snake_case on the wire — must match the Java contract exactly
+    assert body["member_ref"] == "pat-001"
+    assert body["tenant_id"] == "tenant-mref"
+    # The new fields must NOT leak camelCase aliases
+    assert "memberRef" not in body
+    assert "tenantId" not in body
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_evaluate_request_member_ref_falls_back_to_member_id(monkeypatch):
+    """When no explicit member_ref is set, the stable member_id is used as the ref."""
+    monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
+    route = respx.post("http://digicore-runtime-test" + EVALUATE_PATH).mock(
+        return_value=httpx.Response(200, json=EVAL_MEETS_ALL_RESPONSE)
+    )
+
+    client = DigiCoreClient()
+    req = DecisionRequest(
+        case_id="case-fallback",
+        service_code="99215",
+        member_id="m-fallback",
+        plan_id="P-fallback",
+        tenant_id="tenant-fallback",
+    )
+    await client.evaluate_request(req)
+
+    import json as _json
+    body = _json.loads(route.calls.last.request.content)
+    assert body["member_ref"] == "m-fallback"
+    assert body["tenant_id"] == "tenant-fallback"
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_successful_call_resets_circuit_breaker(monkeypatch):
     """A successful call after failures must reset the failure counter."""
     monkeypatch.setenv("DIGICORE_BASE_URL", "http://digicore-runtime-test")
