@@ -21,4 +21,17 @@ class RuleLibraryCompileTest {
     @Test void lumbarCompiles() throws Exception { assertCompiles("lumbar-spine-mri.cql"); }
     @Test void endoscopyCompiles() throws Exception { assertCompiles("upper-endoscopy.cql"); }
     @Test void ctCompiles() throws Exception { assertCompiles("ct-abdomen-pelvis.cql"); }
+
+    @Test
+    void fhirRetrieveDemoRuleCompiles() {
+        String cql = """
+                library FhirRetrieveDemo version '1.0.0'
+                using FHIR version '4.0.1'
+                context Patient
+                define "Has Condition": exists [Condition]
+                define "Has Procedure": exists [Procedure]
+                define "Meets All Criteria": "Has Condition" and "Has Procedure"
+                """;
+        assertInstanceOf(CqlCompilerService.CompileSuccess.class, new CqlCompilerService().compile(cql));
+    }
 }
