@@ -106,6 +106,17 @@
             <version>7.4.5</version>
         </dependency>
 
+        <!-- HAPI caching SL provider implementation. hapi-fhir brings hapi-fhir-caching-api
+             transitively, but no implementation; FhirContext.newFhirPath() (used by
+             FabricRetrieveProvider to evaluate codePath) builds a HapiWorkerContext that requires a
+             concrete cache provider via the SL CacheFactory — without this it fails at runtime with
+             "HAPI-2200: No Cache Service Providers found". Caffeine is HAPI's default. -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-caching-caffeine</artifactId>
+            <version>7.4.5</version>
+        </dependency>
+
         <!-- PostgreSQL JDBC driver (runtime) -->
         <dependency>
             <groupId>org.postgresql</groupId>

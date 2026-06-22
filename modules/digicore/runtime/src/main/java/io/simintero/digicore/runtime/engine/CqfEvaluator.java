@@ -117,7 +117,7 @@ public class CqfEvaluator {
             StubTerminologyProvider terminologyProvider = new StubTerminologyProvider();
             RetrieveProvider baseRetrieve = retrieveOverride != null
                     ? retrieveOverride
-                    : new FabricRetrieveProvider(jdbc, fhir, tenantId, memberRef);
+                    : new FabricRetrieveProvider(jdbc, fhir, tenantId, memberRef, terminologyProvider);
             // Slice 1.1 has no terminology: a value-set / code-filtered retrieve cannot be honored.
             // Rather than silently returning UNFILTERED resources (which would unsafely meets_all),
             // route any such retrieve through the (throwing) terminology provider -> abstain.

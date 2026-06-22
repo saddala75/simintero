@@ -1,9 +1,13 @@
 package io.simintero.digicore.runtime.engine;
 
 import ca.uhn.fhir.context.FhirContext;
+import org.hl7.fhir.instance.model.api.IBase;
+import org.hl7.fhir.r4.model.Coding;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
 import org.opencds.cqf.cql.engine.runtime.Code;
 import org.opencds.cqf.cql.engine.runtime.Interval;
+import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
+import org.opencds.cqf.cql.engine.terminology.ValueSetInfo;
 import org.springframework.jdbc.core.JdbcOperations;
 
 import java.sql.Connection;
@@ -36,12 +40,15 @@ public class FabricRetrieveProvider implements RetrieveProvider {
     private final FhirContext fhir;
     private final String tenantId;
     private final String memberRef;
+    private final TerminologyProvider terminology;
 
-    public FabricRetrieveProvider(JdbcOperations jdbc, FhirContext fhir, String tenantId, String memberRef) {
+    public FabricRetrieveProvider(JdbcOperations jdbc, FhirContext fhir, String tenantId, String memberRef,
+                                  TerminologyProvider terminology) {
         this.jdbc = jdbc;
         this.fhir = fhir;
         this.tenantId = tenantId;
         this.memberRef = memberRef;
+        this.terminology = terminology;
     }
 
     @Override
@@ -60,7 +67,47 @@ public class FabricRetrieveProvider implements RetrieveProvider {
         for (String json : contents) {
             resources.add(fhir.newJsonParser().parseResource(json));
         }
-        return resources;
+
+        if (valueSet != null) {
+            // Expand the value set (throws on unresolvable -> caller abstains = fail-closed),
+            // then keep only resources whose coding at codePath is a member.
+            List<Code> members = new ArrayList<>();
+            terminology.expand(new ValueSetInfo().withId(valueSet)).forEach(members::add);
+            return filterByCodes(resources, codePath, members);
+        } else if (codes != null && codes.iterator().hasNext()) {
+            List<Code> list = new ArrayList<>();
+            codes.forEach(list::add);
+            return filterByCodes(resources, codePath, list);
+        } else if (codePath != null) {
+            // A code filter was intended but no value set / codes were given — cannot honor -> fail closed.
+            throw new IllegalStateException("code-filtered retrieve with no valueSet/codes: dataType=" + dataType);
+        }
+        return resources; // type-only (1.1 behavior)
+    }
+
+    /**
+     * Keep each resource iff any of its codings at {@code codePath} (resolved as
+     * {@code codePath + ".coding"} via HAPI FHIRPath, i.e. the {@code CodeableConcept.coding}
+     * list) matches a value-set member by {@link VkasTerminologyProvider#codesMatch}.
+     */
+    private Iterable<Object> filterByCodes(List<Object> resources, String codePath, List<Code> members) {
+        var fhirPath = fhir.newFhirPath();
+        List<Object> kept = new ArrayList<>();
+        for (Object r : resources) {
+            List<Coding> codings = new ArrayList<>();
+            for (IBase base : fhirPath.evaluate((IBase) r, codePath + ".coding", IBase.class)) {
+                if (base instanceof Coding cd) {
+                    codings.add(cd);
+                }
+            }
+            boolean match = codings.stream().anyMatch(cd ->
+                    members.stream().anyMatch(m -> VkasTerminologyProvider.codesMatch(
+                            m, new Code().withSystem(cd.getSystem()).withCode(cd.getCode()))));
+            if (match) {
+                kept.add(r);
+            }
+        }
+        return kept;
     }
 
     /**
