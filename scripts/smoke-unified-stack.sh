@@ -306,6 +306,18 @@ echo "   fhir-retrieve(29827, member-003) → ${FHIR_NEG}"
 [ "$FHIR_NEG" = "not_met False" ] || { echo "❌ 1.1: FHIR retrieve negative case wrong (got '${FHIR_NEG}')" >&2; exit 1; }
 echo "✅ slice 1.1: real CQL-vs-FHIR — Condition+Procedure retrieved from fabric.resource, evaluated correctly"
 
+echo "── 12c. slice 1.2: value-set MEMBERSHIP filtering ──"
+# Slice 1.2 seeded: member-001 has a Condition with SNOMED 239873007 (IN the Knee VS) → meets_all;
+# member-002 has a Condition with SNOMED 73211009 (NOT in the Knee VS) → filtered out → not_met.
+# This proves filtering, not bare exists: the non-member code is excluded by value-set expansion.
+VS_POS=$(fhir_eval 29828 member-001)
+echo "   value-set(29828, member-001) → ${VS_POS}"
+[ "$VS_POS" = "meets_all True" ] || { echo "❌ 1.2: value-set match did not meet_all (got '${VS_POS}')" >&2; docker compose logs digicore-runtime 2>&1 | tail -30 >&2; exit 1; }
+VS_NEG=$(fhir_eval 29828 member-002)
+echo "   value-set(29828, member-002) → ${VS_NEG}"
+[ "$VS_NEG" = "not_met False" ] || { echo "❌ 1.2: non-member code was NOT filtered out (got '${VS_NEG}') — value-set filtering regressed" >&2; exit 1; }
+echo "✅ slice 1.2: value-set MEMBERSHIP filtering — member-001 (SNOMED 239873007) meets_all, member-002 (73211009 not in VS) not_met"
+
 echo "── 13. P1-b2b: author a rule through the full governance lifecycle ──"
 # Author a BRAND-NEW procedure (CPT 29826 shoulder arthroscopy, NOT in the V018 seed) end to
 # end via the live authoring (:3052) + governance (:3053) services, then prove digicore (:8083)
