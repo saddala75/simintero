@@ -1,15 +1,14 @@
 import { proxyActivities } from '@temporalio/workflow';
-import type * as activities from './activities.js';
+import type { makeActivities } from './activities.js';
 
-const { virusScan, classifyDocument, extractTextLayer, emitDocumentReady } =
-  proxyActivities<typeof activities>({
-    startToCloseTimeout: '5 minutes',
-    retry: { maximumAttempts: 3 },
-  });
+const acts = proxyActivities<ReturnType<typeof makeActivities>>({
+  startToCloseTimeout: '5 minutes',
+  retry: { maximumAttempts: 3 },
+});
 
-export async function DocIngestWorkflow(docId: string): Promise<void> {
-  await virusScan({} as never, docId);
-  await classifyDocument({} as never, docId);
-  await extractTextLayer({} as never, docId);
-  await emitDocumentReady({} as never, docId);
+export async function docIngest(docId: string, tenantId: string): Promise<void> {
+  await acts.virusScan(docId, tenantId);
+  await acts.classifyDocument(docId, tenantId);
+  await acts.extractTextLayer(docId, tenantId);
+  await acts.emitDocumentReady(docId, tenantId);
 }
