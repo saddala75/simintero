@@ -6,6 +6,7 @@ import { transitionStatus, StatusTransitionError, type ArtifactStatus } from "./
 import { evaluateBlastRadius, applyPromotion, type PromotionSet } from "./promotions.js";
 import { withTenant } from "./db/withTenant.js";
 import { rollbackArtifact } from "./rollback.js";
+import { recordApproval } from "./approvals.js";
 
 function tenantOf(req: Request): string {
   return (req.header('x-sim-tenant-id') ?? '').trim();
@@ -179,6 +180,58 @@ export function createVkasRouter(): Router {
       }
     } catch (err) {
       if (err instanceof StatusTransitionError) { res.status(409).json({ error: (err as Error).message }); return; }
+      next(err);
+    }
+  });
+
+  // POST /v1/approvals — record a gate approval (clinical/compliance/eval/impact)
+  // Writes (or upserts) a vkas.approval row; the eval gate consumer is the eval-runner.
+  router.post('/v1/approvals', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const b = req.body as Record<string, unknown>;
+      const { canonical_url, version, gate, approver, decided, rationale, attestation } = b;
+
+      // Required field validation
+      if (!canonical_url || typeof canonical_url !== 'string') {
+        res.status(400).json({ error: 'canonical_url is required' });
+        return;
+      }
+      if (!version || typeof version !== 'string') {
+        res.status(400).json({ error: 'version is required' });
+        return;
+      }
+      if (!approver || typeof approver !== 'string') {
+        res.status(400).json({ error: 'approver is required' });
+        return;
+      }
+
+      // Enum validation
+      const VALID_GATES = new Set(['clinical', 'compliance', 'eval', 'impact']);
+      if (!gate || !VALID_GATES.has(gate as string)) {
+        res.status(400).json({ error: `gate must be one of: ${[...VALID_GATES].join(', ')}` });
+        return;
+      }
+      const VALID_DECIDED = new Set(['approved', 'rejected']);
+      if (!decided || !VALID_DECIDED.has(decided as string)) {
+        res.status(400).json({ error: `decided must be one of: ${[...VALID_DECIDED].join(', ')}` });
+        return;
+      }
+
+      const pool = req.app.locals['pool'];
+      await withTenant(pool, tenantOf(req), (client: PoolClient) =>
+        recordApproval(client, {
+          canonicalUrl: canonical_url,
+          version: version as string,
+          gate: gate as string,
+          approver: approver as string,
+          decided: decided as string,
+          rationale: (rationale as string | null | undefined) ?? null,
+          attestation: (attestation as Record<string, unknown> | null | undefined) ?? null,
+        }),
+      );
+
+      res.status(201).json({ canonical_url, version, gate, decided });
+    } catch (err) {
       next(err);
     }
   });
