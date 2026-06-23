@@ -73,6 +73,39 @@ describe('POST /v1/assist/analyses', () => {
     expect((opts as { taskQueue: string }).taskQueue).toBe('revital');
     expect((opts as { args: Array<{ tenant_id: string }> }).args[0]!.tenant_id).toBe('t_test');
   });
+
+  it('uses DEFAULT_MODEL_BINDING_VERSION from env when set', async () => {
+    const saved = process.env['DEFAULT_MODEL_BINDING_VERSION'];
+    process.env['DEFAULT_MODEL_BINDING_VERSION'] = '2.0.0';
+    try {
+      const startSpy = vi.fn().mockResolvedValue({ workflowId: 'wf_1' });
+      const app2 = express();
+      app2.use(express.json());
+      app2.use(createAnalysesRouter(makePool(), { start: startSpy } as never));
+      await request(app2).post('/v1/assist/analyses').set('x-sim-tenant-id', 't_test').send(VALID_BODY);
+      const [, opts] = startSpy.mock.calls[0]!;
+      expect((opts as { args: Array<{ model_binding_version: string }> }).args[0]!.model_binding_version).toBe('2.0.0');
+    } finally {
+      if (saved === undefined) delete process.env['DEFAULT_MODEL_BINDING_VERSION'];
+      else process.env['DEFAULT_MODEL_BINDING_VERSION'] = saved;
+    }
+  });
+
+  it('defaults model_binding_version to 1.0.0 when DEFAULT_MODEL_BINDING_VERSION is not set', async () => {
+    const saved = process.env['DEFAULT_MODEL_BINDING_VERSION'];
+    delete process.env['DEFAULT_MODEL_BINDING_VERSION'];
+    try {
+      const startSpy = vi.fn().mockResolvedValue({ workflowId: 'wf_1' });
+      const app2 = express();
+      app2.use(express.json());
+      app2.use(createAnalysesRouter(makePool(), { start: startSpy } as never));
+      await request(app2).post('/v1/assist/analyses').set('x-sim-tenant-id', 't_test').send(VALID_BODY);
+      const [, opts] = startSpy.mock.calls[0]!;
+      expect((opts as { args: Array<{ model_binding_version: string }> }).args[0]!.model_binding_version).toBe('1.0.0');
+    } finally {
+      if (saved !== undefined) process.env['DEFAULT_MODEL_BINDING_VERSION'] = saved;
+    }
+  });
 });
 
 describe('GET /v1/assist/analyses/:id', () => {

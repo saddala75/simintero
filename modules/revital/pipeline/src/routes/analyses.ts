@@ -63,7 +63,7 @@ export function createAnalysesRouter(pool: Pool, temporalClient: TemporalClientL
           document_refs: inputs.document_refs,
           evidence_requirements_ref: null,
           model_binding_ref: process.env['DEFAULT_MODEL_BINDING'] ?? 'https://artifacts.simintero.io/shared/model_binding/claude-pa',
-          model_binding_version: '1.0.0',
+          model_binding_version: process.env['DEFAULT_MODEL_BINDING_VERSION'] ?? '1.0.0',
           prompt_ref: process.env['DEFAULT_PROMPT'] ?? 'https://artifacts.simintero.io/shared/prompt/pa-review',
           prompt_version: '1.0.0',
           cell_boundary: 'pooled',

@@ -383,6 +383,7 @@ services:
       DOCUMENT_SERVICE_URL: http://document-service:3010
       NODE_ENV: development
       PORT: "3014"
+      DEFAULT_MODEL_BINDING_VERSION: "${DEFAULT_MODEL_BINDING_VERSION:-1.0.0}"
     ports:
       - "3014:3014"
     depends_on:
