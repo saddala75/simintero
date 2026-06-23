@@ -83,7 +83,10 @@ async def lifespan(app: FastAPI):
         fabric_dsn = settings.simintero_db_url.replace(
             "postgresql+asyncpg://", "postgresql://"
         )
-        fabric_pool = await asyncpg.create_pool(fabric_dsn, min_size=2, max_size=10)
+        # Small pool: the bridge only does a handful of synchronous evidence upserts per
+        # $submit, and the shared Postgres has a default 100-connection ceiling the full
+        # stack already pressures — keep this footprint minimal (review finding I1).
+        fabric_pool = await asyncpg.create_pool(fabric_dsn, min_size=1, max_size=3)
         logger.info("Fabric (simintero) pool started")
     else:
         logger.info("SIMINTERO_DB_URL unset — fabric pool disabled")
