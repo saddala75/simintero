@@ -221,6 +221,59 @@ ai1_check triage_advise suggestion \
   '{"task_kind":"triage_advise","prompt_ref":"p","prompt_version":"1.0.0","model_binding_ref":"https://artifacts.simintero.io/shared/model_binding/claude-pa","model_binding_version":"1.0.0","inputs":{},"workflow_id":"ai1-smoke"}'
 echo "✅ AI1: /inference returns structured output for all task_kinds (VKAS resolve → mock-llm → parsed)"
 
+echo "── 10b. AI-OPS: model-ops eval gate (author candidate → activate 409 → eval-runner 3/3 → activate 200) ──"
+# Proves the slice-2.2b gate: a model_binding cannot reach `active` without a passing
+# gate='eval' approval produced by the real eval-runner. We author a fresh candidate
+# version per run (epoch patch) so warm re-runs never wedge on prior state, point its
+# content at the in-network mock-llm, and drive the full sequence against VKAS (:3040)
+# + model-gateway (:3011). The eval-runner resolves the NON-active candidate via VKAS
+# :resolve (pinned-version path), runs the kill-switch→PHI→adapter chain through /eval,
+# scores the gold set, and posts the eval approval.
+VKAS_GATE=${VKAS_GATE:-http://localhost:3040}
+MG_GATE=${MG_GATE:-http://localhost:3011}
+CAND_URL="https://artifacts.simintero.io/shared/model_binding/claude-pa"
+EVAL_SET_URL="https://artifacts.simintero.io/shared/eval_set/claude-pa-gold"
+CAND_VER="1.1.$(date +%s)"
+echo "   candidate version: $CAND_VER"
+
+# 1. Author the candidate model_binding (content → in-network mock-llm) + submit it.
+curl -sf -X POST "$VKAS_GATE/v1/artifacts" \
+  -H "x-sim-tenant-id: $TENANT_ID" -H "Content-Type: application/json" \
+  -d "{\"canonical_url\":\"$CAND_URL\",\"version\":\"$CAND_VER\",\"artifact_type\":\"model_binding\",\"content\":{\"provider\":\"anthropic\",\"model_id\":\"claude-sonnet-4-6\",\"endpoint_overrides\":{\"pooled\":\"http://mock-llm:3060\"},\"adapter_config\":{\"max_tokens\":1024},\"no_train_enforced\":true}}" \
+  >/dev/null || { echo "❌ AI-OPS: author candidate failed" >&2; exit 1; }
+curl -sf -X POST "$VKAS_GATE/v1/artifacts/submit" \
+  -H "x-sim-tenant-id: $TENANT_ID" -H "Content-Type: application/json" \
+  -d "{\"canonical_url\":\"$CAND_URL\",\"version\":\"$CAND_VER\"}" \
+  >/dev/null || { echo "❌ AI-OPS: submit candidate failed" >&2; exit 1; }
+echo "   authored + submitted $CAND_VER"
+
+# 2. Activate WITHOUT an eval approval → must be 409 (SIM-VKAS-EVAL_REQUIRED).
+GATE_409=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$VKAS_GATE/v1/artifacts/activate" \
+  -H "x-sim-tenant-id: $TENANT_ID" -H "Content-Type: application/json" \
+  -d "{\"canonical_url\":\"$CAND_URL\",\"version\":\"$CAND_VER\"}")
+echo "   activate (no eval) → HTTP $GATE_409"
+[ "$GATE_409" = "409" ] || { echo "❌ AI-OPS: expected 409 before eval, got $GATE_409" >&2; exit 1; }
+
+# 3. Run the real eval-runner: resolves the candidate via VKAS :resolve, scores the
+#    gold set via /eval, posts the gate='eval' approval. Must score 3/3 (exit 0).
+pnpm install --filter @sim/eval-scripts >/dev/null 2>&1 || true
+EVAL_OUT=$(pnpm --filter @sim/eval-scripts exec tsx eval-runner.ts \
+  --binding "$CAND_URL" --binding-version "$CAND_VER" \
+  --eval-set "$EVAL_SET_URL" \
+  --gateway "$MG_GATE" --vkas "$VKAS_GATE" \
+  --approver smoke --tenant "$TENANT_ID" 2>&1) || {
+    echo "$EVAL_OUT" >&2; echo "❌ AI-OPS: eval-runner exited non-zero" >&2; exit 1; }
+echo "$EVAL_OUT" | sed 's/^/   /'
+echo "$EVAL_OUT" | grep -q "3/3 passed" || { echo "❌ AI-OPS: eval-runner did not score 3/3" >&2; exit 1; }
+
+# 4. Activate again now that the eval approval landed → must be 200.
+GATE_200=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$VKAS_GATE/v1/artifacts/activate" \
+  -H "x-sim-tenant-id: $TENANT_ID" -H "Content-Type: application/json" \
+  -d "{\"canonical_url\":\"$CAND_URL\",\"version\":\"$CAND_VER\"}")
+echo "   activate (after eval) → HTTP $GATE_200"
+[ "$GATE_200" = "200" ] || { echo "❌ AI-OPS: expected 200 after eval, got $GATE_200" >&2; exit 1; }
+echo "✅ AI-OPS: model-ops eval gate enforced (409 → eval-runner 3/3 → 200)"
+
 echo "── 11. I2b-1: clinical_review drives the real Revital advisory ──"
 # The case reached clinical_review in step 8. The rewired ClinicalReviewConsumer
 # resolved the I2a-ingested document, submitted a C-2 analysis to revital-pipeline,
