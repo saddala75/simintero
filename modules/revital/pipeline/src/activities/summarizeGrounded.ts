@@ -70,7 +70,7 @@ export async function summarizeGroundedImpl(
         return { status: 'abstained', abstain_reason: `gateway_${res.status}`, assertions: [] };
       }
 
-      const { output } = (await res.json()) as {
+      const { output, request_id } = (await res.json()) as {
         output: {
           assertions: Array<{
             id: string;
@@ -84,6 +84,7 @@ export async function summarizeGroundedImpl(
             confidence: number;
           }>;
         };
+        request_id: string;
       };
 
       // INV-2: drop assertions with zero citations or citations that don't resolve in SpanMap
@@ -91,7 +92,7 @@ export async function summarizeGroundedImpl(
         .filter(a => a.citations.length >= 1 && a.citations.every(c => isCitationValid(c, spanMap)))
         .map(a => ({
           ...a,
-          citations: a.citations.map(c => ({ ...c, trace_ref: 'trc_pending' })),
+          citations: a.citations.map(c => ({ ...c, trace_ref: request_id })),
         }));
 
       if (cited.length > 0) {

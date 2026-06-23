@@ -9,8 +9,14 @@ const EXTRACTED: ExtractionBlock = {
     fabric_ref: 'fabric/Procedure/px_1',
     resource_type: 'Procedure',
     provenance_ref: 'trc_1',
-    normalization: { system: 'CPT', code: '97110', raw_text: 'ther ex' },
-    confidence: 0.88,
+    normalization: {
+      coded: true,
+      source: 'model-hint',
+      system: 'CPT',
+      code: '97110',
+      raw_text: 'ther ex',
+      resource_type: 'Procedure',
+    },
   }],
 };
 
@@ -43,7 +49,7 @@ describe('mapEvidenceToCriteria', () => {
   it('returns all requirements as gaps when no matching resources', () => {
     const noMatch: ExtractionBlock = {
       status: 'ok',
-      resources: [{ fabric_ref: 'f', resource_type: 'DiagnosticReport', provenance_ref: 'trc', normalization: { system: 'LOINC', code: '1234', raw_text: 'x-ray' }, confidence: 0.8 }],
+      resources: [{ fabric_ref: 'f', resource_type: 'DiagnosticReport', provenance_ref: 'trc', normalization: { coded: true, source: 'model-hint', system: 'LOINC', code: '1234', raw_text: 'x-ray', resource_type: 'DiagnosticReport' } }],
     };
     const result = mapEvidenceToCriteriaImpl(noMatch, REQUIREMENTS);
     expect(result.gaps).toHaveLength(2);

@@ -34,7 +34,29 @@ describe('summarizeGrounded', () => {
     expect(result.status).toBe('ok');
     expect(result.assertions).toHaveLength(1);
     expect(result.assertions[0]!.citations).toHaveLength(1);
-    expect(result.assertions[0]!.citations[0]!.trace_ref).toBe('trc_pending');
+    expect(result.assertions[0]!.citations[0]!.trace_ref).toBe('req_1');
+  });
+
+  it('sets citation trace_ref to the gateway request_id (not trc_pending)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output: {
+          assertions: [{
+            id: 'a1',
+            text: 'Member completed PT',
+            citations: [{ document_ref: 'd1', page: 1, region: [0, 0, 612, 12], excerpt_hash: 'sha256:abc123' }],
+            confidence: 0.91,
+          }],
+        },
+        request_id: 'req_xyz',
+      }),
+    }));
+
+    const result = await summarizeGroundedImpl(SPAN_MAP, null, INPUT, 'http://gw', 't_test');
+    expect(result.status).toBe('ok');
+    expect(result.assertions[0]!.citations[0]!.trace_ref).toBe('req_xyz');
+    expect(result.assertions[0]!.citations[0]!.trace_ref).not.toBe('trc_pending');
   });
 
   it('drops uncited assertions and returns abstained when none remain', async () => {
