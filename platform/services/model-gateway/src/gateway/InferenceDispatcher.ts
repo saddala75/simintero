@@ -39,6 +39,7 @@ export class InferenceDispatcher {
   constructor(
     private readonly pool: Pool,
     private readonly vkasBaseUrl: string,
+    private readonly anthropicApiKey: string = '',
   ) {
     this.killSwitch = new KillSwitchChecker(pool);
   }
@@ -126,7 +127,7 @@ export class InferenceDispatcher {
   }
 
   private adapterFor(provider: string, endpoint: string): ProviderAdapter {
-    if (provider === 'anthropic') return new AnthropicAdapter(endpoint);
+    if (provider === 'anthropic') return new AnthropicAdapter(endpoint, this.anthropicApiKey);
     throw new Error(`Unknown provider: ${provider}. Register a new adapter + model_binding artifact.`);
   }
 

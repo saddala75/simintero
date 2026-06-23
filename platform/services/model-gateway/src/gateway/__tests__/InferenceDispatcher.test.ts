@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { InferenceDispatcher } from '../InferenceDispatcher.js';
 import type { Pool } from 'pg';
 
@@ -128,5 +128,54 @@ describe('InferenceDispatcher', () => {
     const envelope = JSON.parse(params[3] as string) as Record<string, unknown>;
     expect((envelope['payload'] as Record<string, unknown>)['request_id']).toBeTruthy();
     expect(JSON.stringify(envelope)).not.toContain('text_segments');
+  });
+
+  describe('ANTHROPIC_API_KEY threading', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('passes x-api-key to the outgoing Anthropic fetch when dispatcher is constructed with a key', async () => {
+      const dispatcherWithKey = new InferenceDispatcher(makePool(), 'http://vkas-mock', 'sk-ant-test-999');
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ACTIVE_BINDING })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({
+          content: [{ text: '{"result":"key-ok"}' }],
+          usage: { input_tokens: 5, output_tokens: 5 },
+        }) });
+      vi.stubGlobal('fetch', fetchMock);
+
+      await dispatcherWithKey.dispatch({
+        task_kind: 'summarize',
+        prompt_ref: 'ref', prompt_version: '1.0.0',
+        model_binding_ref: 'ref', model_binding_version: '1.0.0',
+        inputs: {},
+        tenant_ctx: VALID_CTX,
+      });
+
+      // The second fetch call is the Anthropic adapter call (first is VKAS resolve)
+      const anthropicCallHeaders = (fetchMock.mock.calls[1]![1] as RequestInit).headers as Record<string, string>;
+      expect(anthropicCallHeaders['x-api-key']).toBe('sk-ant-test-999');
+    });
+
+    it('sends NO x-api-key when dispatcher is constructed with empty key (mock path unchanged)', async () => {
+      const dispatcherNoKey = new InferenceDispatcher(makePool(), 'http://vkas-mock', '');
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ACTIVE_BINDING })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({
+          content: [{ text: '{"result":"no-key-ok"}' }],
+          usage: { input_tokens: 5, output_tokens: 5 },
+        }) });
+      vi.stubGlobal('fetch', fetchMock);
+
+      await dispatcherNoKey.dispatch({
+        task_kind: 'summarize',
+        prompt_ref: 'ref', prompt_version: '1.0.0',
+        model_binding_ref: 'ref', model_binding_version: '1.0.0',
+        inputs: {},
+        tenant_ctx: VALID_CTX,
+      });
+
+      const anthropicCallHeaders = (fetchMock.mock.calls[1]![1] as RequestInit).headers as Record<string, string>;
+      expect('x-api-key' in anthropicCallHeaders).toBe(false);
+    });
   });
 });

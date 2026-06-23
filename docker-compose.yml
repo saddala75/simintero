@@ -217,6 +217,7 @@ services:
       VKAS_URL: http://vkas:3040
       NODE_ENV: development
       PORT: "3011"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
     ports:
       - "3011:3011"
     depends_on:

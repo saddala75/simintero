@@ -9,9 +9,10 @@ import { createFinopsRouter } from './routes/finops.js';
 const DB_URL = process.env['DATABASE_URL'] ?? 'postgresql://localhost/simintero';
 const VKAS_URL = process.env['VKAS_URL'] ?? 'http://localhost:4000';
 const PORT = Number(process.env['PORT'] ?? 4060);
+const ANTHROPIC_API_KEY = process.env['ANTHROPIC_API_KEY'] ?? '';
 
 const pool = new pg.Pool({ connectionString: DB_URL });
-const dispatcher = new InferenceDispatcher(pool, VKAS_URL);
+const dispatcher = new InferenceDispatcher(pool, VKAS_URL, ANTHROPIC_API_KEY);
 const killSwitchChecker = new KillSwitchChecker(pool);
 
 const app: Express = express();
