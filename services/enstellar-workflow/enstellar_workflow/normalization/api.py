@@ -14,13 +14,15 @@ import logging
 from typing import Any
 
 from canonical_model import Status
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..cases.service import CaseService
 from ..db.connection import get_pool
+from ..engine.auto_determination import _stable_member_ref
 from ..engine.transitions import TransitionRequest
 from .config import get_normalization_settings
+from .fabric_writer import write_case_evidence
 from .mapper import PasBundleMapper
 from .storage import MinioStore
 
@@ -43,6 +45,7 @@ class NormalizeRequest(BaseModel):
 @router.post("/normalize", response_model=None)
 async def normalize(
     req: NormalizeRequest,
+    request: Request,
     case_service: CaseService = Depends(_get_case_service),
 ) -> dict[str, Any]:
     """Store raw bundle in MinIO, map to canonical Case, return Case JSON.
@@ -80,6 +83,30 @@ async def normalize(
     # The kickoff transition advances intake -> auto_determination, emitting a
     # CaseStateChanged the OutboxRelay carries to the AutoDeterminationConsumer.
     case = await case_service.create_case(case)
+
+    # slice 2.1: bridge the case's clinical evidence into fabric.resource BEFORE
+    # auto_determination runs, so the very first Digicore decision sees it. This is
+    # BEST-EFFORT: any failure is caught + logged and $submit still succeeds (the
+    # decision then sees no evidence → clinical_review, which is safe). The write is
+    # keyed by the bare Patient logical id (member_ref) Digicore retrieves by.
+    try:
+        member_logical_id = _stable_member_ref(case)
+        if member_logical_id:
+            n = await write_case_evidence(
+                request.app.state.fabric_pool,
+                case.tenant_id,
+                member_logical_id,
+                raw_key,
+                req.bundle,
+            )
+            logger.info("fabric bridge wrote %d evidence rows for case=%s", n, case.case_id)
+    except Exception:  # best-effort: NEVER break $submit
+        logger.warning(
+            "fabric bridge failed for case=%s (continuing)",
+            getattr(case, "case_id", "?"),
+            exc_info=True,
+        )
+
     # Only kick off auto-determination for a freshly-created case. On a duplicate $submit,
     # create_case returns the EXISTING case at its current status; re-transitioning would
     # regress a case the async pipeline (or a human) has already advanced.
