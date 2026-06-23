@@ -189,6 +189,21 @@ case "$B23ST" in
     echo "❌ P2-2.3b: analysis status='${B23ST}' (expected terminal)" >&2; docker compose logs revital-worker 2>&1 | tail -30 >&2; exit 1;;
 esac
 
+# P2-2.4a: the extraction block must carry a CODED entity (terminology-normalized via
+# terminology-service $find-code) AND a real provenance (the gateway request_id, NOT the
+# placeholder 'trc_pending'). The mock extracts 'osteoarthritis of knee' (coding_hint null);
+# EntityNormalizer's text-search resolves it to SNOMED 239873007 over the seeded Knee value set,
+# and extractEntities sets provenance_ref to the /inference request_id.
+# (Queried as superuser 'sim' so revital RLS does not restrict the read.)
+B24EX=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "select extraction from revital.analysis where analysis_id='$B23ID';" 2>/dev/null)
+echo "   revital.analysis.extraction: $(echo "$B24EX" | head -c 600)"
+echo "$B24EX" | grep -q '239873007' \
+  || { echo "❌ P2-2.4a: extraction missing the coded SNOMED entity 239873007 (\$find-code did not normalize 'osteoarthritis of knee')" >&2; docker compose logs revital-worker 2>&1 | grep -i 'terminology\|find-code\|inference' | tail -20 >&2; exit 1; }
+echo "$B24EX" | grep -q 'trc_pending' \
+  && { echo "❌ P2-2.4a: provenance_ref still 'trc_pending' (request_id not captured from /inference)" >&2; docker compose logs revital-worker 2>&1 | tail -20 >&2; exit 1; }
+echo "✅ P2-2.4a: extraction block carries a CODED entity (SNOMED 239873007) + a real provenance_ref (request_id, not trc_pending)"
+
 echo "── 7. case surfaces in portal-bff worklist ──"
 # queue_id "default" → all tenant cases (worklist_router), so this is a stable 200.
 curl -sf "$BFF/bff/queues/default/worklist" -H "Authorization: Bearer $TOKEN" -o /dev/null \
