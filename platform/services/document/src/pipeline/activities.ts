@@ -88,7 +88,7 @@ export function makeActivities(deps: ActivityDeps) {
           `UPDATE docs.document
              SET text_key = $1,
                  classification = coalesce(classification, '{}'::jsonb)
-                   || jsonb_build_object('extraction_status', $2)
+                   || jsonb_build_object('extraction_status', $2::text)
            WHERE doc_id = $3`,
           [textKey, r.status, docId],
         );
