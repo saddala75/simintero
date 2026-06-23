@@ -44,8 +44,11 @@ export class InferenceDispatcher {
     this.killSwitch = new KillSwitchChecker(pool);
   }
 
-  async dispatch(req: DispatchRequest): Promise<{ output: unknown; request_id: string }> {
-    // 1. Kill-switch
+  async dispatch(
+    req: DispatchRequest,
+    opts?: { evalMode?: boolean },
+  ): Promise<{ output: unknown; request_id: string }> {
+    // 1. Kill-switch — enforced identically in eval mode.
     if (await this.killSwitch.isKilled(req.tenant_ctx.tenant_id, req.workflow_id)) {
       throw Object.assign(
         new Error('AI inference disabled for this tenant/workflow'),
@@ -53,10 +56,13 @@ export class InferenceDispatcher {
       );
     }
 
-    // 2. Resolve model_binding via VKAS
+    // 2. Resolve model_binding via VKAS. In eval mode we accept a candidate binding
+    //    of any status (draft/in_review/approved/active); production /inference still
+    //    requires active.
     const bindingArtifact = await this.resolveArtifact<ModelBindingContent>(
       req.model_binding_ref,
       req.model_binding_version,
+      opts?.evalMode ?? false,
     );
 
     // 3. Boundary check
@@ -131,7 +137,11 @@ export class InferenceDispatcher {
     throw new Error(`Unknown provider: ${provider}. Register a new adapter + model_binding artifact.`);
   }
 
-  private async resolveArtifact<T>(ref: string, version: string): Promise<VkasArtifact<T>> {
+  private async resolveArtifact<T>(
+    ref: string,
+    version: string,
+    evalMode = false,
+  ): Promise<VkasArtifact<T>> {
     const url = `${this.vkasBaseUrl}/v1/artifacts:resolve?canonical_url=${encodeURIComponent(ref)}&version=${encodeURIComponent(version)}`;
     const res = await fetch(url);
     if (res.status === 404) {
@@ -139,7 +149,8 @@ export class InferenceDispatcher {
     }
     if (!res.ok) throw new Error(`VKAS resolve error ${res.status}`);
     const artifact = (await res.json()) as VkasArtifact<T>;
-    if (artifact.status !== 'active') {
+    // Eval mode resolves a candidate regardless of status (skip the active-only gate).
+    if (!evalMode && artifact.status !== 'active') {
       throw Object.assign(
         new Error(`Artifact ${ref}@${version} is not active (status: ${artifact.status})`),
         { status: 422 },

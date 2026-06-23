@@ -130,6 +130,93 @@ describe('InferenceDispatcher', () => {
     expect(JSON.stringify(envelope)).not.toContain('text_segments');
   });
 
+  describe('evalMode (candidate resolution regardless of status)', () => {
+    const APPROVED_BINDING = {
+      status: 'approved', // NOT active
+      content: {
+        provider: 'anthropic',
+        model_id: 'claude-sonnet-4-6',
+        endpoint_overrides: { pooled: 'http://mock-anthropic', dedicated: 'http://mock-anthropic' },
+        adapter_config: { max_tokens: 1024 },
+        no_train_enforced: true,
+      },
+    };
+
+    it('resolves a non-active (approved) candidate and returns output when evalMode is true', async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => APPROVED_BINDING }) // VKAS resolve
+        .mockResolvedValueOnce({ ok: true, json: async () => ({
+          content: [{ text: '{"result":"eval-ok"}' }],
+          usage: { input_tokens: 5, output_tokens: 5 },
+        }) }); // Anthropic adapter
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await dispatcher.dispatch({
+        task_kind: 'summarize',
+        prompt_ref: 'ref', prompt_version: '1.0.0',
+        model_binding_ref: 'ref', model_binding_version: '1.0.0',
+        inputs: { document_span_refs: ['doc_1#p1'] },
+        tenant_ctx: VALID_CTX,
+      }, { evalMode: true });
+
+      // The adapter fetch was called -> the adapter ran past resolveArtifact.
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(result.output).toEqual({ result: 'eval-ok' });
+      expect(result.request_id).toBeTruthy();
+    });
+
+    it('STILL throws 422 for a non-active binding in normal (non-eval) dispatch — eval relaxation is scoped', async () => {
+      (fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => APPROVED_BINDING });
+
+      await expect(dispatcher.dispatch({
+        task_kind: 'summarize',
+        prompt_ref: 'ref', prompt_version: '1.0.0',
+        model_binding_ref: 'ref', model_binding_version: '1.0.0',
+        inputs: { document_span_refs: [] },
+        tenant_ctx: VALID_CTX,
+      })).rejects.toMatchObject({ status: 422 });
+    });
+
+    it('STILL enforces the kill-switch in evalMode (killed tenant -> 403)', async () => {
+      (pool.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        rows: [{ key: 'ai.inference.disabled', value: { value: true } }],
+      });
+
+      await expect(dispatcher.dispatch({
+        task_kind: 'summarize',
+        prompt_ref: 'ref', prompt_version: '1.0.0',
+        model_binding_ref: 'ref', model_binding_version: '1.0.0',
+        inputs: { document_span_refs: [] },
+        tenant_ctx: VALID_CTX,
+      }, { evalMode: true })).rejects.toMatchObject({ code: 'SIM-MG-KILL_SWITCH', status: 403 });
+    });
+
+    it('STILL applies the PHI filter in evalMode — non-allow-listed input keys are stripped before the adapter', async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => APPROVED_BINDING }) // VKAS resolve
+        .mockResolvedValueOnce({ ok: true, json: async () => ({
+          content: [{ text: '{"result":"eval-ok"}' }],
+          usage: { input_tokens: 5, output_tokens: 5 },
+        }) }); // Anthropic adapter
+      vi.stubGlobal('fetch', fetchMock);
+
+      await dispatcher.dispatch({
+        task_kind: 'summarize', // allow-list: document_span_refs, section_labels, criteria_requirement_refs (NOT text_segments)
+        prompt_ref: 'ref', prompt_version: '1.0.0',
+        model_binding_ref: 'ref', model_binding_version: '1.0.0',
+        inputs: { document_span_refs: ['doc_1#p1'], text_segments: ['RAW PHI PATIENT NOTE'] },
+        tenant_ctx: VALID_CTX,
+      }, { evalMode: true });
+
+      // The adapter call is the 2nd fetch; its prompt_text body must NOT contain the stripped PHI.
+      const adapterBody = (fetchMock.mock.calls[1]![1] as RequestInit).body as string;
+      expect(adapterBody).not.toContain('text_segments');
+      expect(adapterBody).not.toContain('RAW PHI PATIENT NOTE');
+      expect(adapterBody).toContain('document_span_refs');
+    });
+  });
+
   describe('ANTHROPIC_API_KEY threading', () => {
     afterEach(() => vi.unstubAllGlobals());
 

@@ -3,6 +3,7 @@ import pg from 'pg';
 import { InferenceDispatcher } from './gateway/InferenceDispatcher.js';
 import { KillSwitchChecker } from './kill-switch/KillSwitchChecker.js';
 import { createInferenceRouter } from './routes/inference.js';
+import { createEvalRouter } from './routes/eval.js';
 import { createKillSwitchRouter } from './routes/kill-switch.js';
 import { createFinopsRouter } from './routes/finops.js';
 
@@ -19,6 +20,7 @@ const app: Express = express();
 app.use(express.json());
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 app.use(createInferenceRouter(dispatcher));
+app.use(createEvalRouter(dispatcher));
 app.use(createKillSwitchRouter(pool, killSwitchChecker));
 app.use(createFinopsRouter(pool));
 
