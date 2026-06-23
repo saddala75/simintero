@@ -1,4 +1,5 @@
 import json
+import pathlib
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
@@ -129,3 +130,48 @@ async def test_write_case_evidence_empty_bundle_no_db_calls(monkeypatch):
                                   {"resourceType": "Bundle", "entry": []})
     assert n == 0
     assert fake_tx.opened is False
+
+
+# ---------------------------------------------------------------------------
+# Slice 2.1 Task 4 — fixture with value-set-matching diagnosis (pat-smoke)
+# ---------------------------------------------------------------------------
+
+_FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+
+
+def _load_smoke_bundle():
+    with open(_FIXTURES / "pas_bundle_with_diagnosis.json") as f:
+        return json.load(f)
+
+
+def test_pas_bundle_with_diagnosis_fixture_is_valid_json():
+    """Ensure the fixture file loads as valid JSON without error."""
+    bundle = _load_smoke_bundle()
+    assert bundle["resourceType"] == "Bundle"
+    assert bundle["id"] == "pas-bundle-smoke"
+
+
+def test_smoke_fixture_yields_condition_m17_0_and_patient():
+    """
+    collect_evidence_rows over pas_bundle_with_diagnosis.json must produce:
+    - a Patient row with fhir_id == "pat-smoke" and member_ref == "pat-smoke"
+    - a Condition row derived from Claim.diagnosis[0] with code M17.0 and
+      member_ref == "pat-smoke"
+    This proves the fixture feeds the slice-2.1 fabric bridge correctly.
+    """
+    bundle = _load_smoke_bundle()
+    rows = collect_evidence_rows(bundle, "pat-smoke")
+    by_type = _by_type(rows)
+
+    # Patient row
+    patients = by_type.get("Patient", [])
+    assert any(r["fhir_id"] == "pat-smoke" and r["member_ref"] == "pat-smoke"
+               for r in patients), f"No Patient row for pat-smoke; got {patients}"
+
+    # Condition row derived from M17.0 diagnosis
+    conditions = by_type.get("Condition", [])
+    assert len(conditions) >= 1, "Expected at least one derived Condition row"
+    cond = conditions[0]
+    assert cond["member_ref"] == "pat-smoke"
+    assert cond["content"]["code"]["coding"][0]["code"] == "M17.0"
+    assert cond["content"]["subject"]["reference"] == "Patient/pat-smoke"
