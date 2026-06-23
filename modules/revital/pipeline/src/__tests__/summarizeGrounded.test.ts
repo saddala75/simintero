@@ -77,4 +77,52 @@ describe('summarizeGrounded', () => {
     expect(result.status).toBe('abstained');
     expect(mockFetch).toHaveBeenCalledTimes(2); // ABSTAIN_IF_CITATION_ATTEMPT_COUNT = 2
   });
+
+  it('grounding resolves on a real structured span (page match) and abstains on empty spans', async () => {
+    // (a) SpanMap with a real-shaped span at page:1 — model cites {document_ref:'d1', page:1}
+    //     → isCitationValid returns true → assertion is KEPT (grounded)
+    const spanMapWithPage: SpanMap = {
+      'd1': [{ page: 1, region: [0, 0, 10, 10], text: 'structured span text', hash: 'sha256:x' }],
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output: {
+          assertions: [{
+            id: 'a1',
+            text: 'Grounded claim',
+            citations: [{ document_ref: 'd1', page: 1, region: [0, 0, 10, 10], excerpt_hash: 'sha256:x' }],
+            confidence: 0.9,
+          }],
+        },
+        request_id: 'req_grounded',
+      }),
+    }));
+    const groundedResult = await summarizeGroundedImpl(spanMapWithPage, null, INPUT, 'http://gw', 't_test');
+    expect(groundedResult.status).toBe('ok');
+    expect(groundedResult.assertions).toHaveLength(1);
+    expect(groundedResult.assertions[0]!.id).toBe('a1');
+
+    // (b) SpanMap where the doc maps to [] — model still cites {document_ref:'d1', page:1}
+    //     → isCitationValid: ([] ?? []).some(s => s.page === 1) = false → assertion DROPPED → abstained
+    const spanMapEmpty: SpanMap = { 'd1': [] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output: {
+          assertions: [{
+            id: 'a2',
+            text: 'Unresolvable claim',
+            citations: [{ document_ref: 'd1', page: 1, region: [0, 0, 10, 10], excerpt_hash: 'sha256:y' }],
+            confidence: 0.85,
+          }],
+        },
+        request_id: 'req_empty',
+      }),
+    }));
+    const abstainedResult = await summarizeGroundedImpl(spanMapEmpty, null, INPUT, 'http://gw', 't_test');
+    expect(abstainedResult.status).toBe('abstained');
+    expect(abstainedResult.abstain_reason).toBe('all_assertions_uncited');
+    expect(abstainedResult.assertions).toEqual([]);
+  });
 });
