@@ -3,7 +3,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import type { PoolClient } from "pg";
 import { resolveEffectiveVersion, type ArtifactRow } from "./resolve.js";
 import { transitionStatus, StatusTransitionError, type ArtifactStatus } from "./lifecycle.js";
-import { evaluateBlastRadius, applyPromotion, type PromotionSet } from "./promotions.js";
+import { evaluateBlastRadius, applyPromotion, BLAST_RADIUS_THRESHOLD, type PromotionSet } from "./promotions.js";
 import { withTenant } from "./db/withTenant.js";
 import { rollbackArtifact } from "./rollback.js";
 import { recordApproval } from "./approvals.js";
@@ -106,7 +106,7 @@ export function createVkasRouter(): Router {
         res.status(404).json({ error: `No artifact for ${canonical_url}${version ? `@${version}` : ' (no active version)'}` });
         return;
       }
-      res.json({ status: chosen.status, content: chosen.content });
+      res.json({ status: chosen.status, content: chosen.content, version: chosen.version });
     } catch (err) {
       next(err);
     }
@@ -148,10 +148,19 @@ export function createVkasRouter(): Router {
         // Eval gate: model_binding and prompt artifacts require a passing gate='eval' approval.
         if (artifactType === 'model_binding' || artifactType === 'prompt') {
           const ev = await client.query(
-            `SELECT decided FROM vkas.approval WHERE canonical_url=$1 AND version=$2 AND gate='eval'`,
+            `SELECT decided, attestation FROM vkas.approval WHERE canonical_url=$1 AND version=$2 AND gate='eval'`,
             [canonical_url, version]);
           if (ev.rows.length === 0 || ev.rows[0].decided !== 'approved') {
             return { evalRequired: true } as const;
+          }
+          // Blast-radius safety net (I-1): a model that passes the gold set but shifts
+          // too many decisions vs the current active binding is blocked. A missing or
+          // {0,0} delta (e.g. CI mock-vs-mock) passes.
+          const delta = (ev.rows[0].attestation as { outcome_delta?: { approve_pct_delta: number; deny_pct_delta: number } } | null)?.outcome_delta;
+          if (delta &&
+              (Math.abs(delta.approve_pct_delta) > BLAST_RADIUS_THRESHOLD.approve_pct_delta ||
+               Math.abs(delta.deny_pct_delta) > BLAST_RADIUS_THRESHOLD.deny_pct_delta)) {
+            return { blastRadius: true, delta } as const;
           }
         }
 
@@ -169,9 +178,18 @@ export function createVkasRouter(): Router {
           [canonical_url, version]);
         return { notFound: false } as const;
       });
-      if (result.notFound) { res.status(404).json({ error: 'artifact not found' }); return; }
-      if (result.evalRequired) {
+      if ('notFound' in result && result.notFound) { res.status(404).json({ error: 'artifact not found' }); return; }
+      if ('evalRequired' in result) {
         res.status(409).json({ error: 'a passing eval approval is required to activate this artifact', code: 'SIM-VKAS-EVAL_REQUIRED' });
+        return;
+      }
+      if ('blastRadius' in result) {
+        res.status(422).json({
+          type: 'https://errors.simintero.io/SIM-VKAS-BLAST_RADIUS',
+          code: 'SIM-VKAS-BLAST_RADIUS',
+          detail: 'Activation blocked by blast-radius gate: outcome delta exceeds threshold',
+          outcome_delta: result.delta,
+        });
         return;
       }
       res.status(200).json({ canonical_url, version, status: 'active' });

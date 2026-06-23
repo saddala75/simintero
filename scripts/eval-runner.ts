@@ -8,7 +8,9 @@
 //      inputs (mirrors /inference; runs the kill-switch → PHI filter → adapter chain).
 //   3. scoreCase each output (structural + key-field + citation-resolves + abstention).
 //   4. Run the gold set against the CURRENT ACTIVE binding too → computeOutcomeDelta.
-//      (No current active / same as candidate / resolve failure → delta {0,0} + a note.)
+//      The current-active version is read from the resolve response's TOP-LEVEL
+//      `version` (NOT content.version — a model_binding content has no version).
+//      (No current active / same version as candidate / resolve failure → {0,0} + a note.)
 //   5. POST {vkas}/v1/approvals gate='eval', decided='approved' iff ALL cases passed.
 //   6. Print N/M + decided; exit 0 iff all passed.
 //
@@ -16,9 +18,9 @@
 //   tsx scripts/eval-runner.ts --binding <ref> --binding-version <v> --eval-set <ref> \
 //     [--gateway <url>] [--vkas <url>] [--approver <id>] [--tenant <id>] [--cell pooled]
 
-import { scoreCase, computeOutcomeDelta, type GoldCase, type CaseScore } from './eval-scoring.js';
+import { scoreCase, computeOutcomeDelta, type GoldCase, type CaseScore, type OutcomeDelta } from './eval-scoring.js';
 
-interface Args {
+export interface Args {
   binding: string;
   bindingVersion: string;
   evalSet: string;
@@ -28,6 +30,9 @@ interface Args {
   tenant: string;
   cell: string;
 }
+
+// Injectable fetch so the core flow is unit-testable (mocked fetch).
+export type FetchImpl = typeof fetch;
 
 function parseArgs(argv: string[]): Args {
   const get = (name: string): string | undefined => {
@@ -58,9 +63,14 @@ function parseArgs(argv: string[]): Args {
 interface ResolveResponse {
   status: string;
   content: Record<string, unknown>;
+  // The artifact's top-level version, surfaced by VKAS :resolve (M-2). This is
+  // the authoritative source for the current-active binding's version — a
+  // model_binding's `content` does NOT carry a version field.
+  version?: string;
 }
 
 async function resolveArtifact(
+  fetchImpl: FetchImpl,
   vkas: string,
   tenant: string,
   canonicalUrl: string,
@@ -68,13 +78,14 @@ async function resolveArtifact(
 ): Promise<ResolveResponse | null> {
   let url = `${vkas}/v1/artifacts:resolve?canonical_url=${encodeURIComponent(canonicalUrl)}`;
   if (version) url += `&version=${encodeURIComponent(version)}`;
-  const res = await fetch(url, { headers: { 'x-sim-tenant-id': tenant } });
+  const res = await fetchImpl(url, { headers: { 'x-sim-tenant-id': tenant } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`VKAS resolve failed (${res.status}) for ${canonicalUrl}`);
   return (await res.json()) as ResolveResponse;
 }
 
 async function runCase(
+  fetchImpl: FetchImpl,
   args: Args,
   bindingVersion: string,
   goldCase: GoldCase,
@@ -88,7 +99,7 @@ async function runCase(
     inputs: goldCase.inputs,
     workflow_id: `eval-${goldCase.id}`,
   };
-  const res = await fetch(`${args.gateway}/eval`, {
+  const res = await fetchImpl(`${args.gateway}/eval`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -105,12 +116,23 @@ async function runCase(
   return json.output;
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+export interface EvalResult {
+  caseScores: CaseScore[];
+  outcomeDelta: OutcomeDelta;
+  passedCount: number;
+  total: number;
+  decided: 'approved' | 'rejected';
+  notes: string[];
+  attestation: Record<string, unknown>;
+}
+
+// Core flow (testable). Runs the candidate, computes the real outcome_delta vs the
+// current-active binding, posts the eval approval, and returns the result.
+export async function runEval(args: Args, fetchImpl: FetchImpl = fetch): Promise<EvalResult> {
   const notes: string[] = [];
 
   // 1. Resolve the eval_set.
-  const evalSet = await resolveArtifact(args.vkas, args.tenant, args.evalSet);
+  const evalSet = await resolveArtifact(fetchImpl, args.vkas, args.tenant, args.evalSet);
   if (!evalSet) throw new Error(`eval_set not found: ${args.evalSet}`);
   const goldCases = (evalSet.content?.['gold_cases'] ?? []) as GoldCase[];
   if (!Array.isArray(goldCases) || goldCases.length === 0) {
@@ -121,23 +143,24 @@ async function main(): Promise<void> {
   const candidateOutputs: unknown[] = [];
   const caseScores: CaseScore[] = [];
   for (const gc of goldCases) {
-    const output = await runCase(args, args.bindingVersion, gc);
+    const output = await runCase(fetchImpl, args, args.bindingVersion, gc);
     candidateOutputs.push(output);
     caseScores.push(scoreCase(gc, output));
   }
 
   // 4. Outcome delta vs the CURRENT ACTIVE binding (best-effort, robust).
-  let outcomeDelta = { approve_pct_delta: 0, deny_pct_delta: 0 };
+  //    The active version comes from the resolve response's TOP-LEVEL `version`.
+  let outcomeDelta: OutcomeDelta = { approve_pct_delta: 0, deny_pct_delta: 0 };
   try {
-    const active = await resolveArtifact(args.vkas, args.tenant, args.binding);
+    const active = await resolveArtifact(fetchImpl, args.vkas, args.tenant, args.binding);
     if (!active) {
       notes.push('no current-active binding — outcome_delta defaulted to {0,0}');
     } else {
-      const activeVersion = active.content?.['version'] as string | undefined;
+      const activeVersion = active.version;
       if (activeVersion && activeVersion !== args.bindingVersion) {
         const currentOutputs: unknown[] = [];
         for (const gc of goldCases) {
-          currentOutputs.push(await runCase(args, activeVersion, gc));
+          currentOutputs.push(await runCase(fetchImpl, args, activeVersion, gc));
         }
         outcomeDelta = computeOutcomeDelta(candidateOutputs, currentOutputs);
       } else {
@@ -155,7 +178,7 @@ async function main(): Promise<void> {
   const passedCount = caseScores.filter((c) => c.passed).length;
   const total = caseScores.length;
   const allPassed = passedCount === total;
-  const decided = allPassed ? 'approved' : 'rejected';
+  const decided: 'approved' | 'rejected' = allPassed ? 'approved' : 'rejected';
 
   // 5. Post the eval approval.
   const attestation = {
@@ -166,7 +189,7 @@ async function main(): Promise<void> {
     case_scores: caseScores,
     ...(notes.length ? { notes } : {}),
   };
-  const approvalRes = await fetch(`${args.vkas}/v1/approvals`, {
+  const approvalRes = await fetchImpl(`${args.vkas}/v1/approvals`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-sim-tenant-id': args.tenant },
     body: JSON.stringify({
@@ -184,6 +207,13 @@ async function main(): Promise<void> {
     throw new Error(`POST /v1/approvals failed (${approvalRes.status}): ${detail}`);
   }
 
+  return { caseScores, outcomeDelta, passedCount, total, decided, notes, attestation };
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const { caseScores, outcomeDelta, passedCount, total, decided, notes } = await runEval(args);
+
   // 6. Summary.
   console.log(`eval-runner: ${args.binding}@${args.bindingVersion} against ${args.evalSet}`);
   for (const cs of caseScores) {
@@ -197,10 +227,13 @@ async function main(): Promise<void> {
   for (const n of notes) console.log(`  note: ${n}`);
   console.log(`${passedCount}/${total} passed → decided: ${decided}`);
 
-  process.exit(allPassed ? 0 : 1);
+  process.exit(passedCount === total ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error(`eval-runner error: ${(err as Error).message}`);
-  process.exit(2);
-});
+// Only run the CLI when invoked directly (not when imported by tests).
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    console.error(`eval-runner error: ${(err as Error).message}`);
+    process.exit(2);
+  });
+}

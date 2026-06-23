@@ -8,7 +8,7 @@ type Queryable = Pool | PoolClient;
 
 // Blast-radius threshold — any single artifact with outcome deltas exceeding these
 // values requires an extra clinical-override approval gate before promotion.
-const BLAST_RADIUS_THRESHOLD = {
+export const BLAST_RADIUS_THRESHOLD = {
   approve_pct_delta: 0.10,
   deny_pct_delta: 0.05,
 };

@@ -29,6 +29,18 @@ describe('GET /v1/artifacts:resolve', () => {
     expect(res.body.status).toBe('active');
     expect(res.body.content.provider).toBe('anthropic');
   });
+  it('surfaces the resolved artifact top-level version (M-2: runner reads this for outcome_delta)', async () => {
+    const { app } = appWith([{ ...ROW, version: '1.2.3' }]);
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.2.3' });
+    expect(res.status).toBe(200);
+    expect(res.body.version).toBe('1.2.3');
+  });
+  it('surfaces the version on the no-version effective path too', async () => {
+    const { app } = appWith([{ ...ROW, version: '1.0.0', status: 'active' }]);
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url });
+    expect(res.status).toBe(200);
+    expect(res.body.version).toBe('1.0.0');
+  });
   it('404 when the requested version does not exist', async () => {
     const { app } = appWith([]);
     const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '9.9.9' });

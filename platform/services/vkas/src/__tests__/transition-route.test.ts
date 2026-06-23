@@ -152,6 +152,7 @@ function appWithEvalGate(opts: {
   artifactType: string;
   status: string;
   evalDecided: string | null; // null = no approval row
+  attestation?: Record<string, unknown> | null; // eval approval attestation (outcome_delta etc.)
 }) {
   const calls: string[] = [];
   const query = vi.fn(async (sql: string) => {
@@ -161,9 +162,9 @@ function appWithEvalGate(opts: {
       return { rows: [{ status: opts.status, artifact_type: opts.artifactType }] };
     }
     // eval approval lookup
-    if (/SELECT decided FROM vkas\.approval/i.test(sql) && /gate='eval'/i.test(sql)) {
+    if (/SELECT decided.*FROM vkas\.approval/i.test(sql) && /gate='eval'/i.test(sql)) {
       if (opts.evalDecided === null) return { rows: [] };
-      return { rows: [{ decided: opts.evalDecided }] };
+      return { rows: [{ decided: opts.evalDecided, attestation: opts.attestation ?? null }] };
     }
     // UPDATE superseded / UPDATE active / set_config / BEGIN / COMMIT
     return { rowCount: 1 };
@@ -235,7 +236,82 @@ describe('POST /v1/artifacts/activate — eval gate (slice 2.2b Task 3)', () => 
     expect(res.body.status).toBe('active');
     // The eval approval SELECT must NOT have been issued
     expect(
-      calls.some((s) => /SELECT decided FROM vkas\.approval/i.test(s) && /gate='eval'/i.test(s))
+      calls.some((s) => /SELECT decided.*FROM vkas\.approval/i.test(s) && /gate='eval'/i.test(s))
     ).toBe(false);
+  });
+});
+
+describe('POST /v1/artifacts/activate — blast-radius gate (slice 2.2b I-1)', () => {
+  it('approved eval with outcome_delta {0,0} → 200 (delta passes, activates)', async () => {
+    const { app, calls } = appWithEvalGate({
+      artifactType: 'model_binding',
+      status: 'in_review',
+      evalDecided: 'approved',
+      attestation: { outcome_delta: { approve_pct_delta: 0, deny_pct_delta: 0 } },
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa', version: '1.1.0' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('active');
+    expect(calls.some((s) => /UPDATE vkas\.artifact SET status='active'/i.test(s))).toBe(true);
+  });
+
+  it('approved eval with NO attestation → 200 (missing delta passes — CI mock case)', async () => {
+    const { app } = appWithEvalGate({
+      artifactType: 'model_binding',
+      status: 'in_review',
+      evalDecided: 'approved',
+      attestation: null,
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa', version: '1.1.0' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('active');
+  });
+
+  it('approved eval whose approve_pct_delta exceeds 0.10 → 422 SIM-VKAS-BLAST_RADIUS (no activate)', async () => {
+    const { app, calls } = appWithEvalGate({
+      artifactType: 'model_binding',
+      status: 'in_review',
+      evalDecided: 'approved',
+      attestation: { outcome_delta: { approve_pct_delta: 0.25, deny_pct_delta: 0 } },
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa', version: '1.1.0' });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('SIM-VKAS-BLAST_RADIUS');
+    expect(calls.some((s) => /UPDATE vkas\.artifact SET status='active'/i.test(s))).toBe(false);
+  });
+
+  it('approved eval whose deny_pct_delta exceeds 0.05 → 422 SIM-VKAS-BLAST_RADIUS', async () => {
+    const { app, calls } = appWithEvalGate({
+      artifactType: 'model_binding',
+      status: 'in_review',
+      evalDecided: 'approved',
+      attestation: { outcome_delta: { approve_pct_delta: 0, deny_pct_delta: 0.06 } },
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa', version: '1.1.0' });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('SIM-VKAS-BLAST_RADIUS');
+    expect(calls.some((s) => /UPDATE vkas\.artifact SET status='active'/i.test(s))).toBe(false);
+  });
+
+  it('negative delta beyond threshold (abs) also blocks → 422', async () => {
+    const { app } = appWithEvalGate({
+      artifactType: 'model_binding',
+      status: 'in_review',
+      evalDecided: 'approved',
+      attestation: { outcome_delta: { approve_pct_delta: -0.2, deny_pct_delta: 0 } },
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa', version: '1.1.0' });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('SIM-VKAS-BLAST_RADIUS');
   });
 });
