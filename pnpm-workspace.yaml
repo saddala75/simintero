@@ -14,3 +14,4 @@ packages:
   - "integration/connectors/*"
   - "integration/e2e"
   - "contracts"
+  - "scripts"
