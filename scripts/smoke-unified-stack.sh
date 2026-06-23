@@ -432,6 +432,54 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+echo "── 13b. slice 1.3: VKAS rollback round-trip + persisted rules trace ──"
+# (a) Rollback round-trip. Seed a self-contained coverage_rule with v1.0.0 active +
+#     v1.0.1 approved (tenant 'shared' so RLS reads/writes succeed under any tenant GUC),
+#     then ACTIVATE v1.0.1 via the real route (demotes v1.0.0 -> superseded), then ROLLBACK
+#     v1.0.1 via the path-based route. Assert HTTP 200 + restored 1.0.0 active + 1.0.1
+#     rolled_back. Proves the rollback route end-to-end against the live DB (V028 CHECK).
+VKAS_URL=${VKAS_URL:-http://localhost:3040}
+RB_URL="https://artifacts.simintero.io/shared/coverage_rule/smoke-rollback-1.3"
+RB_ENC=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$RB_URL")
+# Clean any prior smoke run's rows, then seed v1.0.0 active + v1.0.1 approved (superuser bypasses RLS).
+docker compose exec -T postgres psql -U sim -d simintero -q -c \
+  "DELETE FROM vkas.artifact WHERE canonical_url='${RB_URL}';
+   INSERT INTO vkas.artifact (canonical_url,version,tenant_id,artifact_type,status,effective_from,content,content_hash,created_by) VALUES
+     ('${RB_URL}','1.0.0','shared','coverage_rule','active',CURRENT_DATE,jsonb_build_object('pa_required',true,'rev',1),'sha256:rb-100','smoke-1.3'),
+     ('${RB_URL}','1.0.1','shared','coverage_rule','approved',NULL,jsonb_build_object('pa_required',true,'rev',2),'sha256:rb-101','smoke-1.3');" \
+  >/dev/null || { echo "❌ 1.3: failed to seed rollback fixtures" >&2; exit 1; }
+# Activate v1.0.1 via the real route → demotes v1.0.0 to superseded.
+ACT_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$VKAS_URL/v1/artifacts/activate" \
+  -H "Content-Type: application/json" -H "x-sim-tenant-id: ${TENANT_ID}" \
+  -d "{\"canonical_url\":\"${RB_URL}\",\"version\":\"1.0.1\"}")
+[ "$ACT_CODE" = "200" ] || { echo "❌ 1.3: activate v1.0.1 returned ${ACT_CODE} (expected 200)" >&2; docker compose logs vkas 2>&1 | tail -25 >&2; exit 1; }
+# Rollback v1.0.1 via the path-based route (canonical_url percent-encoded).
+RB_RESP=$(curl -sS -w $'\n%{http_code}' -X POST "$VKAS_URL/v1/artifacts/${RB_ENC}/1.0.1/rollback" \
+  -H "Content-Type: application/json" -H "x-sim-tenant-id: ${TENANT_ID}" \
+  -d '{"reason":"smoke"}')
+RB_CODE=$(echo "$RB_RESP" | tail -n1)
+RB_BODY=$(echo "$RB_RESP" | sed '$d')
+echo "   rollback HTTP ${RB_CODE}; body=${RB_BODY}"
+[ "$RB_CODE" = "200" ] || { echo "❌ 1.3: rollback returned ${RB_CODE} (expected 200)" >&2; docker compose logs vkas 2>&1 | tail -25 >&2; exit 1; }
+echo "$RB_BODY" | python3 -c "
+import sys,json
+r=json.load(sys.stdin)
+restored=r.get('restored',{}); rolled=r.get('rolled_back',{})
+assert restored.get('version')=='1.0.0', f\"restored.version={restored.get('version')} (expected 1.0.0)\"
+assert restored.get('status')=='active', f\"restored.status={restored.get('status')} (expected active)\"
+assert rolled.get('status')=='rolled_back', f\"rolled_back.status={rolled.get('status')} (expected rolled_back)\"
+print(f\"   rollback round-trip OK: restored {restored.get('version')}/{restored.get('status')}, target {rolled.get('version')}/{rolled.get('status')}\")
+" || { echo "❌ 1.3: rollback response did not restore 1.0.0 active / target rolled_back" >&2; exit 1; }
+echo "✅ slice 1.3a: VKAS rollback round-trip — activate v1.0.1 (demote v1.0.0→superseded) → rollback (restore 1.0.0 active, v1.0.1 rolled_back), HTTP 200"
+
+# (b) Persisted trace. The slice 1.1/1.2 evaluate calls (fhir_eval → :8083/v1/runtime/evaluate
+#     with tenant_id=tenant-dev) now persist a sim.case.trace / TraceCreated/v1 row to shared.outbox.
+TRACE_CT=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "select count(*) from shared.outbox where topic='sim.case.trace';" 2>/dev/null | tr -d '[:space:]')
+echo "   shared.outbox(topic=sim.case.trace) count=${TRACE_CT}"
+[ "${TRACE_CT:-0}" -ge 1 ] || { echo "❌ 1.3: no persisted sim.case.trace outbox row (count=${TRACE_CT}) — digicore did not persist the rules trace" >&2; docker compose logs digicore-runtime 2>&1 | tail -25 >&2; exit 1; }
+echo "✅ slice 1.3b: persisted rules trace — digicore evaluate(tenant_id) wrote ${TRACE_CT} sim.case.trace row(s) to shared.outbox"
+
 echo "── 14. P1-a: Qualitron runs a quality measure end-to-end ──"
 # POST a measure run (the seeded hedis:BCS-E over the seeded FHIR data: 4 Patients, 2 with the
 # numerator Observation). The run executes in-service (background, tenant-GUC'd): fetch eligible
