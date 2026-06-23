@@ -318,6 +318,63 @@ echo "   value-set(29828, member-002) → ${VS_NEG}"
 [ "$VS_NEG" = "not_met False" ] || { echo "❌ 1.2: non-member code was NOT filtered out (got '${VS_NEG}') — value-set filtering regressed" >&2; exit 1; }
 echo "✅ slice 1.2: value-set MEMBERSHIP filtering — member-001 (SNOMED 239873007) meets_all, member-002 (73211009 not in VS) not_met"
 
+echo "── 12d. slice 2.1: intake→fabric bridge — real \$submit writes evidence → meets_all ──"
+# Slice 2.1: on PAS \$submit the workflow-engine normalize handler synchronously bridges the
+# bundle's clinical evidence into fabric.resource (under case.tenant_id = TENANT_ID, keyed by
+# the bare Patient logical id member_ref) BEFORE auto_determination. We \$submit the richer PAS
+# fixture (Patient pat-smoke, Claim CPT 29828, Claim.diagnosis ICD-10 M17.0 ∈ the seeded Knee VS),
+# then assert (a) the bridge wrote a derived Condition(M17.0) for pat-smoke, and (b) the engine
+# retrieves that bridged evidence → meets_all for 29828/pat-smoke. The evaluate MUST use the SAME
+# tenant the \$submit ran under (TENANT_ID) or RLS hides the row.
+# Give the bundle a unique id per run so interop's per-correlation_id dedup never blocks a
+# warm re-run (the fabric upsert is idempotent on member_ref/fhir_id regardless). Patient id,
+# CPT 29828 and ICD-10 M17.0 are kept exactly so the bridge keys on pat-smoke under TENANT_ID.
+S21_CORR="pas-bundle-smoke-$(date +%s)"
+SMOKE21_BUNDLE=$(S21_CORR="$S21_CORR" python3 -c "import json,os; b=json.load(open('services/enstellar-workflow/tests/fixtures/pas_bundle_with_diagnosis.json')); b['id']=os.environ['S21_CORR']; print(json.dumps(b))")
+S21_RESP=$(curl -s -X POST "$INTEROP/fhir/Claim/\$submit" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/fhir+json" \
+  -H "Accept: application/fhir+json" \
+  --data-binary "$SMOKE21_BUNDLE")
+echo "$S21_RESP" | python3 -c "
+import sys, json
+b = json.load(sys.stdin)
+assert b.get('resourceType') == 'Bundle', f'expected Bundle, got {b}'
+cr = b.get('entry', [{}])[0].get('resource', {})
+assert cr.get('resourceType') == 'ClaimResponse', f'expected ClaimResponse, got {cr}'
+print('   2.1 \$submit OK — ClaimResponse outcome=' + cr.get('outcome', '?'))
+" || { echo \"❌ 2.1: \\\$submit did not return a ClaimResponse: \$S21_RESP\" >&2; exit 1; }
+# (a) the bridge wrote the derived Condition(M17.0) for pat-smoke (poll: the write is synchronous
+# in normalize, but \$submit's normalize call is in-band so the row exists by the time we return).
+S21_COND=""
+for i in $(seq 1 15); do
+  S21_COND=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+    "select content->'code'->'coding'->0->>'code' from fabric.resource where member_ref='pat-smoke' and resource_type='Condition' and tenant_id='${TENANT_ID}' limit 1;" \
+    2>/dev/null | tr -d '[:space:]')
+  echo "   poll $i: fabric Condition code='${S21_COND}'"
+  [ "$S21_COND" = "M17.0" ] && break
+  sleep 1
+done
+if [ "$S21_COND" != "M17.0" ]; then
+  echo "❌ 2.1: bridge did not write Condition(M17.0) for pat-smoke under tenant=${TENANT_ID}" >&2
+  echo "   --- fabric rows for pat-smoke (any tenant, superuser bypasses RLS) ---" >&2
+  docker compose exec -T postgres psql -U sim -d simintero -c \
+    "select tenant_id, resource_type, fhir_id, member_ref from fabric.resource where member_ref='pat-smoke';" >&2
+  echo "   --- workflow-engine logs (look for 'fabric bridge wrote N evidence rows') ---" >&2
+  docker compose logs workflow-engine 2>&1 | tail -60 >&2
+  exit 1
+fi
+echo "   fabric Condition row:"
+docker compose exec -T postgres psql -U sim -d simintero -c \
+  "select resource_type, fhir_id, member_ref, content->'code'->'coding'->0->>'code' as code from fabric.resource where member_ref='pat-smoke' and resource_type='Condition' and tenant_id='${TENANT_ID}';"
+# (b) the engine retrieves the bridged evidence → meets_all for 29828/pat-smoke (SAME tenant).
+S21_EVAL=$(curl -sf -X POST "$DIGI/v1/runtime/evaluate" -H "Content-Type: application/json" \
+  -d "{\"case_id\":\"smoke-2.1\",\"service_code\":\"29828\",\"member_ref\":\"pat-smoke\",\"tenant_id\":\"${TENANT_ID}\",\"pins\":[],\"evidence\":{}}" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('outcome'), d.get('auto_determination',{}).get('eligible'))" 2>/dev/null)
+echo "   bridged-evidence(29828, pat-smoke, tenant=${TENANT_ID}) → ${S21_EVAL}"
+[ "$S21_EVAL" = "meets_all True" ] || { echo "❌ 2.1: bridged evidence did not evaluate to meets_all (got '${S21_EVAL}') — tenant mismatch or code not in Knee VS?" >&2; docker compose logs digicore-runtime 2>&1 | tail -30 >&2; exit 1; }
+echo "✅ slice 2.1: real \$submit → fabric evidence bridge (Condition M17.0 for pat-smoke under ${TENANT_ID}) → engine meets_all"
+
 echo "── 13. P1-b2b: author a rule through the full governance lifecycle ──"
 # Author a BRAND-NEW procedure (CPT 29826 shoulder arthroscopy, NOT in the V018 seed) end to
 # end via the live authoring (:3052) + governance (:3053) services, then prove digicore (:8083)
