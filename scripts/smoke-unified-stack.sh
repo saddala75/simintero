@@ -161,6 +161,34 @@ echo "$SPANS_RESP" | grep -q '"page"' || { echo "❌ P2-2.3a: /spans missing pag
 echo "$SPANS_RESP" | grep -qi 'osteoarthritis\|prior authorization' || { echo "❌ P2-2.3a: /spans missing expected fixture text: $SPANS_RESP" >&2; exit 1; }
 echo "✅ P2-2.3a: real PDF extraction produced $SPCNT structured spans across pages $SPAGES; /spans serves real text"
 
+echo "── 7b3. P2-2.3b: Revital grounds on the structured spans (real ingested doc) ──"
+# Run a Revital analysis over the just-ingested PDF (document_refs=[$SDID]). parseSegment now
+# consumes the structured /spans endpoint (real pages, not the line-split stub); the analysis
+# must reach a terminal status with the doc PROCESSED (not in unprocessed_inputs).
+B23=$(curl -sf -X POST "http://localhost:3014/v1/assist/analyses" \
+  -H "x-sim-tenant-id: ${TENANT_ID}" -H "Content-Type: application/json" \
+  -d "{\"case_ref\":\"${CORRELATION_ID}-2.3b\",\"analysis_kinds\":[\"summary\",\"triage\"],\"inputs\":{\"document_refs\":[\"$SDID\"],\"case_context\":{\"lob\":\"MA\",\"urgency\":\"standard\",\"service_lines\":[]}}}")
+B23ID=$(echo "$B23" | python3 -c "import sys,json; print(json.load(sys.stdin).get('analysis_id',''))" 2>/dev/null)
+[ -n "$B23ID" ] || { echo "❌ P2-2.3b: no analysis_id from /v1/assist/analyses" >&2; exit 1; }
+echo "   analysis_id=$B23ID (document_refs=[$SDID])"
+B23ST=""; B23UN=""
+for i in $(seq 1 30); do
+  R=$(curl -sf "http://localhost:3014/v1/assist/analyses/$B23ID" -H "x-sim-tenant-id: ${TENANT_ID}")
+  B23ST=$(echo "$R" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+  B23UN=$(echo "$R" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('unprocessed_inputs',[])))" 2>/dev/null)
+  echo "   poll $i: status='${B23ST}' unprocessed=${B23UN}"
+  case "$B23ST" in complete|partial|failed) break;; esac
+  sleep 2
+done
+case "$B23ST" in
+  complete|partial)
+    [ "${B23UN:-1}" = "0" ] \
+      && echo "✅ P2-2.3b: Revital analyzed the ingested doc (status='${B23ST}', doc processed via structured /spans)" \
+      || { echo "❌ P2-2.3b: doc was unprocessed (parseSegment did not consume /spans)" >&2; docker compose logs revital-worker 2>&1 | tail -30 >&2; exit 1; };;
+  *)
+    echo "❌ P2-2.3b: analysis status='${B23ST}' (expected terminal)" >&2; docker compose logs revital-worker 2>&1 | tail -30 >&2; exit 1;;
+esac
+
 echo "── 7. case surfaces in portal-bff worklist ──"
 # queue_id "default" → all tenant cases (worklist_router), so this is a stable 200.
 curl -sf "$BFF/bff/queues/default/worklist" -H "Authorization: Bearer $TOKEN" -o /dev/null \
