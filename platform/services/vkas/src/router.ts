@@ -85,7 +85,11 @@ export function createVkasRouter(): Router {
 
       let chosen: ArtifactRow | null;
       if (version) {
-        chosen = candidates.find((a) => a.version === version && a.status === 'active') ?? null;
+        // An EXPLICIT version pin returns THAT version regardless of status — the
+        // eval path resolves an in_review/approved candidate by its pinned version.
+        // (The active-only filter is correct only for the no-version "effective"
+        // path below, which picks the latest applicable active version.)
+        chosen = candidates.find((a) => a.version === version) ?? null;
       } else {
         const ctx: { lob?: string; region?: string; program?: string; product?: string } = {};
         if (lob) ctx.lob = lob;
@@ -95,7 +99,7 @@ export function createVkasRouter(): Router {
         chosen = resolveEffectiveVersion(candidates, { asOf: new Date(), ctx });
       }
       if (!chosen) {
-        res.status(404).json({ error: `No active artifact for ${canonical_url}${version ? `@${version}` : ''}` });
+        res.status(404).json({ error: `No artifact for ${canonical_url}${version ? `@${version}` : ' (no active version)'}` });
         return;
       }
       res.json({ status: chosen.status, content: chosen.content });

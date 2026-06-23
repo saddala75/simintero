@@ -29,10 +29,23 @@ describe('GET /v1/artifacts:resolve', () => {
     expect(res.body.status).toBe('active');
     expect(res.body.content.provider).toBe('anthropic');
   });
-  it('404 when the requested version is not active/found', async () => {
-    const { app } = appWith([{ ...ROW, status: 'draft' }]);
-    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.0.0' });
+  it('404 when the requested version does not exist', async () => {
+    const { app } = appWith([]);
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '9.9.9' });
     expect(res.status).toBe(404);
+  });
+  it('returns a pinned non-active (in_review) candidate regardless of status', async () => {
+    const { app } = appWith([{ ...ROW, version: '1.1.0', status: 'in_review' }]);
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.1.0' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('in_review');
+    expect(res.body.content.provider).toBe('anthropic');
+  });
+  it('returns a pinned approved candidate regardless of status', async () => {
+    const { app } = appWith([{ ...ROW, version: '1.1.0', status: 'approved' }]);
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.1.0' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('approved');
   });
   it('400 when canonical_url missing', async () => {
     const { app } = appWith([]);
@@ -44,5 +57,14 @@ describe('GET /v1/artifacts:resolve', () => {
     const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url });
     expect(res.status).toBe(200);
     expect(res.body.content.provider).toBe('anthropic');
+  });
+  it('no-version path still returns only the active version (ignores non-active)', async () => {
+    const { app } = appWith([
+      { ...ROW, version: '1.0.0', status: 'active' },
+      { ...ROW, version: '1.1.0', status: 'in_review' },
+    ]);
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('active');
   });
 });
