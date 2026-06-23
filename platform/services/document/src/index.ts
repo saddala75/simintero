@@ -6,6 +6,7 @@ import { createMinioObjectStore } from './store/MinioObjectStore.js';
 import type { ObjectStore } from './store/ObjectStore.js';
 import { createIngestRouter } from './routes/ingest.js';
 import { createSpanRouter } from './routes/span.js';
+import { createSpansRouter } from './routes/spans.js';
 import { createMetadataRouter } from './routes/metadata.js';
 import { createRedactRouter } from './routes/redact.js';
 import { createRedactionViewRouter } from './routes/redaction-view.js';
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
   app.use(createIngestRouter(pool, store, temporalClient.workflow));
   app.use(createSpanRouter(pool, store));
+  app.use(createSpansRouter(pool));
   app.use(createMetadataRouter(pool));
   app.use(createListRouter(pool));
   app.use(createRedactRouter(pool, store));
