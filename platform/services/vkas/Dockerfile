@@ -4,9 +4,12 @@ WORKDIR /repo
 RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY platform/services/vkas/package.json ./platform/services/vkas/
+COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
 RUN pnpm install --frozen-lockfile --filter @sim/vkas...
+COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
 COPY platform/services/vkas/ ./platform/services/vkas/
-RUN pnpm --filter @sim/vkas run build
+# Build the workspace lib (@sim/outbox-ts) first, then the service.
+RUN pnpm --filter @sim/vkas... run build
 RUN pnpm --filter @sim/vkas deploy --prod --legacy /app/deploy
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
