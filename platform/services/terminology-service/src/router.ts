@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { resolveValueSet } from './vkas.js';
 import { validateCode } from './validateCode.js';
 import { expand } from './expand.js';
+import { findCode, SEARCH_VALUE_SETS } from './findCode.js';
 
 function operationOutcome(diagnostics: string) {
   return {
@@ -33,6 +34,18 @@ export function createTerminologyRouter(vkasBaseUrl: string): Router {
       parameter.push({ name: 'display', valueString: outcome.display });
     }
     res.status(200).json({ resourceType: 'Parameters', parameter });
+  });
+
+  // GET /fhir/ValueSet/$find-code?text=<free text>[&url=<value-set-url>]
+  router.get(/^\/fhir\/ValueSet\/\$find-code$/, async (req: Request, res: Response) => {
+    const { text, url } = req.query as Record<string, string | undefined>;
+    if (!text) {
+      res.status(400).json(operationOutcome('text query parameter is required'));
+      return;
+    }
+    const urls = url ? [url] : SEARCH_VALUE_SETS;
+    const result = await findCode(vkasBaseUrl, text, urls);
+    res.status(200).json(result);
   });
 
   // GET /fhir/ValueSet/$expand?url=
