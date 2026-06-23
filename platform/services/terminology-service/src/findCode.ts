@@ -19,10 +19,26 @@ function normalize(s: string): string {
   return s.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
+/** Split a normalized string into alphanumeric tokens, dropping punctuation. */
+function tokenize(s: string): string[] {
+  return normalize(s).split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/**
+ * Clinical stopwords that carry no discriminating signal on their own.
+ * Kept intentionally small so genuine clinical abbreviations aren't lost.
+ */
+const STOPWORDS = new Set([
+  'of', 'the', 'a', 'an', 'or', 'and', 'in', 'on', 'for', 'to', 'other', 'with',
+]);
+
 /**
  * Pure: search `contains` for a concept whose display matches `text`.
  * 1. Exact normalized-display match first.
- * 2. Substring fallback (either direction).
+ * 2. Token-subset match: ALL significant tokens of the display (excluding
+ *    stopwords) must be present in the query's tokens.  This prevents
+ *    short/stopword text (e.g. "knee", "pain", "of") from mis-coding to a
+ *    full clinical diagnosis.
  * Returns the first matching Concept or null.
  */
 export function findCodeInContains(text: string, contains: Concept[]): Concept | null {
@@ -30,10 +46,14 @@ export function findCodeInContains(text: string, contains: Concept[]): Concept |
   // 1. exact normalized match
   const exact = contains.find((c) => normalize(c.display ?? '') === normText);
   if (exact) return exact;
-  // 2. substring fallback
+  // 2. token-subset fallback
+  const queryTokens = new Set(tokenize(text));
   const sub = contains.find((c) => {
-    const normDisplay = normalize(c.display ?? '');
-    return normDisplay.includes(normText) || normText.includes(normDisplay);
+    const display = c.display ?? '';
+    if (!display) return false;
+    const displaySig = tokenize(display).filter((t) => !STOPWORDS.has(t));
+    if (displaySig.length === 0) return false;
+    return displaySig.every((t) => queryTokens.has(t));
   });
   return sub ?? null;
 }
