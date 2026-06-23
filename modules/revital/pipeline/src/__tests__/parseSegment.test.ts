@@ -1,42 +1,63 @@
 import { describe, it, expect, vi } from 'vitest';
 import { parseSegmentImpl } from '../activities/parseSegment.js';
 
+const DOCS = [{ doc_id: 'd1', virus_scan_status: 'clean', text_key: 'k', object_key: 'o' }];
+
+function mockSpans(spans: unknown[]) {
+  return vi.fn(async (url: string) => {
+    if (String(url).endsWith('/spans')) return { ok: true, json: async () => ({ doc_id: 'd1', spans }) } as any;
+    return { ok: false, status: 404 } as any;
+  });
+}
+
 describe('parseSegment', () => {
-  it('builds a SpanMap with page/region/text entries for each document', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => 'PT performed 8 weeks of therapy ending April 12 2026.',
-    }));
+  it('maps structured spans (real pages, excerpt_hash->hash) into the SpanMap', async () => {
+    vi.stubGlobal('fetch', mockSpans([
+      { seq: 0, page: 1, region: [0, 0, 10, 10], text: 'page one text', excerpt_hash: 'sha256:aaa' },
+      { seq: 1, page: 2, region: [0, 0, 10, 10], text: 'page two text', excerpt_hash: 'sha256:bbb' },
+    ]));
 
-    const docs = [{
-      doc_id: 'd1',
-      virus_scan_status: 'clean',
-      text_key: 'tenant/docs/d1/text',
-      object_key: 'tenant/docs/d1/raw',
-    }];
+    const sm = await parseSegmentImpl(DOCS as any, 'http://doc', 'tenant-dev');
 
-    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc', 'tenant-test');
-
-    expect(spanMap['d1']).toBeDefined();
-    expect(spanMap['d1']!.length).toBeGreaterThan(0);
-    expect(spanMap['d1']![0]).toMatchObject({ page: 1, text: expect.any(String) });
+    const d1 = sm['d1']!;
+    expect(d1.map(s => s.page)).toEqual([1, 2]); // REAL pages, not all 1
+    expect(d1[0]).toEqual({ page: 1, region: [0, 0, 10, 10], text: 'page one text', hash: 'sha256:aaa' });
+    expect(d1[1]).toEqual({ page: 2, region: [0, 0, 10, 10], text: 'page two text', hash: 'sha256:bbb' });
   });
 
-  it('emits empty entry for documents with no text layer (fetch error)', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('not found')));
+  it('hits /spans endpoint (not /span)', async () => {
+    const mockFetch = mockSpans([]);
+    vi.stubGlobal('fetch', mockFetch);
 
-    const docs = [{ doc_id: 'd2', virus_scan_status: 'clean', text_key: null, object_key: 'k' }];
-    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc', 'tenant-test');
+    await parseSegmentImpl(DOCS as any, 'http://doc', 'tenant-dev');
 
-    expect(spanMap['d2']).toEqual([]);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://doc/documents/d1/spans',
+      expect.objectContaining({ headers: { 'x-sim-tenant-id': 'tenant-dev' } }),
+    );
   });
 
-  it('emits empty entry when span endpoint returns non-ok', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 451 }));
+  it('empty spans [] -> [] (abstain)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ doc_id: 'd1', spans: [] }) } as any)));
+    const sm = await parseSegmentImpl(DOCS as any, 'http://doc', 'tenant-dev');
+    expect(sm['d1']).toEqual([]);
+  });
 
-    const docs = [{ doc_id: 'd3', virus_scan_status: 'clean', text_key: 'k', object_key: 'k' }];
-    const spanMap = await parseSegmentImpl(docs, 'http://doc-svc', 'tenant-test');
+  it('404 non-ok response -> [] (abstain)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404 } as any)));
+    const sm = await parseSegmentImpl(DOCS as any, 'http://doc', 'tenant-dev');
+    expect(sm['d1']).toEqual([]);
+  });
 
-    expect(spanMap['d3']).toEqual([]);
+  it('451 quarantined non-ok response -> [] (abstain)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 451 } as any)));
+    const sm = await parseSegmentImpl(DOCS as any, 'http://doc', 'tenant-dev');
+    expect(sm['d1']).toEqual([]);
+  });
+
+  it('fetch error (network throw) -> [] (no throw)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('net'); }));
+    const sm = await parseSegmentImpl(DOCS as any, 'http://doc', 'tenant-dev');
+    expect(sm['d1']).toEqual([]);
   });
 });
