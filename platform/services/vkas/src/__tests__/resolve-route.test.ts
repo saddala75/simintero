@@ -34,18 +34,29 @@ describe('GET /v1/artifacts:resolve', () => {
     const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '9.9.9' });
     expect(res.status).toBe(404);
   });
-  it('returns a pinned non-active (in_review) candidate regardless of status', async () => {
+  it('404 for a pinned non-active (in_review) candidate WITHOUT the eval-only flag (fail-closed default)', async () => {
     const { app } = appWith([{ ...ROW, version: '1.1.0', status: 'in_review' }]);
     const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.1.0' });
+    expect(res.status).toBe(404);
+  });
+  it('returns a pinned non-active (in_review) candidate WITH allow_non_active=true', async () => {
+    const { app } = appWith([{ ...ROW, version: '1.1.0', status: 'in_review' }]);
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.1.0', allow_non_active: 'true' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('in_review');
     expect(res.body.content.provider).toBe('anthropic');
   });
-  it('returns a pinned approved candidate regardless of status', async () => {
+  it('returns a pinned approved candidate WITH allow_non_active=true', async () => {
     const { app } = appWith([{ ...ROW, version: '1.1.0', status: 'approved' }]);
-    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.1.0' });
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.1.0', allow_non_active: 'true' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('approved');
+  });
+  it('still returns a pinned ACTIVE version WITHOUT the flag', async () => {
+    const { app } = appWith([{ ...ROW, version: '1.1.0', status: 'active' }]);
+    const res = await request(app).get('/v1/artifacts:resolve').query({ canonical_url: ROW.canonical_url, version: '1.1.0' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('active');
   });
   it('400 when canonical_url missing', async () => {
     const { app } = appWith([]);

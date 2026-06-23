@@ -142,7 +142,12 @@ export class InferenceDispatcher {
     version: string,
     evalMode = false,
   ): Promise<VkasArtifact<T>> {
-    const url = `${this.vkasBaseUrl}/v1/artifacts:resolve?canonical_url=${encodeURIComponent(ref)}&version=${encodeURIComponent(version)}`;
+    // In eval mode, opt in to VKAS's non-active resolution (allow_non_active=true) so
+    // /eval can fetch an in_review/approved candidate by its pinned version. Production
+    // /inference omits the flag → VKAS returns active-only (the status re-check below is
+    // then belt-and-suspenders). Digicore consumers also omit it → fail-closed.
+    const evalFlag = evalMode ? '&allow_non_active=true' : '';
+    const url = `${this.vkasBaseUrl}/v1/artifacts:resolve?canonical_url=${encodeURIComponent(ref)}&version=${encodeURIComponent(version)}${evalFlag}`;
     const res = await fetch(url);
     if (res.status === 404) {
       throw Object.assign(new Error(`Artifact not found: ${ref}@${version}`), { status: 422 });

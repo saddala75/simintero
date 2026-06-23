@@ -63,7 +63,7 @@ export function createVkasRouter(): Router {
   // The regex ensures ':resolve' is matched literally, not as a param capture.
   router.get(/^\/v1\/artifacts:resolve$/, async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { canonical_url, version, lob, region, program, product } = req.query as Record<string, string>;
+      const { canonical_url, version, lob, region, program, product, allow_non_active } = req.query as Record<string, string>;
       if (!canonical_url) {
         res.status(400).json({ error: 'canonical_url is required' });
         return;
@@ -85,11 +85,15 @@ export function createVkasRouter(): Router {
 
       let chosen: ArtifactRow | null;
       if (version) {
-        // An EXPLICIT version pin returns THAT version regardless of status — the
-        // eval path resolves an in_review/approved candidate by its pinned version.
-        // (The active-only filter is correct only for the no-version "effective"
-        // path below, which picks the latest applicable active version.)
-        chosen = candidates.find((a) => a.version === version) ?? null;
+        // An EXPLICIT version pin returns THAT version. By DEFAULT it is active-only
+        // (fail-closed): a pinned non-active version 404s, so production digicore
+        // consumers that pin-and-consume cannot read draft/superseded/rolled_back
+        // content. The eval path (and only the eval path) opts in via
+        // allow_non_active=true to fetch an in_review/approved candidate by its
+        // pinned version. The no-version "effective" path below is always active-only.
+        const allowNonActive = allow_non_active === 'true';
+        const pinned = candidates.find((a) => a.version === version) ?? null;
+        chosen = pinned && (allowNonActive || pinned.status === 'active') ? pinned : null;
       } else {
         const ctx: { lob?: string; region?: string; program?: string; product?: string } = {};
         if (lob) ctx.lob = lob;

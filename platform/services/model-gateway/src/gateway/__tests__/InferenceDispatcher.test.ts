@@ -165,6 +165,50 @@ describe('InferenceDispatcher', () => {
       expect(result.request_id).toBeTruthy();
     });
 
+    it('appends allow_non_active=true to the VKAS resolve URL in evalMode', async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => APPROVED_BINDING }) // VKAS resolve
+        .mockResolvedValueOnce({ ok: true, json: async () => ({
+          content: [{ text: '{"result":"eval-ok"}' }],
+          usage: { input_tokens: 5, output_tokens: 5 },
+        }) }); // Anthropic adapter
+      vi.stubGlobal('fetch', fetchMock);
+
+      await dispatcher.dispatch({
+        task_kind: 'summarize',
+        prompt_ref: 'ref', prompt_version: '1.0.0',
+        model_binding_ref: 'ref', model_binding_version: '1.0.0',
+        inputs: { document_span_refs: [] },
+        tenant_ctx: VALID_CTX,
+      }, { evalMode: true });
+
+      const resolveUrl = fetchMock.mock.calls[0]![0] as string;
+      expect(resolveUrl).toContain('/v1/artifacts:resolve');
+      expect(resolveUrl).toContain('allow_non_active=true');
+    });
+
+    it('does NOT append allow_non_active to the VKAS resolve URL in normal (non-eval) dispatch', async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ACTIVE_BINDING }) // VKAS resolve
+        .mockResolvedValueOnce({ ok: true, json: async () => ({
+          content: [{ text: '{"result":"ok"}' }],
+          usage: { input_tokens: 5, output_tokens: 5 },
+        }) }); // Anthropic adapter
+      vi.stubGlobal('fetch', fetchMock);
+
+      await dispatcher.dispatch({
+        task_kind: 'summarize',
+        prompt_ref: 'ref', prompt_version: '1.0.0',
+        model_binding_ref: 'ref', model_binding_version: '1.0.0',
+        inputs: { document_span_refs: [] },
+        tenant_ctx: VALID_CTX,
+      });
+
+      const resolveUrl = fetchMock.mock.calls[0]![0] as string;
+      expect(resolveUrl).toContain('/v1/artifacts:resolve');
+      expect(resolveUrl).not.toContain('allow_non_active');
+    });
+
     it('STILL throws 422 for a non-active binding in normal (non-eval) dispatch — eval relaxation is scoped', async () => {
       (fetch as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce({ ok: true, status: 200, json: async () => APPROVED_BINDING });
