@@ -134,6 +134,33 @@ echo "   readback after recreate=$RB"
 [ "$RB" = "200" ] || { echo "❌ P0-0.4: content not durable after container recreate (readback=$RB)" >&2; docker compose logs document-service 2>&1 | tail -20 >&2; exit 1; }
 echo "✅ P0-0.4: ingest pipeline ran under RLS + bytes durable in MinIO (survived container recreate)"
 
+echo "── 7b2. P2-2.3a: real text-layer PDF extraction → structured spans ──"
+# Ingest the 2-page text-layer fixture through /documents/ingest, let the docIngest
+# pipeline run the REAL extractor (pdfjs in the document-worker), then prove
+# docs.document_span carries real per-page spans and the /spans endpoint serves them.
+SPDF_B64=$(base64 < platform/services/document/tests/fixtures/sample.pdf | tr -d '\n')
+SDOC=$(curl -sf -X POST "${DOCS_URL}/documents/ingest" \
+  -H "x-sim-tenant-id: ${TENANT_ID}" -H "Content-Type: application/json" \
+  -d "{\"channel\":\"portal_upload\",\"raw_payload\":\"${SPDF_B64}\",\"case_ref\":\"${CORRELATION_ID}-spans\",\"created_by\":{\"type\":\"service\",\"id\":\"smoke\"}}")
+SDID=$(echo "$SDOC" | python3 -c "import sys,json; print(json.load(sys.stdin)['doc_id'])")
+[ -n "$SDID" ] || { echo "❌ P2-2.3a: no doc_id from ingest" >&2; exit 1; }
+echo "   ingested sample.pdf → doc_id=$SDID"
+# poll docs.document_span for the pipeline to populate real spans
+SPCNT=0
+for i in $(seq 1 30); do
+  SPCNT=$(docker compose exec -T postgres psql -U sim -d simintero -tAc "SELECT count(*) FROM docs.document_span WHERE doc_id='$SDID';" | tr -d '[:space:]')
+  [ "${SPCNT:-0}" -ge 2 ] && break; sleep 1
+done
+SPAGES=$(docker compose exec -T postgres psql -U sim -d simintero -tAc "SELECT coalesce(min(page),0)||'/'||coalesce(max(page),0) FROM docs.document_span WHERE doc_id='$SDID';" | tr -d '[:space:]')
+echo "   docs.document_span: spans=$SPCNT pages(min/max)=$SPAGES"
+[ "${SPCNT:-0}" -ge 2 ] || { echo "❌ P2-2.3a: expected ≥2 spans, got $SPCNT" >&2; docker compose logs document-worker 2>&1 | tail -40 >&2; exit 1; }
+echo "$SPAGES" | grep -q "/2$" || { echo "❌ P2-2.3a: expected max page ≥2 (2-page fixture), got $SPAGES" >&2; docker compose logs document-worker 2>&1 | tail -40 >&2; exit 1; }
+# the /spans endpoint serves the structured spans with real page + text
+SPANS_RESP=$(curl -sf "${DOCS_URL}/documents/$SDID/spans" -H "x-sim-tenant-id: ${TENANT_ID}")
+echo "$SPANS_RESP" | grep -q '"page"' || { echo "❌ P2-2.3a: /spans missing page field: $SPANS_RESP" >&2; exit 1; }
+echo "$SPANS_RESP" | grep -qi 'osteoarthritis\|prior authorization' || { echo "❌ P2-2.3a: /spans missing expected fixture text: $SPANS_RESP" >&2; exit 1; }
+echo "✅ P2-2.3a: real PDF extraction produced $SPCNT structured spans across pages $SPAGES; /spans serves real text"
+
 echo "── 7. case surfaces in portal-bff worklist ──"
 # queue_id "default" → all tenant cases (worklist_router), so this is a stable 200.
 curl -sf "$BFF/bff/queues/default/worklist" -H "Authorization: Bearer $TOKEN" -o /dev/null \
