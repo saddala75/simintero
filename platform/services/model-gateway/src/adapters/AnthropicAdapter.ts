@@ -10,17 +10,22 @@ export class AnthropicAdapter implements ProviderAdapter {
   // The adapter adds the header per the Anthropic no-training contract.
   static readonly NO_TRAIN_HEADER = { 'anthropic-no-training': '1' };
 
-  constructor(private readonly endpoint: string) {}
+  constructor(
+    private readonly endpoint: string,
+    private readonly apiKey?: string,
+  ) {}
 
   async complete(req: AdapterRequest): Promise<AdapterResponse> {
     const start = performance.now();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      ...req.no_train_headers,
+    };
+    if (this.apiKey) headers['x-api-key'] = this.apiKey;
     const res = await fetch(`${this.endpoint}/v1/messages`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        ...req.no_train_headers,
-      },
+      headers,
       body: JSON.stringify({
         model: req.model_id,
         max_tokens: (req.adapter_config['max_tokens'] as number) ?? 4096,
