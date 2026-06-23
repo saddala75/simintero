@@ -9,7 +9,6 @@
   "type": "collection",
   "entry": [
     {
-      "fullUrl": "urn:uuid:claim-smoke",
       "resource": {
         "resourceType": "Claim",
         "id": "claim-smoke",
@@ -68,7 +67,6 @@
       }
     },
     {
-      "fullUrl": "urn:uuid:pat-smoke",
       "resource": {
         "resourceType": "Patient",
         "id": "pat-smoke",
@@ -84,7 +82,6 @@
       }
     },
     {
-      "fullUrl": "urn:uuid:pract-smoke-001",
       "resource": {
         "resourceType": "Practitioner",
         "id": "pract-smoke-001",
@@ -98,7 +95,6 @@
       }
     },
     {
-      "fullUrl": "urn:uuid:pract-smoke-002",
       "resource": {
         "resourceType": "Practitioner",
         "id": "pract-smoke-002",
@@ -112,7 +108,6 @@
       }
     },
     {
-      "fullUrl": "urn:uuid:cov-smoke",
       "resource": {
         "resourceType": "Coverage",
         "id": "cov-smoke",
