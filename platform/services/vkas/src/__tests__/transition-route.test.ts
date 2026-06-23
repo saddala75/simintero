@@ -144,3 +144,98 @@ describe('POST /v1/artifacts/activate', () => {
     expect(calls.some((s) => /UPDATE vkas\.artifact SET status='active'/i.test(s))).toBe(true);
   });
 });
+
+// ── Eval gate tests (slice 2.2b Task 3) ────────────────────────────────────
+// Helper: build an app whose pool mock returns the given artifact_type + status,
+// and for the eval-approval SELECT returns the supplied approval row (or none).
+function appWithEvalGate(opts: {
+  artifactType: string;
+  status: string;
+  evalDecided: string | null; // null = no approval row
+}) {
+  const calls: string[] = [];
+  const query = vi.fn(async (sql: string) => {
+    calls.push(sql);
+    // artifact load (currentStatus — now returns status + artifact_type)
+    if (/SELECT status.*artifact_type/i.test(sql) || /SELECT.*artifact_type.*status/i.test(sql)) {
+      return { rows: [{ status: opts.status, artifact_type: opts.artifactType }] };
+    }
+    // eval approval lookup
+    if (/SELECT decided FROM vkas\.approval/i.test(sql) && /gate='eval'/i.test(sql)) {
+      if (opts.evalDecided === null) return { rows: [] };
+      return { rows: [{ decided: opts.evalDecided }] };
+    }
+    // UPDATE superseded / UPDATE active / set_config / BEGIN / COMMIT
+    return { rowCount: 1 };
+  });
+  const client = { query, release: vi.fn() };
+  const app = express();
+  app.use(express.json());
+  app.locals['pool'] = { connect: vi.fn(async () => client) };
+  app.use(createVkasRouter());
+  return { app, calls };
+}
+
+describe('POST /v1/artifacts/activate — eval gate (slice 2.2b Task 3)', () => {
+  it('model_binding with NO eval approval row → 409 SIM-VKAS-EVAL_REQUIRED', async () => {
+    const { app, calls } = appWithEvalGate({
+      artifactType: 'model_binding',
+      status: 'in_review',
+      evalDecided: null,
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa', version: '1.1.0' });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('SIM-VKAS-EVAL_REQUIRED');
+    // No status UPDATE must have been issued
+    expect(calls.some((s) => /UPDATE vkas\.artifact SET status='active'/i.test(s))).toBe(false);
+  });
+
+  it('model_binding with rejected eval approval → 409 SIM-VKAS-EVAL_REQUIRED', async () => {
+    const { app, calls } = appWithEvalGate({
+      artifactType: 'model_binding',
+      status: 'approved',
+      evalDecided: 'rejected',
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa', version: '1.1.0' });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('SIM-VKAS-EVAL_REQUIRED');
+    // No status UPDATE must have been issued
+    expect(calls.some((s) => /UPDATE vkas\.artifact SET status='active'/i.test(s))).toBe(false);
+  });
+
+  it('model_binding with approved eval approval → 200 (proceeds to activate)', async () => {
+    const { app, calls } = appWithEvalGate({
+      artifactType: 'model_binding',
+      status: 'in_review',
+      evalDecided: 'approved',
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa', version: '1.1.0' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('active');
+    // The activate UPDATE must have been issued
+    expect(calls.some((s) => /UPDATE vkas\.artifact SET status='active'/i.test(s))).toBe(true);
+  });
+
+  it('coverage_rule (non-AI) activates without any eval approval lookup → 200', async () => {
+    const { app, calls } = appWithEvalGate({
+      artifactType: 'coverage_rule',
+      status: 'in_review',
+      evalDecided: null, // no approval row — but it should NOT be needed
+    });
+    const res = await request(app)
+      .post('/v1/artifacts/activate')
+      .send({ canonical_url: 'https://artifacts.simintero.io/shared/coverage_rule/pa-policy', version: '1.0.0' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('active');
+    // The eval approval SELECT must NOT have been issued
+    expect(
+      calls.some((s) => /SELECT decided FROM vkas\.approval/i.test(s) && /gate='eval'/i.test(s))
+    ).toBe(false);
+  });
+});

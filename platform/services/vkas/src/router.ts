@@ -13,13 +13,14 @@ function tenantOf(req: Request): string {
 }
 
 async function currentStatus(
-  client: { query: (sql: string, params: unknown[]) => Promise<{ rows: { status: string }[] }> },
+  client: { query: (sql: string, params: unknown[]) => Promise<{ rows: { status: string; artifact_type: string }[] }> },
   url: string,
   version: string,
-): Promise<string | null> {
+): Promise<{ status: string; artifact_type: string } | null> {
   const { rows } = await client.query(
-    `SELECT status FROM vkas.artifact WHERE canonical_url=$1 AND version=$2`, [url, version]);
-  return rows[0]?.status ?? null;
+    `SELECT status, artifact_type FROM vkas.artifact WHERE canonical_url=$1 AND version=$2`, [url, version]);
+  if (!rows[0]) return null;
+  return { status: rows[0].status, artifact_type: rows[0].artifact_type };
 }
 
 export function createVkasRouter(): Router {
@@ -111,7 +112,7 @@ export function createVkasRouter(): Router {
       const result = await withTenant(pool, tenantOf(req), async (client: PoolClient) => {
         const cur = await currentStatus(client, canonical_url, version);
         if (!cur) { return { notFound: true } as const; }
-        transitionStatus(cur as ArtifactStatus, 'in_review');
+        transitionStatus(cur.status as ArtifactStatus, 'in_review');
         await client.query(
           `UPDATE vkas.artifact SET status='in_review' WHERE canonical_url=$1 AND version=$2`,
           [canonical_url, version]);
@@ -133,7 +134,19 @@ export function createVkasRouter(): Router {
       const result = await withTenant(pool, tenantOf(req), async (client: PoolClient) => {
         const cur = await currentStatus(client, canonical_url, version);
         if (!cur) { return { notFound: true } as const; }
-        let s: ArtifactStatus = cur as ArtifactStatus;
+        let s: ArtifactStatus = cur.status as ArtifactStatus;
+        const artifactType = cur.artifact_type;
+
+        // Eval gate: model_binding and prompt artifacts require a passing gate='eval' approval.
+        if (artifactType === 'model_binding' || artifactType === 'prompt') {
+          const ev = await client.query(
+            `SELECT decided FROM vkas.approval WHERE canonical_url=$1 AND version=$2 AND gate='eval'`,
+            [canonical_url, version]);
+          if (ev.rows.length === 0 || ev.rows[0].decided !== 'approved') {
+            return { evalRequired: true } as const;
+          }
+        }
+
         if (s === 'in_review') { transitionStatus(s, 'approved'); s = 'approved'; }
         transitionStatus(s, 'active');
         // Demote any currently-active version (≠ target) to superseded so the
@@ -149,6 +162,10 @@ export function createVkasRouter(): Router {
         return { notFound: false } as const;
       });
       if (result.notFound) { res.status(404).json({ error: 'artifact not found' }); return; }
+      if (result.evalRequired) {
+        res.status(409).json({ error: 'a passing eval approval is required to activate this artifact', code: 'SIM-VKAS-EVAL_REQUIRED' });
+        return;
+      }
       res.status(200).json({ canonical_url, version, status: 'active' });
     } catch (err) {
       if (err instanceof StatusTransitionError) { res.status(422).json({ error: err.message }); return; }
