@@ -34,7 +34,8 @@ class EvaluateControllerTest {
     @Test
     void evaluatesResolvedRuleViaCqfEvaluator() throws Exception {
         when(pinResolver.resolve(any(), any())).thenReturn(List.of());
-        when(traceBuilder.newTraceRef()).thenReturn("trace:1");
+        // tenant_id is "tenant-dev" in the body → persisting variant must be called
+        when(traceBuilder.newTraceRef(anyString())).thenReturn("trace:1");
         when(traceBuilder.buildLogicPath(any())).thenReturn(List.of());
         var rule = new CoverageRule(List.of("72148"), true, List.of("urn:sim:policy:lumbar-spine-mri:1.0.0"),
             null, List.of(), ELM_REF, "1.0.0");
@@ -67,6 +68,7 @@ class EvaluateControllerTest {
     @Test
     void abstainsWhenRuleUnresolved() throws Exception {
         when(pinResolver.resolve(any(), any())).thenReturn(List.of());
+        // No tenant_id in this request body → non-persisting variant
         when(traceBuilder.newTraceRef()).thenReturn("trace:1");
         when(traceBuilder.buildLogicPath(any())).thenReturn(List.of());
         when(ruleResolver.resolveByProcedure(any(), any())).thenReturn(Optional.empty());
@@ -77,5 +79,48 @@ class EvaluateControllerTest {
            .andExpect(jsonPath("$.outcome").value("indeterminate"))
            .andExpect(jsonPath("$.auto_determination.eligible").value(false));
         verify(cqfEvaluator, never()).evaluate(any(), any(), any(), any(), any());
+    }
+
+    // -------------------------------------------------------------------------
+    // New tests: Task 6 — ensure correct TraceBuilder variant is dispatched
+    // -------------------------------------------------------------------------
+
+    @Test
+    void persistsTraceToOutboxWhenTenantIdPresent() throws Exception {
+        // Arrange
+        when(pinResolver.resolve(any(), any())).thenReturn(List.of());
+        when(traceBuilder.newTraceRef("tenant-dev")).thenReturn("trace:xyz");
+        when(traceBuilder.buildLogicPath(any())).thenReturn(List.of());
+        when(ruleResolver.resolveByProcedure(any(), any())).thenReturn(Optional.empty());
+
+        // Act
+        mvc.perform(post("/v1/runtime/evaluate").contentType("application/json")
+                .content("{\"case_id\":\"c2\",\"service_code\":\"72148\",\"pins\":[],\"evidence\":{}," +
+                         "\"tenant_id\":\"tenant-dev\"}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.trace_ref").value("trace:xyz"));
+
+        // Assert — persisting variant called with the tenant id
+        verify(traceBuilder).newTraceRef("tenant-dev");
+        verify(traceBuilder, never()).newTraceRef();
+    }
+
+    @Test
+    void usesNonPersistingTraceRefWhenTenantIdAbsent() throws Exception {
+        // Arrange
+        when(pinResolver.resolve(any(), any())).thenReturn(List.of());
+        when(traceBuilder.newTraceRef()).thenReturn("trace:no-tenant");
+        when(traceBuilder.buildLogicPath(any())).thenReturn(List.of());
+        when(ruleResolver.resolveByProcedure(any(), any())).thenReturn(Optional.empty());
+
+        // Act — no tenant_id field in body
+        mvc.perform(post("/v1/runtime/evaluate").contentType("application/json")
+                .content("{\"case_id\":\"c3\",\"service_code\":\"99999\",\"pins\":[],\"evidence\":{}}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.trace_ref").value("trace:no-tenant"));
+
+        // Assert — non-persisting variant called; persisting variant never invoked
+        verify(traceBuilder).newTraceRef();
+        verify(traceBuilder, never()).newTraceRef(anyString());
     }
 }

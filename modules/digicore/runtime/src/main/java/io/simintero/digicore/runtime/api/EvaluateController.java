@@ -66,8 +66,11 @@ public class EvaluateController {
         boolean eligible = "meets_all".equals(result.outcome());
         Map<String, Object> autoDetermination = Map.of("eligible", eligible);
 
-        // 4. Build trace
-        String traceRef = traceBuilder.newTraceRef();
+        // 4. Build trace — persist to shared.outbox when tenant context is available
+        String tenantId = request.tenantId();
+        String traceRef = (tenantId == null || tenantId.isBlank())
+                ? traceBuilder.newTraceRef()
+                : traceBuilder.newTraceRef(tenantId);
         List<Map<String, Object>> logicPath = traceBuilder.buildLogicPath(result.logicPath());
 
         EvaluationResponse response = new EvaluationResponse(
