@@ -1,4 +1,5 @@
 """Workflow engine settings — loaded from environment variables."""
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +12,14 @@ class Settings(BaseSettings):
     env: str = "local"
 
     db_url: str = "postgresql+asyncpg://workflow:workflow_secret@localhost:5432/workflow"
+
+    # Second DB pool target — the `simintero` database, connected as `sim_app`,
+    # used by the fabric bridge to write evidence into `fabric.resource`. It is
+    # intentionally UN-prefixed (env `SIMINTERO_DB_URL`, bypassing the WORKFLOW_
+    # env_prefix via validation_alias) so it matches the plain
+    # `postgresql://sim_app:...@postgres/simintero` DSN the other simintero
+    # services use. Optional/None so the engine still boots when it is unset.
+    simintero_db_url: str | None = Field(default=None, validation_alias="SIMINTERO_DB_URL")
 
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_consumer_group: str = "workflow-engine"

@@ -898,6 +898,10 @@ services:
         condition: service_healthy
     environment:
       WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@postgres:5432/workflow
+      # Second pool target for the fabric bridge: the simintero DB as sim_app
+      # (un-prefixed env, read via validation_alias). asyncpg.create_pool opens
+      # this raw postgresql:// DSN alongside the workflow pool (app.state.fabric_pool).
+      SIMINTERO_DB_URL: postgresql://sim_app:devpassword@postgres:5432/simintero
       WORKFLOW_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       WORKFLOW_OIDC_ISSUER: http://localhost:8081/realms/simintero
       WORKFLOW_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs

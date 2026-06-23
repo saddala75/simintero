@@ -72,6 +72,23 @@ async def lifespan(app: FastAPI):
     db_url = settings.db_url.replace("postgresql+asyncpg://", "postgresql://")
 
     pool = await asyncpg.create_pool(db_url, min_size=2, max_size=10)
+
+    # --- Second pool: the `simintero` DB (as sim_app), for the fabric bridge ---
+    # When SIMINTERO_DB_URL is set, open a pool against the simintero database so
+    # later slices can write evidence into fabric.resource. Reachable as
+    # `app.state.fabric_pool` (None when SIMINTERO_DB_URL is unset). Normalize any
+    # SQLAlchemy-style `+asyncpg` form to a raw postgresql:// DSN for asyncpg.
+    fabric_pool: asyncpg.Pool | None = None
+    if settings.simintero_db_url:
+        fabric_dsn = settings.simintero_db_url.replace(
+            "postgresql+asyncpg://", "postgresql://"
+        )
+        fabric_pool = await asyncpg.create_pool(fabric_dsn, min_size=2, max_size=10)
+        logger.info("Fabric (simintero) pool started")
+    else:
+        logger.info("SIMINTERO_DB_URL unset — fabric pool disabled")
+    app.state.fabric_pool = fabric_pool
+
     digicore = DigiCoreClient()
     auto_consumer = AutoDeterminationConsumer(pool=pool, digicore=digicore)
     consumer_task = asyncio.create_task(auto_consumer.run(), name="auto-determination-consumer")
@@ -123,6 +140,8 @@ async def lifespan(app: FastAPI):
         await revital_poller.aclose()
         await producer.stop()
         await pool.close()
+        if fabric_pool is not None:
+            await fabric_pool.close()
 
 
 app = FastAPI(
