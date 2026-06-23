@@ -79,6 +79,15 @@ export async function evaluateBlastRadius(
     }
 
     const evalRow = rows[0]!;
+    if (evalRow.decided !== 'approved') {
+      itemResults.push({
+        ...item,
+        passed: false,
+        blocked_reason: 'eval_rejected: the eval gate did not approve this version',
+      });
+      continue;
+    }
+
     const delta = evalRow.attestation?.outcome_delta;
     const approveExceeds = delta && Math.abs(delta.approve_pct_delta) > BLAST_RADIUS_THRESHOLD.approve_pct_delta;
     const denyExceeds = delta && Math.abs(delta.deny_pct_delta) > BLAST_RADIUS_THRESHOLD.deny_pct_delta;

@@ -49,6 +49,23 @@ describe('evaluateBlastRadius', () => {
     expect(result.items[0]!.blocked_reason).toContain('blast_radius');
   });
 
+  it('returns passed=false when the eval gate decided != approved (rejected)', async () => {
+    const pool = {
+      query: vi.fn().mockResolvedValue({
+        rows: [{
+          gate: 'eval',
+          decided: 'rejected',
+          attestation: { outcome_delta: { approve_pct_delta: 0, deny_pct_delta: 0 } },
+        }],
+      }),
+    } as unknown as import('pg').Pool;
+
+    const result = await evaluateBlastRadius(PROMOTION_SET, pool);
+    expect(result.passed).toBe(false);
+    expect(result.items[0]!.passed).toBe(false);
+    expect(result.items[0]!.blocked_reason).toContain('eval_rejected');
+  });
+
   it('returns passed=false when simulation approval is missing', async () => {
     const pool = {
       query: vi.fn().mockResolvedValue({ rows: [] }),
