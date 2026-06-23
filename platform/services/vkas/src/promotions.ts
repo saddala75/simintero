@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
+import { jsonDiff, type PathDiff } from './diff.js';
 
 // Accepts either a connection pool or a pooled client (e.g. from withTenant,
 // which runs inside a transaction with the sim.tenant_id GUC set). Both expose
@@ -40,6 +41,7 @@ export interface DiffItem {
   canonical_url: string;
   version: string;
   has_content_diff: boolean;
+  changes: PathDiff[];
 }
 
 interface ApprovalRow {
@@ -110,6 +112,19 @@ export async function applyPromotion(
       [item.canonical_url],
     );
 
+    const { rows: newRows } = await pool.query<{ content: unknown }>(
+      `SELECT content FROM vkas.artifact
+       WHERE canonical_url = $1 AND version = $2`,
+      [item.canonical_url, item.version],
+    );
+
+    const newContent = newRows[0]?.content;
+
+    const changes: PathDiff[] =
+      current.length > 0 && newContent !== undefined
+        ? jsonDiff(current[0]!.content, newContent)
+        : [];
+
     await pool.query(
       `UPDATE vkas.artifact
        SET status = 'active', effective_from = CURRENT_DATE
@@ -120,7 +135,8 @@ export async function applyPromotion(
     diffs.push({
       canonical_url: item.canonical_url,
       version: item.version,
-      has_content_diff: current.length > 0,
+      has_content_diff: changes.length > 0,
+      changes,
     });
   }
 

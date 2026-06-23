@@ -3,7 +3,9 @@ import {
   evaluateBlastRadius,
   applyPromotion,
   type PromotionSet,
+  type DiffItem,
 } from './promotions.js';
+import type { PathDiff } from './diff.js';
 
 const PROMOTION_SET: PromotionSet = {
   items: [
@@ -60,14 +62,62 @@ describe('evaluateBlastRadius', () => {
 
 describe('applyPromotion', () => {
   it('writes promotion changes and returns diff summary', async () => {
+    // Query sequence (post-Task-5):
+    //   1. SELECT prior active content
+    //   2. SELECT new version content
+    //   3. UPDATE artifact to active
     const pool = {
       query: vi.fn()
-        .mockResolvedValueOnce({ rows: [{ content: { clinical_criteria: 'v3' } }] })
-        .mockResolvedValueOnce({ rows: [] }),
+        .mockResolvedValueOnce({ rows: [{ content: { clinical_criteria: 'v3' } }] })  // prior active
+        .mockResolvedValueOnce({ rows: [{ content: { clinical_criteria: 'v3' } }] })  // new version (same → no diff)
+        .mockResolvedValueOnce({ rows: [] }),                                           // UPDATE
     } as unknown as import('pg').Pool;
 
     const diff = await applyPromotion(PROMOTION_SET, pool);
     expect(diff).toHaveLength(1);
     expect(diff[0]!.canonical_url).toContain('knee-arthroscopy');
+  });
+
+  it('returns has_content_diff=true and non-empty changes when new content differs from prior active', async () => {
+    const priorContent = { clinical_criteria: 'v3', age_min: 18 };
+    const newContent   = { clinical_criteria: 'v4', age_min: 18 };
+
+    const pool = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ content: priorContent }] })  // SELECT prior active
+        .mockResolvedValueOnce({ rows: [{ content: newContent }] })    // SELECT new version
+        .mockResolvedValueOnce({ rows: [] }),                           // UPDATE
+    } as unknown as import('pg').Pool;
+
+    const diff = await applyPromotion(PROMOTION_SET, pool);
+    const item = diff[0] as DiffItem;
+
+    expect(item.has_content_diff).toBe(true);
+    expect(item.changes).toBeDefined();
+    expect((item.changes as PathDiff[]).length).toBeGreaterThan(0);
+
+    const changes = item.changes as PathDiff[];
+    const criteriaChange = changes.find(c => c.path === '/clinical_criteria');
+    expect(criteriaChange).toBeDefined();
+    expect(criteriaChange!.op).toBe('replace');
+    expect(criteriaChange!.before).toBe('v3');
+    expect(criteriaChange!.after).toBe('v4');
+  });
+
+  it('returns has_content_diff=false and changes=[] when no prior active exists', async () => {
+    const newContent = { clinical_criteria: 'v1' };
+
+    const pool = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [] })                         // SELECT prior active → empty
+        .mockResolvedValueOnce({ rows: [{ content: newContent }] }) // SELECT new version
+        .mockResolvedValueOnce({ rows: [] }),                        // UPDATE
+    } as unknown as import('pg').Pool;
+
+    const diff = await applyPromotion(PROMOTION_SET, pool);
+    const item = diff[0] as DiffItem;
+
+    expect(item.has_content_diff).toBe(false);
+    expect(item.changes).toEqual([]);
   });
 });
