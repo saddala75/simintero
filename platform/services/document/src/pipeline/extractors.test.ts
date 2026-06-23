@@ -18,6 +18,52 @@ describe('detectFormat', () => {
   });
 });
 
+describe('FHIR-Binary recursion depth cap', () => {
+  /** Build a chain of `levels` DocumentReferences, each wrapping the next via
+   *  base64 attachment.data. The innermost payload is a QuestionnaireResponse
+   *  with actual items so it would return 'extracted' if reached — this means
+   *  any result OTHER than 'extracted' from a deep chain proves the cap fired. */
+  function makeNestedDocRef(levels: number): Buffer {
+    // Innermost: a QR that would extract successfully if reached
+    let inner: string = JSON.stringify({
+      resourceType: 'QuestionnaireResponse',
+      item: [{ answer: [{ valueString: 'leaf-answer' }] }],
+    });
+    for (let i = 0; i < levels; i++) {
+      const wrapper = {
+        resourceType: 'DocumentReference',
+        content: [{ attachment: { data: Buffer.from(inner).toString('base64') } }],
+      };
+      inner = JSON.stringify(wrapper);
+    }
+    return Buffer.from(inner);
+  }
+
+  it('shallow wrap (1 level) reaches the inner QR and extracts successfully', async () => {
+    // depth=1: one DocumentReference wrapping a QR with items → should extract
+    const bytes = makeNestedDocRef(1);
+    const r = await extractSpans(bytes, 'fhir-json');
+    expect(r.status).toBe('extracted');
+    expect(r.text).toContain('leaf-answer');
+  });
+
+  it('returns unsupported (cap) when FHIR nesting exceeds depth limit (4 levels)', async () => {
+    // 4 levels deep: exceeds the cap of 3, so the cap fires before reaching the QR leaf.
+    // The cap must return 'unsupported', NOT 'extracted' (which is what the leaf would give).
+    const bytes = makeNestedDocRef(4);
+    const r = await extractSpans(bytes, 'fhir-json');
+    // Without a cap, this would return 'extracted' (the inner QR is reachable).
+    // With the cap at depth 3, this must NOT be 'extracted'.
+    expect(r.status).toBe('unsupported');
+  });
+
+  it('returns unsupported at exactly depth=4 (cap boundary)', async () => {
+    const bytes = makeNestedDocRef(4);
+    const r = await extractSpans(bytes, 'fhir-json');
+    expect(r.status).toBe('unsupported');
+  });
+});
+
 describe('extractSpans', () => {
   it('extracts text-layer PDF into per-page spans', async () => {
     const r = await extractSpans(fixture('sample.pdf'), 'pdf');

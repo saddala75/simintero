@@ -45,20 +45,31 @@ export function detectFormat(bytes: Buffer): DocFormat {
   return 'other';
 }
 
+/** Maximum number of recursive FHIR-Binary unwrap steps before giving up. */
+const FHIR_MAX_DEPTH = 3;
+
 /**
  * Extract structured spans from a document. Pure (no DB / object store); the
  * only side effect is an optional OCR POST when `opts.ocrEndpoint` is set and
  * a PDF has no text layer.
+ *
+ * The optional `_depth` parameter is an internal recursion counter used to cap
+ * FHIR DocumentReference attachment unwrapping. Callers should omit it; the
+ * default of 0 is correct for all external call sites.
  */
 export async function extractSpans(
   bytes: Buffer,
   format: DocFormat,
   opts?: ExtractOpts,
+  _depth = 0,
 ): Promise<ExtractResult> {
+  if (_depth >= FHIR_MAX_DEPTH) {
+    return { status: 'unsupported', text: '', spans: [] };
+  }
   try {
     if (format === 'pdf') return await extractPdf(bytes, opts);
     if (format === 'c-cda') return extractCcda(bytes);
-    if (format === 'fhir-json') return await extractFhirJson(bytes, opts);
+    if (format === 'fhir-json') return await extractFhirJson(bytes, opts, _depth);
     return { status: 'unsupported', text: '', spans: [] };
   } catch {
     return { status: 'extract_failed', text: '', spans: [] };
@@ -225,11 +236,12 @@ function flattenFhirAnswers(items: unknown, out: string[]): void {
   }
 }
 
-async function extractFhirJson(bytes: Buffer, opts?: ExtractOpts): Promise<ExtractResult> {
+async function extractFhirJson(bytes: Buffer, opts?: ExtractOpts, depth = 0): Promise<ExtractResult> {
   const resource = JSON.parse(bytes.toString('utf8')) as Record<string, unknown>;
   const resourceType = resource.resourceType as string | undefined;
 
   // DocumentReference with an embedded base64 attachment -> decode + recurse.
+  // Pass depth + 1 so the cap in extractSpans fires after FHIR_MAX_DEPTH hops.
   if (resourceType === 'DocumentReference') {
     const contents = asArray(resource.content) as Array<Record<string, unknown>>;
     for (const c of contents) {
@@ -237,7 +249,7 @@ async function extractFhirJson(bytes: Buffer, opts?: ExtractOpts): Promise<Extra
       const data = attachment?.data as string | undefined;
       if (data) {
         const decoded = Buffer.from(data, 'base64');
-        return await extractSpans(decoded, detectFormat(decoded), opts);
+        return await extractSpans(decoded, detectFormat(decoded), opts, depth + 1);
       }
     }
   }
