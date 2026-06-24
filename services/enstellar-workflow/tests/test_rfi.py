@@ -381,3 +381,122 @@ async def test_rfi_response_consumer_resumes_clock_and_transitions_to_auto_deter
     assert case_row["status"] == "auto_determination", (
         f"expected auto_determination (re-gate), got {case_row['status']!r}"
     )
+
+
+async def test_rfi_response_consumer_subscribes_and_filters_correct_schema_ref():
+    """The consumer is a real IdempotentKafkaConsumer subscribed to the
+    case-lifecycle topic with a dedicated group, and filters on the
+    RFIResponseReceived schema_ref. Constructible without a live broker."""
+    from simintero_outbox import SchemaRef, Topics
+    from enstellar_workflow.consumers.rfi_response_consumer import RfiResponseConsumer
+    from enstellar_workflow.kafka.consumer import IdempotentKafkaConsumer
+
+    # No pool / broker needed to assert subscription wiring.
+    consumer = RfiResponseConsumer(pool=None)  # type: ignore[arg-type]
+
+    assert isinstance(consumer, IdempotentKafkaConsumer)
+    assert consumer._topics == [Topics.CASE_LIFECYCLE]
+    assert consumer._group_id == "workflow-engine-rfi-response"
+    assert SchemaRef.RFI_RESPONSE_RECEIVED == "sim.case.lifecycle/RFIResponseReceived/v1"
+
+
+async def test_rfi_response_consumer_ignores_other_schema_refs(pg_pool: asyncpg.Pool):
+    """An event on the case-lifecycle topic that is NOT RFIResponseReceived is a
+    no-op (the consumer does not touch a case it does not own)."""
+    from simintero_outbox import make_envelope
+    from enstellar_workflow.consumers.rfi_response_consumer import RfiResponseConsumer
+    from enstellar_workflow.cases.service import CaseService
+
+    consumer = RfiResponseConsumer(pg_pool)
+    svc = CaseService(pg_pool)
+    tid = f"tenant-rfiresp-other-{uuid.uuid4()}"
+
+    case = make_case(tenant_id=tid)
+    created = await svc.create_case(case)
+
+    # A different lifecycle event (CaseStateChanged) must be ignored.
+    event = make_envelope(
+        "sim.case.lifecycle/CaseStateChanged/v1",
+        tenant_id=tid,
+        actor_id="system",
+        actor_type="system",
+        correlation_id=str(uuid.uuid4()),
+        payload={"case_id": str(created.case_id), "to_state": "auto_determination"},
+    )
+    await consumer.handle(event)
+
+    async with pg_pool.acquire() as conn:
+        case_row = await conn.fetchrow(
+            "SELECT status FROM workflow_instances WHERE case_id = $1 AND tenant_id = $2",
+            created.case_id, tid,
+        )
+    # Status unchanged from intake — the consumer ignored the foreign event.
+    assert case_row["status"] == "intake"
+
+
+async def test_rfi_response_consumer_guard_skips_non_pend_rfi_case(pg_pool: asyncpg.Pool):
+    """I2 guard: an rfi.response.received for a case NOT in pend_rfi (e.g. a case
+    a human already moved into clinical_review) is a no-op — the consumer never
+    yanks it back into the auto path."""
+    from simintero_outbox import make_envelope
+    from enstellar_workflow.consumers.rfi_response_consumer import RfiResponseConsumer
+    from enstellar_workflow.cases.service import CaseService
+    from enstellar_workflow.engine.transitions import TransitionEngine, TransitionRequest
+
+    consumer = RfiResponseConsumer(pg_pool)
+    svc = CaseService(pg_pool)
+    engine = TransitionEngine()
+    tid = f"tenant-rfiresp-guard-{uuid.uuid4()}"
+
+    case = make_case(tenant_id=tid)
+    created = await svc.create_case(case)
+
+    # Move the case into pend_rfi, then have a "human" move it on to
+    # clinical_review (the state the guard must protect).
+    await svc.pend_rfi(
+        case_id=created.case_id,
+        tenant_id=tid,
+        provider_npi="1234567890",
+        document_types=["chart_notes"],
+        free_text=None,
+        requested_by="reviewer",
+    )
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await engine.apply(
+                conn,
+                TransitionRequest(
+                    case_id=created.case_id,
+                    tenant_id=tid,
+                    to_state="clinical_review",
+                    actor_id="human-reviewer",
+                    actor_type="user",
+                    correlation_id=str(uuid.uuid4()),
+                    payload={"reason": "manual_escalation"},
+                ),
+            )
+
+    # A (re)delivered rfi.response.received now arrives.
+    event = make_envelope(
+        "sim.case.lifecycle/RFIResponseReceived/v1",
+        tenant_id=tid,
+        actor_id="system",
+        actor_type="system",
+        correlation_id=str(uuid.uuid4()),
+        payload={
+            "case_id": str(created.case_id),
+            "provider_npi": "1234567890",
+            "document_types": ["chart_notes"],
+        },
+    )
+    await consumer.handle(event)
+
+    async with pg_pool.acquire() as conn:
+        case_row = await conn.fetchrow(
+            "SELECT status FROM workflow_instances WHERE case_id = $1 AND tenant_id = $2",
+            created.case_id, tid,
+        )
+    # Guard held: still clinical_review, NOT yanked back to auto_determination.
+    assert case_row["status"] == "clinical_review", (
+        f"I2 guard failed: expected clinical_review (untouched), got {case_row['status']!r}"
+    )

@@ -20,7 +20,11 @@ from enstellar_workflow.api.router import router as cases_router
 from enstellar_workflow.api.worklist_router import router as worklist_router
 from enstellar_workflow.auth import jwt_validator
 from enstellar_workflow.config import get_settings
-from enstellar_workflow.consumers import AutoDeterminationConsumer, ClinicalReviewConsumer
+from enstellar_workflow.consumers import (
+    AutoDeterminationConsumer,
+    ClinicalReviewConsumer,
+    RfiResponseConsumer,
+)
 from enstellar_workflow.kafka.producer import KafkaProducer
 from enstellar_workflow.outbox.relay import OutboxRelay
 from enstellar_workflow.outbox.publisher import OutboxPublisher
@@ -102,6 +106,10 @@ async def lifespan(app: FastAPI):
     cr_task = asyncio.create_task(clinical_review_consumer.run(), name="clinical-review-consumer")
     logger.info("ClinicalReviewConsumer started")
 
+    rfi_response_consumer = RfiResponseConsumer(pool=pool)
+    rfi_task = asyncio.create_task(rfi_response_consumer.run(), name="rfi-response-consumer")
+    logger.info("RfiResponseConsumer started")
+
     producer = KafkaProducer()
     await producer.start()
     relay = OutboxRelay(pool, producer)
@@ -132,6 +140,11 @@ async def lifespan(app: FastAPI):
         cr_task.cancel()
         try:
             await cr_task
+        except asyncio.CancelledError:
+            pass
+        rfi_task.cancel()
+        try:
+            await rfi_task
         except asyncio.CancelledError:
             pass
         await relay.stop()
