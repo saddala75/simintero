@@ -4,7 +4,7 @@ import type { AnalysisInput } from '../workflows/RevitalAnalyzeCase.js';
 
 const INPUT: AnalysisInput = {
   analysis_id: 'ana_1', tenant_id: 'tenant-x', case_ref: 'case_1', document_refs: [],
-  evidence_requirements_ref: null, model_binding_ref: 'ref', model_binding_version: '1.0.0',
+  service_code: '27447', model_binding_ref: 'ref', model_binding_version: '1.0.0',
   prompt_ref: 'ref', prompt_version: '1.0.0', cell_boundary: 'pooled',
 };
 

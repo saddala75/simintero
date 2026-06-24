@@ -12,7 +12,7 @@ const ANALYSIS_INPUT: AnalysisInput = {
   tenant_id: 'tenant-x',
   case_ref: 'case_1',
   document_refs: ['d1'],
-  evidence_requirements_ref: null,
+  service_code: '27447',
   model_binding_ref: 'ref/binding',
   model_binding_version: '1.0.0',
   prompt_ref: 'ref/prompt',

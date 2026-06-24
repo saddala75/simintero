@@ -381,6 +381,7 @@ services:
       TEMPORAL_NAMESPACE: simintero
       MODEL_GATEWAY_URL: http://model-gateway:3011
       TERMINOLOGY_URL: http://terminology-service:3030
+      DIGICORE_URL: http://digicore-runtime:8083
       DOCUMENT_SERVICE_URL: http://document-service:3010
       NODE_ENV: development
       PORT: "3014"
@@ -412,6 +413,7 @@ services:
       TEMPORAL_NAMESPACE: simintero
       MODEL_GATEWAY_URL: http://model-gateway:3011
       TERMINOLOGY_URL: http://terminology-service:3030
+      DIGICORE_URL: http://digicore-runtime:8083
       DOCUMENT_SERVICE_URL: http://document-service:3010
       NODE_ENV: development
     depends_on:

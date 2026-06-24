@@ -11,7 +11,7 @@ export interface AnalysisInput {
   case_ref: string;
   document_refs: string[];
   member_ref?: string | undefined;
-  evidence_requirements_ref: string | null;
+  service_code?: string | undefined;
   model_binding_ref: string;
   model_binding_version: string;
   prompt_ref: string;
@@ -58,10 +58,8 @@ export async function revitalAnalyzeCase(input: AnalysisInput): Promise<Analysis
     () => { status = 'partial'; return null; }
   );
 
-  const requirements = input.evidence_requirements_ref
-    ? await fetchEvidenceRequirements(input.evidence_requirements_ref, input.case_ref).catch(
-        () => { status = 'partial'; return null; }
-      )
+  const requirements = input.service_code
+    ? await fetchEvidenceRequirements(input.service_code).catch(() => null)
     : null;
 
   const completenessResult = extracted && requirements
