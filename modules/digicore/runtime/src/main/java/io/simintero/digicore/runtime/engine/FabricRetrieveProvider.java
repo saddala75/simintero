@@ -142,6 +142,7 @@ public class FabricRetrieveProvider implements RetrieveProvider {
                         WHERE tenant_id = current_setting('sim.tenant_id', true)
                           AND resource_type = ?
                           AND member_ref = ?
+                          AND source <> 'ai-extraction'
                         """)) {
                     sel.setString(1, resourceType);
                     sel.setString(2, memberRef);
