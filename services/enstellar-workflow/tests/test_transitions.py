@@ -292,6 +292,43 @@ async def test_human_approval_emits_decision_recorded(pg_pool: asyncpg.Pool):
 
 
 @pytest.mark.asyncio
+async def test_human_approval_with_reviewer_actor_emits_decision_recorded(pg_pool: asyncpg.Pool):
+    """A human approval labeled with a human actor type OTHER than the literal
+    'user' MUST still emit a DECISION_RECORDED outbox row.
+
+    The determination-notice gate must key off NON-system actors (exclusion), not
+    the 'user' label only — otherwise a non-'user' human determination fires zero
+    notice, silently. We use 'human' here (a valid Actor enum that survives the
+    envelope mapping); the inclusion-based gate dropped it because the legacy
+    _ACTOR_TO_PRINCIPAL_TYPE map only carried 'user'->'human'.
+    """
+    service = CaseService(pg_pool)
+    case = make_case()
+    created = await service.create_case(case)
+
+    engine = TransitionEngine()
+    req = TransitionRequest(
+        case_id=created.case_id,
+        tenant_id=created.tenant_id,
+        to_state="approved",
+        actor_id="reviewer-001",
+        actor_type="human",  # a human label OTHER than "user"
+        correlation_id=created.correlation_id,
+    )
+
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await engine.apply(conn, req)
+
+    payloads = await _fetch_decision_recorded(pg_pool, created.case_id)
+    assert len(payloads) == 1, "expected exactly one DECISION_RECORDED for reviewer approval"
+    payload = payloads[0]
+    assert payload["outcome"] == "approved"
+    assert payload["decided_by"] == "human"
+    assert payload["auto_approved"] is False
+
+
+@pytest.mark.asyncio
 async def test_adverse_emits_decision_recorded_with_reason(pg_pool: asyncpg.Pool):
     """An adverse transition emits DECISION_RECORDED carrying the denial reason,
     AND still emits the ADVERSE_STRUCTURED structured-payload event."""

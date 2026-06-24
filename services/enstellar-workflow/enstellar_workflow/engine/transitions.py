@@ -202,11 +202,13 @@ class TransitionEngine:
         #     EVERY determination (the auto-approval path emits its own; this covers
         #     human approvals + all adverse outcomes). ENS-COM. Adverse payloads carry
         #     the denial reason + structured fields for a compliant notice.
-        #     Gated to human actors: the auto-determination path is a 'system' actor
-        #     that emits its own DECISION_RECORDED (auto_approved=True) — emitting here
-        #     too would double-fire the notice and mislabel the decision as human.
-        _is_human_actor = _ACTOR_TO_PRINCIPAL_TYPE.get(req.actor_type) == "human"
-        if req.to_state in DETERMINATION_STATES and _is_human_actor:
+        #     Gated by EXCLUSION of the system/auto actor types (not inclusion of a
+        #     single 'user' label): every non-system determination here is human-
+        #     initiated, regardless of its human role label (user/human/reviewer/
+        #     clinician/physician). The auto-determination path is a 'system' actor
+        #     that emits its own DECISION_RECORDED (auto_approved=True) — it stays
+        #     excluded here, so the notice never double-fires nor mislabels as human.
+        if req.to_state in DETERMINATION_STATES and req.actor_type not in {"system", "service"}:
             decision_payload: dict[str, object] = {
                 "case_id": str(req.case_id),
                 "outcome": req.to_state,
