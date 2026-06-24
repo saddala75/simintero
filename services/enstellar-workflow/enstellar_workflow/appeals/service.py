@@ -1,0 +1,182 @@
+"""AppealService — files (and later decides) appeals on adverse determinations.
+
+file_appeal turns an adverse case into an `appeal_review`:
+  * eligibility (adverse → level 1; an upheld appeal below MAX → next level)
+  * insert the appeal record
+  * STOP the prior clock (decision for L1 / appeal for L>1) then START a fresh
+    appeal clock — so the generalized SLA poller monitors only one running clock
+  * transition the case → appeal_review and route it to the level queue
+  * emit AppealFiled + render the appeal_filed acknowledgement notice
+
+All writes happen in a single tenant_transaction (RLS-scoped).
+"""
+from __future__ import annotations
+
+import uuid
+
+import asyncpg
+
+from simintero_outbox import SchemaRef, make_envelope
+from simintero_tenant_context import tenant_transaction
+
+from ..clocks.service import ClockService
+from ..comms.service import NotificationService
+from ..outbox.publisher import OutboxPublisher
+from ..workflow_config import ConfigService
+from .repository import AppealsRepository
+
+MAX_APPEAL_LEVEL = 3
+APPEALABLE_ADVERSE = {"denied", "partially_denied", "adverse_modification"}
+
+
+class AppealNotAllowedError(Exception):
+    """Raised when a case is not eligible for an appeal (mapped to HTTP 409)."""
+
+
+class AppealService:
+    def __init__(self, pool: asyncpg.Pool) -> None:
+        # Lazy import breaks the engine ↔ cases circular dependency at init time.
+        from ..engine.transitions import TransitionEngine
+        from ..cases.repository import CaseRepository
+
+        self._pool = pool
+        self._pub = OutboxPublisher()
+        self._clock_svc = ClockService(self._pub)
+        self._config_svc = ConfigService()
+        self._appeals = AppealsRepository()
+        self._engine = TransitionEngine()
+        self._notify = NotificationService(self._pub)
+        self._cases = CaseRepository()
+
+    async def file_appeal(
+        self,
+        *,
+        case_id: uuid.UUID,
+        tenant_id: str,
+        filed_by: str,
+        reason: str | None,
+    ) -> dict:
+        from ..engine.transitions import TransitionRequest
+
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            case = await self._cases.fetch_by_id(conn, case_id, tenant_id)
+            if case is None:
+                raise AppealNotAllowedError(
+                    f"Case {case_id} not found for tenant {tenant_id!r}"
+                )
+            latest = await self._appeals.latest_appeal(conn, case_id, tenant_id)
+
+            status = case.status.value
+            if status in APPEALABLE_ADVERSE:
+                level = 1
+                appealed_ref = (
+                    str(case.decisions[-1].decision_id)
+                    if case.decisions
+                    else str(case_id)
+                )
+                stop_clock_type = "decision"
+            elif (
+                status == "appeal_upheld"
+                and latest is not None
+                and latest["level"] < MAX_APPEAL_LEVEL
+            ):
+                level = latest["level"] + 1
+                appealed_ref = str(latest["appeal_id"])
+                stop_clock_type = "appeal"
+            else:
+                raise AppealNotAllowedError(
+                    f"Case {case_id} (status={status!r}) is not eligible for an appeal"
+                )
+
+            appeal = await self._appeals.insert_appeal(
+                conn,
+                case_id=case_id,
+                tenant_id=tenant_id,
+                level=level,
+                appealed_ref=appealed_ref,
+                filed_by=filed_by,
+                reason=reason,
+            )
+
+            # Stop the prior clock BEFORE starting the appeal clock so only one
+            # running clock exists per case (the poller monitors single clocks).
+            try:
+                await self._clock_svc.stop(
+                    conn,
+                    tenant_id=tenant_id,
+                    case_id=case_id,
+                    clock_type=stop_clock_type,
+                )
+            except ValueError:
+                pass  # no stoppable prior clock — non-fatal
+
+            defn = await self._config_svc.resolve_clock(
+                conn,
+                tenant_id=tenant_id,
+                lob=case.lob,
+                urgency=case.urgency.value,
+                clock_type="appeal",
+            )
+            await self._clock_svc.start(
+                conn,
+                tenant_id=tenant_id,
+                case_id=case_id,
+                definition=defn,
+            )
+
+            queue = "independent_review" if level >= 2 else f"appeal_l{level}_review"
+            await self._engine.apply(
+                conn,
+                TransitionRequest(
+                    case_id=case_id,
+                    tenant_id=tenant_id,
+                    to_state="appeal_review",
+                    actor_id="system",
+                    actor_type="system",
+                    correlation_id=str(uuid.uuid4()),
+                    payload={
+                        "reason": "appeal_filed",
+                        "appeal_id": str(appeal["appeal_id"]),
+                        "level": level,
+                    },
+                ),
+            )
+            await conn.execute(
+                "UPDATE workflow_instances SET assignee_queue=$1, updated_at=now() "
+                "WHERE case_id=$2 AND tenant_id=$3",
+                queue, case_id, tenant_id,
+            )
+
+            await self._pub.publish(
+                conn,
+                make_envelope(
+                    SchemaRef.APPEAL_FILED,
+                    tenant_id=tenant_id,
+                    actor_id="system",
+                    actor_type="system",
+                    correlation_id=str(appeal["appeal_id"]),
+                    payload={
+                        "case_id": str(case_id),
+                        "appeal_id": str(appeal["appeal_id"]),
+                        "level": level,
+                        "appealed_ref": appealed_ref,
+                        "filed_by": filed_by,
+                    },
+                ),
+            )
+            await self._notify.render_and_dispatch(
+                conn,
+                tenant_id,
+                str(case_id),
+                event_type="appeal_filed",
+                context={"case_id": str(case_id), "level": level},
+                actor_id="system",
+                actor_type="system",
+                correlation_id=str(appeal["appeal_id"]),
+            )
+
+        return {
+            "appeal_id": str(appeal["appeal_id"]),
+            "level": level,
+            "status": "appeal_review",
+        }

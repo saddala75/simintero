@@ -83,6 +83,13 @@ class SignoffBody(BaseModel):
     outcome_context: str
 
 
+class AppealBody(BaseModel):
+    """Request body for POST /cases/{case_id}/appeals."""
+
+    filed_by: str
+    reason: str | None = None
+
+
 async def _get_service() -> CaseService:
     pool = await get_pool()
     return CaseService(pool)
@@ -192,6 +199,31 @@ async def pend_rfi(
         "status": case.status.value,
         "rfi_request_id": result["rfi_request_id"],
     }
+
+
+@router.post("/{case_id}/appeals", status_code=201, response_model=None)
+async def file_appeal(
+    case_id: uuid.UUID,
+    body: AppealBody,
+    auth: AuthedRequest,
+) -> Any:
+    """File an appeal on an adverse case → appeal_review (appeal clock + notice).
+
+    Returns 201 with {'appeal_id', 'level', 'status': 'appeal_review'}.
+    Returns 409 if the case is not eligible for an appeal.
+    """
+    from ..appeals.service import AppealNotAllowedError, AppealService
+
+    pool = await get_pool()
+    try:
+        return await AppealService(pool).file_appeal(
+            case_id=case_id,
+            tenant_id=auth.tenant_id,
+            filed_by=body.filed_by,
+            reason=body.reason,
+        )
+    except AppealNotAllowedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/{case_id}/escalate", response_model=None)
