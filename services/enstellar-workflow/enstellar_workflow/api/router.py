@@ -90,6 +90,15 @@ class AppealBody(BaseModel):
     reason: str | None = None
 
 
+class AppealDecisionBody(BaseModel):
+    """Request body for POST /cases/{case_id}/appeals/{appeal_id}/decision."""
+
+    outcome: Literal["overturned", "upheld"]
+    reviewer_actor: str
+    reason: str | None = None
+    human_signoff_recorded: bool = False
+
+
 async def _get_service() -> CaseService:
     pool = await get_pool()
     return CaseService(pool)
@@ -223,6 +232,42 @@ async def file_appeal(
             reason=body.reason,
         )
     except AppealNotAllowedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{case_id}/appeals/{appeal_id}/decision",
+    status_code=200,
+    response_model=None,
+)
+async def decide_appeal(
+    case_id: uuid.UUID,
+    appeal_id: uuid.UUID,
+    body: AppealDecisionBody,
+    auth: AuthedRequest,
+) -> Any:
+    """Decide an appeal — overturn or uphold (uphold requires human sign-off).
+
+    Returns 200 with {'appeal_id', 'outcome', 'status'}.
+    Returns 422 if an uphold is attempted without a recorded human sign-off.
+    Returns 409 if the appeal is no longer under_review.
+    """
+    from ..appeals.service import AppealConflictError, AppealService
+
+    pool = await get_pool()
+    try:
+        return await AppealService(pool).decide_appeal(
+            case_id=case_id,
+            tenant_id=auth.tenant_id,
+            appeal_id=appeal_id,
+            outcome=body.outcome,
+            reviewer_actor=body.reviewer_actor,
+            reason=body.reason,
+            human_signoff_recorded=body.human_signoff_recorded,
+        )
+    except GuardError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AppealConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 

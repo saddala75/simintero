@@ -33,6 +33,10 @@ class AppealNotAllowedError(Exception):
     """Raised when a case is not eligible for an appeal (mapped to HTTP 409)."""
 
 
+class AppealConflictError(Exception):
+    """Raised when an appeal is no longer under_review (mapped to HTTP 409)."""
+
+
 class AppealService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         # Lazy import breaks the engine ↔ cases circular dependency at init time.
@@ -179,4 +183,114 @@ class AppealService:
             "appeal_id": str(appeal["appeal_id"]),
             "level": level,
             "status": "appeal_review",
+        }
+
+    async def decide_appeal(
+        self,
+        *,
+        case_id: uuid.UUID,
+        tenant_id: str,
+        appeal_id: uuid.UUID,
+        outcome: str,
+        reviewer_actor: str,
+        reason: str | None,
+        human_signoff_recorded: bool,
+    ) -> dict:
+        """Decide an under_review appeal — overturn or uphold.
+
+        An `upheld` outcome is a continued adverse determination and therefore
+        requires a recorded human sign-off (the gate fires BEFORE any DB write,
+        so a gated uphold leaves the case in appeal_review + the appeal
+        under_review). The appeal_* states are NOT determination states, so the
+        transition emits no DECISION_RECORDED — the appeals row is the record and
+        the explicit appeal_overturned/appeal_upheld notice is the only comms.
+        """
+        from ..engine.guards import GuardError
+        from ..engine.transitions import TransitionRequest
+
+        if outcome not in {"overturned", "upheld"}:
+            raise ValueError(f"invalid appeal outcome {outcome!r}")
+
+        # Uphold gate — BEFORE any write.
+        if outcome == "upheld" and not human_signoff_recorded:
+            raise GuardError(
+                "appeal uphold (continued adverse) requires human sign-off"
+            )
+
+        to_state = "appeal_overturned" if outcome == "overturned" else "appeal_upheld"
+
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            row = await self._appeals.record_outcome(
+                conn,
+                appeal_id=appeal_id,
+                tenant_id=tenant_id,
+                status=outcome,
+                outcome_reason=reason,
+                reviewer_actor=reviewer_actor,
+            )
+            if row is None:
+                raise AppealConflictError(
+                    f"Appeal {appeal_id} is not under_review (already decided or not found)"
+                )
+
+            # Stop the appeal clock (non-fatal — already stopped is fine).
+            try:
+                await self._clock_svc.stop(
+                    conn,
+                    tenant_id=tenant_id,
+                    case_id=case_id,
+                    clock_type="appeal",
+                )
+            except ValueError:
+                pass
+
+            await self._engine.apply(
+                conn,
+                TransitionRequest(
+                    case_id=case_id,
+                    tenant_id=tenant_id,
+                    to_state=to_state,
+                    actor_id="system",
+                    actor_type="system",
+                    correlation_id=str(uuid.uuid4()),
+                    payload={
+                        "reason": "appeal_decided",
+                        "appeal_id": str(appeal_id),
+                        "outcome": outcome,
+                    },
+                ),
+            )
+
+            await self._pub.publish(
+                conn,
+                make_envelope(
+                    SchemaRef.APPEAL_DECIDED,
+                    tenant_id=tenant_id,
+                    actor_id="system",
+                    actor_type="system",
+                    correlation_id=str(appeal_id),
+                    payload={
+                        "case_id": str(case_id),
+                        "appeal_id": str(appeal_id),
+                        "level": row["level"],
+                        "outcome": outcome,
+                        "reviewer_actor": reviewer_actor,
+                    },
+                ),
+            )
+            await self._notify.render_and_dispatch(
+                conn,
+                tenant_id,
+                str(case_id),
+                event_type=to_state,
+                context={"case_id": str(case_id), "level": row["level"]},
+                actor_id="system",
+                actor_type="system",
+                correlation_id=str(appeal_id),
+            )
+
+        return {
+            "appeal_id": str(appeal_id),
+            "outcome": outcome,
+            "status": to_state,
         }
