@@ -8,9 +8,15 @@ VALUES
    'Prior Authorization Approved — Case {{ case_id }}',
    'Your prior authorization request (Case {{ case_id }}) has been approved on {{ decided_at }}.'),
   ('demo-tenant', 'denied',    'portal',
-   'Prior Authorization Determination — Case {{ case_id }}',
-   'Your prior authorization request (Case {{ case_id }}) received a determination of {{ outcome }} on {{ decided_at }}. Please contact your provider for next steps.'),
+   'Determination on your request',
+   'Your request received a determination of {{ outcome }}.{% if reason %} Reason: {{ reason }}.{% endif %} You have the right to appeal this determination. To file an appeal, contact your plan within the appeal period stated in your plan documents.'),
   ('demo-tenant', 'approved',  'email',
    'PA Approved: {{ case_id }}',
-   'Authorization approved. Reference: {{ case_id }}. Date: {{ decided_at }}.')
+   'Authorization approved. Reference: {{ case_id }}. Date: {{ decided_at }}.'),
+  ('demo-tenant', 'partially_denied', 'portal',
+   'Determination on your request',
+   'Your request received a determination of {{ outcome }}.{% if reason %} Reason: {{ reason }}.{% endif %} You have the right to appeal this determination. To file an appeal, contact your plan within the appeal period stated in your plan documents.'),
+  ('demo-tenant', 'adverse_modification', 'portal',
+   'Determination on your request',
+   'Your request received a determination of {{ outcome }}.{% if reason %} Reason: {{ reason }}.{% endif %} You have the right to appeal this determination. To file an appeal, contact your plan within the appeal period stated in your plan documents.')
 ON CONFLICT (tenant_id, event_type, channel, version) DO NOTHING;
