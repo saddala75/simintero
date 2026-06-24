@@ -34,10 +34,12 @@ class DecisionRecordedConsumer(IdempotentKafkaConsumer):
         }
         # Adverse content for a compliant denial notice (reason + appeal rights);
         # only present on adverse DECISION_RECORDED payloads.
+        # Always DEFINE each adverse key (None when absent) so StrictUndefined
+        # templates using {% if reason %} safely skip the guarded block instead of
+        # raising UndefinedError — a reason-less adverse determination still renders
+        # its notice (just without the reason line).
         for key in ("determination_type", "reason", "reason_codes", "citations"):
-            value = event.payload.get(key)
-            if value is not None:
-                context[key] = value
+            context[key] = event.payload.get(key)
         async with tenant_transaction(self._pool, event.tenant.tenant_id) as conn:
             await self._notify.render_and_dispatch(
                 conn,
