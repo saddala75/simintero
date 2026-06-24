@@ -24,6 +24,7 @@ class SchemaRef:
     CLOCK_PAUSED = "sim.clock/ClockPaused/v1"
     CLOCK_RESUMED = "sim.clock/ClockResumed/v1"
     CLOCK_BREACHED = "sim.clock/ClockBreached/v1"
+    CLOCK_AT_RISK = "sim.clock/ClockAtRisk/v1"
     CLOCK_STOPPED = "sim.clock/ClockStopped/v1"
 
     AGENT_ASSIST_PRODUCED = "sim.ai.interaction/AgentAssistProduced/v1"
