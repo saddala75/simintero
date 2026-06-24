@@ -923,6 +923,9 @@ services:
       # (validation_alias), so this env var must be exactly REVITAL_BASE_URL (un-prefixed).
       REVITAL_BASE_URL: http://revital-pipeline:3014
       WORKFLOW_REVITAL_BASE_URL: http://revital-pipeline:3014
+      # Slice S3: short SLA poll interval so the unified smoke observes a breach+escalate
+      # within seconds (the in-process SlaPoller scans running clocks every N seconds).
+      WORKFLOW_SLA_POLL_INTERVAL_SECONDS: "5"
     networks: [sim-net]
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]

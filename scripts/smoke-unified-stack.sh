@@ -892,4 +892,28 @@ if [ "$COMM_DAYS" != "5" ] || [ "$MA_DAYS" != "7" ]; then
   echo "❌ FAIL S2: commercial=$COMM_DAYS (want 5) ma=$MA_DAYS (want 7)" >&2; exit 1; fi
 echo "✅ PASS S2: LOB-aware clocks — commercial=5d, ma=7d from workflow_config"
 
+echo "== S3: SLA poller breaches an overdue clock + escalates =="
+# Slice S3: the in-process SlaPoller (running inside workflow-engine,
+# WORKFLOW_SLA_POLL_INTERVAL_SECONDS=5) scans RUNNING clocks across tenants, breaches
+# any whose pause-adjusted deadline has passed (emits CLOCK_BREACHED), and escalates
+# the open case to the SLA queue (md_review, emits CASE_ASSIGNED + sets assignee_queue).
+# We REUSE the open commercial case created in S2 (demo-tenant, status=intake = non-terminal,
+# with a running decision clock), backdate its decision clock past the effective deadline
+# (total_paused_seconds=0 so deadline IS the effective deadline), wait one poll interval
+# (+buffer), then assert the clock breached AND the case escalated to md_review.
+SLA_INTERVAL=${SLA_INTERVAL:-5}
+S3_CASE="$COMM_CASE"
+docker compose exec -T postgres psql -U sim -d workflow -c \
+  "update clocks set deadline=now()-interval '1 day', started_at=now()-interval '8 days', total_paused_seconds=0 where case_id='$S3_CASE' and clock_type='decision';"
+sleep $((SLA_INTERVAL + 5))
+S3_STATE=$(docker compose exec -T postgres psql -U sim -d workflow -tAc \
+  "select state from clocks where case_id='$S3_CASE' and clock_type='decision';" | tail -1 | tr -d '[:space:]')
+S3_QUEUE=$(docker compose exec -T postgres psql -U sim -d workflow -tAc \
+  "select assignee_queue from workflow_instances where case_id='$S3_CASE';" | tail -1 | tr -d '[:space:]')
+echo "   clock state=${S3_STATE} ; assignee_queue=${S3_QUEUE}"
+if [ "$S3_STATE" != "breached" ] || [ "$S3_QUEUE" != "md_review" ]; then
+  echo "❌ FAIL S3: state=$S3_STATE (want breached) queue=$S3_QUEUE (want md_review)" >&2
+  docker compose logs workflow-engine 2>&1 | tail -30 >&2; exit 1; fi
+echo "✅ PASS S3: clock breached + case escalated to md_review by the SLA poller"
+
 echo "✅ unified-stack smoke PASSED"
