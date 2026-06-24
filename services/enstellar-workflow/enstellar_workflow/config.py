@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     revital_poll_interval_seconds: float = 5.0
     revital_poll_timeout_seconds: float = 300.0
 
+    # The in-process SlaPoller scans running clocks across ALL tenants (via the
+    # BYPASSRLS sim_relay role) on this interval, breaching overdue
+    # (pause-adjusted) clocks + escalating, and warning at-risk cases.
+    sla_poll_interval_seconds: float = 30.0
+
     # --- Keycloak JWT / OIDC (realm `simintero`) + OPA -----------------------
     # Adopted from the platform `simintero-authz` package. The JWKS URL and
     # issuer point at the `simintero` Keycloak realm; override per-environment.
