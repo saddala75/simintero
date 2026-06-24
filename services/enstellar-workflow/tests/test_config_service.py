@@ -1,6 +1,6 @@
 import pytest
 
-from enstellar_workflow.workflow_config import ConfigService
+from enstellar_workflow.workflow_config import ConfigService, SlaConfig
 from simintero_tenant_context import tenant_transaction
 
 TENANT = "cfg-test-tenant"
@@ -78,3 +78,51 @@ async def test_resolve_clock_falls_back_when_config_section_is_scalar(pg_pool):
     # config["decision"] = 5 (scalar, not a dict) → _lookup_days returns None
     # → falls back to CLOCK_RULES[("standard", "decision")] = 7
     assert d.duration_calendar_days == 7
+
+
+SLA_TENANT = "sla-cfg-test-tenant"
+
+
+async def _seed_sla(pool):
+    async with tenant_transaction(pool, SLA_TENANT) as conn:
+        await conn.execute(
+            "INSERT INTO workflow_config (tenant_id, lob, domain, config) VALUES "
+            "($1,'commercial','sla',"
+            "'{\"warning_threshold_pct\": 75, \"escalation_queue\": \"md_review\"}'::jsonb), "
+            "($1,'ma','sla',"
+            "'{\"warning_threshold_pct\": 80, \"escalation_queue\": \"md_review\"}'::jsonb) "
+            "ON CONFLICT DO NOTHING",
+            SLA_TENANT,
+        )
+
+
+@pytest.mark.asyncio
+async def test_resolve_sla_is_lob_aware(pg_pool):
+    await _seed_sla(pg_pool)
+    svc = ConfigService()
+    async with tenant_transaction(pg_pool, SLA_TENANT) as conn:
+        comm = await svc.resolve_sla(conn, tenant_id=SLA_TENANT, lob="commercial")
+        ma = await svc.resolve_sla(conn, tenant_id=SLA_TENANT, lob="ma")
+    assert comm == SlaConfig(warning_threshold_pct=75, escalation_queue="md_review")
+    # SAME tenant, different LOB -> different threshold
+    assert ma == SlaConfig(warning_threshold_pct=80, escalation_queue="md_review")
+
+
+@pytest.mark.asyncio
+async def test_resolve_sla_falls_back_to_defaults_for_unseeded_lob(pg_pool):
+    await _seed_sla(pg_pool)
+    svc = ConfigService()
+    async with tenant_transaction(pg_pool, SLA_TENANT) as conn:
+        # 'medicaid' not seeded -> default SlaConfig(75, md_review)
+        sla = await svc.resolve_sla(conn, tenant_id=SLA_TENANT, lob="medicaid")
+    assert sla == SlaConfig(warning_threshold_pct=75, escalation_queue="md_review")
+
+
+@pytest.mark.asyncio
+async def test_resolve_sla_falls_back_to_defaults_for_unseeded_tenant(pg_pool):
+    svc = ConfigService()
+    async with tenant_transaction(pg_pool, "sla-unseeded-tenant") as conn:
+        sla = await svc.resolve_sla(
+            conn, tenant_id="sla-unseeded-tenant", lob="commercial"
+        )
+    assert sla == SlaConfig(warning_threshold_pct=75, escalation_queue="md_review")

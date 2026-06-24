@@ -1,3 +1,3 @@
-from .service import ConfigService
+from .service import ConfigService, SlaConfig
 
-__all__ = ["ConfigService"]
+__all__ = ["ConfigService", "SlaConfig"]
