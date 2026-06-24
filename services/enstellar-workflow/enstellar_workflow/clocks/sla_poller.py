@@ -107,6 +107,7 @@ class SlaPoller:
                       JOIN workflow_instances w
                         ON w.case_id = c.case_id AND w.tenant_id = c.tenant_id
                      WHERE c.state = 'running'
+                       AND c.clock_type = 'decision'
                        AND w.status <> ALL($1::text[])
                     """,
                     list(TERMINAL_STATES),
@@ -148,15 +149,14 @@ class SlaPoller:
                             breach_mode=True,
                         )
                 elif row["warned_at"] is None:
+                    elapsed = (now - row["started_at"]).total_seconds() - paused
+                    duration = (row["deadline"] - row["started_at"]).total_seconds()
+                    if duration <= 0:
+                        return
                     sla = await self._config.resolve_sla(
                         conn, tenant_id=tenant_id, lob=row["lob"]
                     )
-                    elapsed = (now - row["started_at"]).total_seconds() - paused
-                    duration = (row["deadline"] - row["started_at"]).total_seconds()
-                    if (
-                        duration > 0
-                        and (elapsed / duration) * 100 >= sla.warning_threshold_pct
-                    ):
+                    if (elapsed / duration) * 100 >= sla.warning_threshold_pct:
                         await self._clocks.warn(
                             conn,
                             tenant_id=tenant_id,
