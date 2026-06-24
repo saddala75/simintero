@@ -56,13 +56,15 @@ async def get_worklist(
                 wi.status            AS status,
                 wi.urgency           AS urgency,
                 wi.case_json         AS case_json,
-                c.deadline        AS sla_deadline
+                c.deadline           AS sla_deadline,
+                COALESCE(c.warned_at IS NOT NULL AND c.state = 'running', false) AS at_risk,
+                COALESCE(c.state = 'breached', false)                            AS breached
             FROM workflow_instances wi
             LEFT JOIN clocks c
                 ON  c.case_id   = wi.case_id
                 AND c.tenant_id = wi.tenant_id
                 AND c.clock_type = 'decision'
-                AND c.state IN ('running', 'paused')
+                AND c.state IN ('running', 'paused', 'breached')
             WHERE wi.tenant_id = $1
               AND ($2 = 'default' OR wi.assignee_queue = $2)
             ORDER BY c.deadline ASC NULLS LAST, wi.created_at DESC
@@ -103,4 +105,6 @@ def _row_to_item(row: Any) -> dict:
             for sl in service_lines
         ],
         "sla_deadline": sla_deadline,
+        "at_risk": bool(row["at_risk"]),
+        "breached": bool(row["breached"]),
     }
