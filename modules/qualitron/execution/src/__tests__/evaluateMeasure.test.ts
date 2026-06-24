@@ -28,6 +28,9 @@ describe('evaluateMeasure (self-contained over fabric)', () => {
     expect(r.evidence_refs).toEqual(['obs-001']);
     // the numerator query reads content->'code'->'coding'->0->>'code'
     expect(query.mock.calls[0]?.[0] as string).toMatch(/content->'code'->'coding'->0->>'code'/);
+    // slice 2.4b: AI-extracted evidence (source='ai-extraction') is advisory-only and
+    // must never be counted in a quality-measure numerator/exclusion.
+    expect(query.mock.calls[0]?.[0] as string).toMatch(/source <> 'ai-extraction'/);
   });
 
   it('numerator=false (gap) when no matching Observation', async () => {

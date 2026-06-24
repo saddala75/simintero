@@ -13,6 +13,9 @@ describe('fetchEligibleMembers', () => {
     expect(sql).toMatch(/FROM fabric\.resource/i);
     expect(sql).toMatch(/resource_type = 'Patient'/);
     expect(sql).toMatch(/current_setting\('sim\.tenant_id'/);
+    // slice 2.4b: AI-extracted evidence (source='ai-extraction') is advisory-only and
+    // must never be counted in the eligible-member denominator.
+    expect(sql).toMatch(/source <> 'ai-extraction'/);
   });
 
   it('empty when no patients', async () => {

@@ -30,7 +30,8 @@ async function matchingResources(
      WHERE tenant_id = current_setting('sim.tenant_id', true)
        AND member_ref = $1 AND resource_type = $2
        AND content->'code'->'coding'->0->>'code' = $3
-       AND last_updated >= $4::timestamptz AND last_updated <= $5::timestamptz`,
+       AND last_updated >= $4::timestamptz AND last_updated <= $5::timestamptz
+       AND source <> 'ai-extraction'`,
     [memberRef, resourceType, code, periodStart, periodEnd],
   );
   return rows.map((r) => r.fhir_id);
