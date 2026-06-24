@@ -41,7 +41,8 @@ export function createAnalysesRouter(pool: Pool, temporalClient: TemporalClientL
         analysis_kinds: string[];
         inputs: { document_refs: string[]; case_context: Record<string, unknown> };
       };
-      const member_ref = inputs?.case_context?.['member_ref'] as string | undefined;
+      const rawMember = inputs?.case_context?.['member_ref'];
+      const member_ref = typeof rawMember === 'string' ? rawMember : undefined;
 
       // Insert processing row under the tenant GUC (RLS-protected table).
       await withTenant(pool, tenantId, (c) =>

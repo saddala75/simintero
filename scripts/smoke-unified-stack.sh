@@ -470,6 +470,8 @@ INSERT INTO fabric.resource (tenant_id,resource_type,fhir_id,member_ref,source,p
 VALUES ('${TENANT_ID}','Condition','ai-excl-1','excltest-001','ai-extraction','prov-ai-1',
  '{"resourceType":"Condition","id":"ai-excl-1","code":{"coding":[{"system":"http://snomed.info/sct","code":"239873007"}]}}'::jsonb);
 SQL
+# NOTE: this mirrors FabricRetrieveProvider.java:145's exact WHERE predicate against the live DB;
+# it proves the predicate excludes ai-extraction, not the compiled provider end-to-end (no digicore decision driven here).
 WITH_FILTER=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
  "set sim.tenant_id='${TENANT_ID}'; select count(*) from fabric.resource where tenant_id=current_setting('sim.tenant_id',true) and resource_type='Condition' and member_ref='excltest-001' and source <> 'ai-extraction';" | tail -1)
 NO_FILTER=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
