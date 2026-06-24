@@ -64,12 +64,37 @@ class TriageBlock(BaseModel):
     rationale_assertion_ids: list[str] | None = None
 
 
+class ModelRef(BaseModel):
+    """A canonical reference to a versioned AI artifact (model or prompt)."""
+
+    model_config = {"extra": "ignore"}
+
+    canonical_url: str | None = None
+    version: str | None = None
+
+
+class Interaction(BaseModel):
+    """AI model + prompt provenance recorded by Revital on the analysis.
+
+    protected_namespaces=() — pydantic v2 reserves the ``model_`` prefix; the
+    contract field is ``model_binding``, so we opt out of that protection.
+    """
+
+    model_config = {"extra": "ignore", "protected_namespaces": ()}
+
+    model_binding: ModelRef | None = None
+    prompt: ModelRef | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+
+
 class AnalysisResult(BaseModel):
     """Parsed GET /v1/assist/analyses/{id} response.
 
     status is one of 'processing' | 'complete' | 'partial' | 'failed'. Extra
-    response fields (summary/extraction/interaction/abstentions/
-    unprocessed_inputs/classification) are tolerated and ignored.
+    response fields (summary/extraction/abstentions/unprocessed_inputs/
+    classification) are tolerated and ignored. The ``interaction`` block is
+    now surfaced (not dropped) so callers can read AI provenance.
 
     ADVISORY ONLY: no code path may use this output to commit a coverage
     determination without recorded human sign-off (invariant #1).
@@ -82,6 +107,7 @@ class AnalysisResult(BaseModel):
     case_ref: str | None = None
     completeness: CompletenessBlock | None = None
     triage: TriageBlock | None = None
+    interaction: Interaction | None = None
 
 
 class RevitalUnavailableError(Exception):

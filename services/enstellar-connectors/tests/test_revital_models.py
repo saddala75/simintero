@@ -118,3 +118,29 @@ def test_revital_unavailable_error_preserves_cause():
     wrapped = RevitalUnavailableError("revital unreachable")
     wrapped.__cause__ = original
     assert wrapped.__cause__ is original
+
+
+# ─── Interaction / ModelRef provenance (slice S5) ────────────────────────────
+
+
+def test_analysis_result_exposes_interaction():
+    """AnalysisResult must expose the interaction provenance block, not drop it."""
+    r = AnalysisResult.model_validate(
+        {
+            "analysis_id": "a",
+            "status": "complete",
+            "interaction": {
+                "model_binding": {"canonical_url": "u", "version": "1.0.0"},
+                "prompt": {"canonical_url": "p", "version": "1.0.0"},
+            },
+        }
+    )
+    assert r.interaction is not None
+    assert r.interaction.model_binding.version == "1.0.0"
+    assert r.interaction.prompt.canonical_url == "p"
+
+
+def test_analysis_result_interaction_absent_is_none():
+    """AnalysisResult without interaction key → .interaction is None."""
+    r = AnalysisResult.model_validate({"analysis_id": "a", "status": "complete"})
+    assert r.interaction is None
