@@ -55,10 +55,13 @@ async def test_adverse_transition_emits_structured_event():
     conn = AsyncMock()
     await engine.apply(conn, req)
 
-    assert engine._publisher.publish.call_count == 2
+    # CASE_STATE_CHANGED + ADVERSE_STRUCTURED + DECISION_RECORDED (every
+    # determination now also emits the regulatory-notice trigger).
+    assert engine._publisher.publish.call_count == 3
     schema_refs = [c.args[1].schema_ref for c in engine._publisher.publish.call_args_list]
     assert SchemaRef.CASE_STATE_CHANGED in schema_refs
     assert SchemaRef.ADVERSE_STRUCTURED in schema_refs
+    assert SchemaRef.DECISION_RECORDED in schema_refs
     # Verify both publish calls used the same connection (same transaction)
     for call in engine._publisher.publish.call_args_list:
         assert call.args[0] is conn
@@ -133,11 +136,14 @@ async def test_legacy_adverse_still_emits_structured_event():
 
 @pytest.mark.asyncio
 async def test_non_adverse_transition_does_not_emit_structured_event():
-    """Approved transition emits only CASE_STATE_TRANSITIONED (no ADVERSE_STRUCTURED)."""
+    """Approved transition emits CASE_STATE_CHANGED + DECISION_RECORDED but NO
+    ADVERSE_STRUCTURED (approval is a determination, but not an adverse one)."""
     engine = _make_engine()
     req = _make_req(to_state="approved", payload={"reason": "All criteria met"})
 
     await engine.apply(AsyncMock(), req)
 
-    assert engine._publisher.publish.call_count == 1
-    assert engine._publisher.publish.call_args.args[1].schema_ref == SchemaRef.CASE_STATE_CHANGED
+    schema_refs = [c.args[1].schema_ref for c in engine._publisher.publish.call_args_list]
+    assert SchemaRef.CASE_STATE_CHANGED in schema_refs
+    assert SchemaRef.DECISION_RECORDED in schema_refs
+    assert SchemaRef.ADVERSE_STRUCTURED not in schema_refs

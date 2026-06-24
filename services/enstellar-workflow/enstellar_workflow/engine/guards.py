@@ -12,6 +12,11 @@ ADVERSE_STATES: frozenset[str] = frozenset(
     {"denied", "partially_denied", "adverse_modification"}
 )
 
+# Every determination outcome — a human approval plus all adverse outcomes.
+# A DECISION_RECORDED event (the regulatory-notice trigger) fires on any
+# transition into one of these states.
+DETERMINATION_STATES: frozenset[str] = frozenset({"approved"}) | ADVERSE_STATES
+
 
 class GuardResult(NamedTuple):
     passed: bool

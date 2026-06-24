@@ -244,6 +244,126 @@ async def test_adverse_transition_writes_structured_outbox_row(pg_pool: asyncpg.
     assert structured_count >= 1, "Missing AdverseDetermination outbox row"
 
 
+_DECISION_RECORDED_REF = "sim.case.lifecycle/DecisionRecorded/v1"
+
+
+async def _fetch_decision_recorded(pg_pool: asyncpg.Pool, case_id) -> list[dict]:
+    """Return the DECISION_RECORDED outbox payloads for a case."""
+    async with pg_pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT envelope->'payload' AS payload FROM shared.outbox "
+            "WHERE envelope->'payload'->>'case_id' = $1 "
+            "AND envelope->>'schema_ref' = $2",
+            str(case_id),
+            _DECISION_RECORDED_REF,
+        )
+    import json
+
+    return [json.loads(r["payload"]) for r in rows]
+
+
+@pytest.mark.asyncio
+async def test_human_approval_emits_decision_recorded(pg_pool: asyncpg.Pool):
+    """A human approval transition emits a DECISION_RECORDED outbox row."""
+    service = CaseService(pg_pool)
+    case = make_case()
+    created = await service.create_case(case)
+
+    engine = TransitionEngine()
+    req = TransitionRequest(
+        case_id=created.case_id,
+        tenant_id=created.tenant_id,
+        to_state="approved",
+        actor_id="reviewer-001",
+        actor_type="user",
+        correlation_id=created.correlation_id,
+    )
+
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await engine.apply(conn, req)
+
+    payloads = await _fetch_decision_recorded(pg_pool, created.case_id)
+    assert len(payloads) == 1, "expected exactly one DECISION_RECORDED for approval"
+    payload = payloads[0]
+    assert payload["outcome"] == "approved"
+    assert payload["decided_by"] == "human"
+    assert payload["auto_approved"] is False
+
+
+@pytest.mark.asyncio
+async def test_adverse_emits_decision_recorded_with_reason(pg_pool: asyncpg.Pool):
+    """An adverse transition emits DECISION_RECORDED carrying the denial reason,
+    AND still emits the ADVERSE_STRUCTURED structured-payload event."""
+    service = CaseService(pg_pool)
+    case = make_case()
+    created = await service.create_case(case)
+
+    engine = TransitionEngine()
+    req = TransitionRequest(
+        case_id=created.case_id,
+        tenant_id=created.tenant_id,
+        to_state="denied",
+        actor_id="reviewer-001",
+        actor_type="user",
+        correlation_id=created.correlation_id,
+        human_signoff_recorded=True,
+        payload={
+            "reason": "conservative therapy not documented",
+            "reason_codes": ["X"],
+        },
+    )
+
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await engine.apply(conn, req)
+
+    payloads = await _fetch_decision_recorded(pg_pool, created.case_id)
+    assert len(payloads) == 1, "expected exactly one DECISION_RECORDED for denial"
+    payload = payloads[0]
+    assert payload["outcome"] == "denied"
+    assert payload["decided_by"] == "human"
+    assert payload["auto_approved"] is False
+    assert payload["reason"] == "conservative therapy not documented"
+    assert payload["reason_codes"] == ["X"]
+    assert payload["determination_type"] is not None
+
+    # The ADVERSE_STRUCTURED event must ALSO still be emitted.
+    async with pg_pool.acquire() as conn:
+        structured_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM shared.outbox "
+            "WHERE envelope->'payload'->>'case_id' = $1 "
+            "AND envelope->>'schema_ref' = 'sim.case.lifecycle/AdverseDetermination/v1'",
+            str(created.case_id),
+        )
+    assert structured_count >= 1, "Missing AdverseDetermination outbox row"
+
+
+@pytest.mark.asyncio
+async def test_non_determination_emits_no_decision_recorded(pg_pool: asyncpg.Pool):
+    """A non-determination transition emits NO DECISION_RECORDED outbox row."""
+    service = CaseService(pg_pool)
+    case = make_case()
+    created = await service.create_case(case)
+
+    engine = TransitionEngine()
+    req = TransitionRequest(
+        case_id=created.case_id,
+        tenant_id=created.tenant_id,
+        to_state="completeness_check",
+        actor_id="system",
+        actor_type="system",
+        correlation_id=created.correlation_id,
+    )
+
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await engine.apply(conn, req)
+
+    payloads = await _fetch_decision_recorded(pg_pool, created.case_id)
+    assert payloads == [], "non-determination transition must not emit DECISION_RECORDED"
+
+
 @pytest.mark.asyncio
 async def test_notify_platform_calls_platform_client(pg_pool):
     """platform_client.post_transition() is called after a successful apply()."""

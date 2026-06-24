@@ -20,7 +20,12 @@ from simintero_outbox import SchemaRef, make_envelope
 from simintero_tenant_context import get_context
 
 from ..config import get_settings
-from .guards import ADVERSE_STATES, GuardError, adverse_transition_guard
+from .guards import (
+    ADVERSE_STATES,
+    DETERMINATION_STATES,
+    GuardError,
+    adverse_transition_guard,
+)
 from .platform_client import PlatformCaseClient
 from .recorder import EventRecorder
 from ..cases.repository import CaseRepository
@@ -192,6 +197,45 @@ class TransitionEngine:
                 },
             )
             await self._publisher.publish(conn, structured_event)
+
+        # 6b. DETERMINATION → emit DECISION_RECORDED so a regulatory notice fires on
+        #     EVERY determination (the auto-approval path emits its own; this covers
+        #     human approvals + all adverse outcomes). ENS-COM. Adverse payloads carry
+        #     the denial reason + structured fields for a compliant notice.
+        #     Gated to human actors: the auto-determination path is a 'system' actor
+        #     that emits its own DECISION_RECORDED (auto_approved=True) — emitting here
+        #     too would double-fire the notice and mislabel the decision as human.
+        _is_human_actor = _ACTOR_TO_PRINCIPAL_TYPE.get(req.actor_type) == "human"
+        if req.to_state in DETERMINATION_STATES and _is_human_actor:
+            decision_payload: dict[str, object] = {
+                "case_id": str(req.case_id),
+                "outcome": req.to_state,
+                "decided_by": "human",
+                "auto_approved": False,
+            }
+            if req.to_state in ADVERSE_STATES:
+                decision_payload.update(
+                    {
+                        "determination_type": req.payload.get(
+                            "determination_type", req.to_state
+                        ),
+                        "reason": req.payload.get("reason"),
+                        "reason_codes": req.payload.get("reason_codes"),
+                        "citations": req.payload.get("citations"),
+                    }
+                )
+            decision_event = make_envelope(
+                SchemaRef.DECISION_RECORDED,
+                tenant_id=req.tenant_id,
+                actor_id=req.actor_id,
+                actor_type=req.actor_type,
+                correlation_id=req.correlation_id,
+                occurred_at=occurred_at,
+                lob=lob,
+                causation_id=event.event_id,
+                payload=decision_payload,
+            )
+            await self._publisher.publish(conn, decision_event)
 
         # 7. Return the updated case (constructed locally — no extra DB round-trip)
         return case.model_copy(
