@@ -41,6 +41,7 @@ public class EvidenceRequirementsController {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("service_code", serviceCode == null ? "" : serviceCode);
         response.put("requirements", requirements);
+        response.put("pins", rule.map(CoverageRule::pins).orElse(java.util.List.of()));
         return ResponseEntity.ok(response);
     }
 
