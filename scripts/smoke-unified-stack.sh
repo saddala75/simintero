@@ -167,7 +167,7 @@ echo "── 7b3. P2-2.3b: Revital grounds on the structured spans (real ingeste
 # must reach a terminal status with the doc PROCESSED (not in unprocessed_inputs).
 B23=$(curl -sf -X POST "http://localhost:3014/v1/assist/analyses" \
   -H "x-sim-tenant-id: ${TENANT_ID}" -H "Content-Type: application/json" \
-  -d "{\"case_ref\":\"${CORRELATION_ID}-2.3b\",\"analysis_kinds\":[\"summary\",\"triage\"],\"inputs\":{\"document_refs\":[\"$SDID\"],\"case_context\":{\"lob\":\"MA\",\"urgency\":\"standard\",\"service_lines\":[],\"member_ref\":\"pat-revital-24b\"}}}")
+  -d "{\"case_ref\":\"${CORRELATION_ID}-2.3b\",\"analysis_kinds\":[\"summary\",\"triage\"],\"inputs\":{\"document_refs\":[\"$SDID\"],\"case_context\":{\"lob\":\"MA\",\"urgency\":\"standard\",\"service_lines\":[],\"member_ref\":\"pat-revital-24b\",\"service_code\":\"27447\"}}}")
 B23ID=$(echo "$B23" | python3 -c "import sys,json; print(json.load(sys.stdin).get('analysis_id',''))" 2>/dev/null)
 [ -n "$B23ID" ] || { echo "❌ P2-2.3b: no analysis_id from /v1/assist/analyses" >&2; exit 1; }
 echo "   analysis_id=$B23ID (document_refs=[$SDID])"
@@ -215,6 +215,33 @@ AI_PROV=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
 if [ "${AI_COND:-0}" -lt 1 ] || [ "${AI_PROV:-0}" -lt 1 ]; then
   echo "FAIL 2.4b persistence: ai_condition=$AI_COND prov=$AI_PROV (want >=1 each)"; exit 1; fi
 echo "PASS 2.4b persistence: ai-extraction Condition(239873007)=$AI_COND + Provenance=$AI_PROV in fabric"
+
+# P2-2.5: code-aware evidence-to-criteria mapping + conflict detection. The same analysis
+# (service_code=27447) fetched the enriched knee coverage_rule requirements from digicore's
+# :resolve (codes/negates), ran mapEvidenceToCriteria over the extracted Conditions, and wrote
+# the result to revital.analysis.completeness. The mock now emits TWO Conditions:
+# "osteoarthritis of knee" → SNOMED 239873007 (affirmer of diagnosis_documented) and
+# "knee pain" → SNOMED 30989003 (negater). So diagnosis_documented is SATISFIED and ALSO
+# carries both conflict kinds (negation from the negater + contradiction from affirmer+negater);
+# imaging_documented + conservative_therapy_tried have no matching evidence → GAPS.
+echo "== 2.5 completeness: code-matched satisfied + gaps + conflicts =="
+COMP=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "select completeness from revital.analysis where analysis_id='$B23ID' and tenant_id='${TENANT_ID}';")
+echo "$COMP" | python3 -c "import sys,json; c=json.load(sys.stdin); \
+  sat=[s['requirement_id'] for s in c['satisfied']]; gaps=[g['requirement_id'] for g in c['gaps']]; \
+  kinds=sorted(set(k['kind'] for k in c['conflicts'])); \
+  assert 'diagnosis_documented' in sat, ('satisfied', sat); \
+  assert 'imaging_documented' in gaps, ('gaps', gaps); \
+  assert 'negation' in kinds and 'contradiction' in kinds, ('conflict kinds', kinds); \
+  print('PASS 2.5 completeness: satisfied=%s gaps=%s conflicts=%s' % (sat, gaps, kinds))" \
+  || { echo 'FAIL 2.5 completeness'; echo "$COMP"; exit 1; }
+
+# P2-2.5: each persisted coded AI resource emits one EvidenceAdded event on sim.evidence
+# (schema sim.evidence.added/v1), keyed by member_ref, under the case's tenant GUC.
+echo "== 2.5 EvidenceAdded emitted on sim.evidence =="
+EV25=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "select count(*) from shared.outbox where topic='sim.evidence' and envelope->>'schema_ref'='sim.evidence.added/v1' and envelope->'payload'->>'member_ref'='pat-revital-24b' and tenant_id='${TENANT_ID}';" | tail -1)
+[ "${EV25:-0}" -ge 1 ] && echo "PASS 2.5 EvidenceAdded: $EV25 event(s) on sim.evidence" || { echo "FAIL 2.5 EvidenceAdded: $EV25"; exit 1; }
 
 echo "── 7. case surfaces in portal-bff worklist ──"
 # queue_id "default" → all tenant cases (worklist_router), so this is a stable 200.
