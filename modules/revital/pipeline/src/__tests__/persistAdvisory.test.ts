@@ -8,7 +8,7 @@ function makePool() {
 }
 
 const BASE = {
-  analysis_id: 'ana_1', tenant_id: 'tenant-x', case_ref: 'case_1', status: 'partial' as const,
+  analysis_id: 'ana_1', tenant_id: 'tenant-x', case_ref: 'case_1', document_refs: [], status: 'partial' as const,
   summary: null, extraction: null, completeness: null, triage: null, unprocessed: [],
 };
 

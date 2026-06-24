@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { monotonicFactory } from 'ulid';
 import { withTenant } from '../db/withTenant.js';
+import { writeAiEvidence } from '../fabric/writeAiEvidence.js';
 import type { SummaryBlock } from './summarizeGrounded.js';
 import type { ExtractionBlock } from './extractEntities.js';
 import type { CompletenessBlock } from './mapEvidenceToCriteria.js';
@@ -12,6 +13,9 @@ export interface PersistInput {
   analysis_id: string;
   tenant_id: string;
   case_ref: string;
+  document_refs: string[];
+  model_binding_ref?: string | undefined;
+  model_binding_version?: string | undefined;
   status: 'complete' | 'partial' | 'failed';
   summary: SummaryBlock | null;
   extraction: ExtractionBlock | null;
@@ -70,6 +74,17 @@ export async function persistAdvisoryImpl(input: PersistInput, pool: Pool): Prom
        VALUES ($1, $2, $3, $4::jsonb, current_setting('sim.tenant_id', true))`,
       [eventId, 'sim.ai.interaction', input.case_ref, JSON.stringify(envelope)],
     );
+
+    if (input.extraction) {
+      await writeAiEvidence(client, {
+        analysis_id: input.analysis_id,
+        case_ref: input.case_ref,
+        document_refs: input.document_refs,
+        model_binding_ref: input.model_binding_ref,
+        model_binding_version: input.model_binding_version,
+        extraction: input.extraction,
+      });
+    }
   });
 }
 
