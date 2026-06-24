@@ -47,4 +47,7 @@ class ConfigService:
         config = row["config"]
         if isinstance(config, str):  # asyncpg returns jsonb as str (no codec set)
             config = json.loads(config)
-        return (config.get(clock_type) or {}).get(urgency)
+        section = config.get(clock_type)
+        if not isinstance(section, dict):
+            return None
+        return section.get(urgency)
