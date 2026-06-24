@@ -16,7 +16,8 @@
         "intake", "completeness_check", "auto_determination", "clinical_review",
         "pend_rfi", "approved", "denied", "partially_denied",
         "adverse_modification", "withdrawn", "closed",
-        "determined", "voided"
+        "determined", "voided",
+        "appeal_review", "appeal_overturned", "appeal_upheld"
       ]
     },
     "urgency": {

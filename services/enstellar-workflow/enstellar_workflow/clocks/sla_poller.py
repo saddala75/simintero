@@ -47,6 +47,8 @@ TERMINAL_STATES = (
     "closed",
     "determined",
     "voided",
+    "appeal_overturned",
+    "appeal_upheld",
 )
 _ACTOR_ID = "sla-monitor"
 _ACTOR_TYPE = "service"
@@ -107,7 +109,7 @@ class SlaPoller:
                       JOIN workflow_instances w
                         ON w.case_id = c.case_id AND w.tenant_id = c.tenant_id
                      WHERE c.state = 'running'
-                       AND c.clock_type = 'decision'
+                       AND c.clock_type IN ('decision', 'appeal')
                        AND w.status <> ALL($1::text[])
                     """,
                     list(TERMINAL_STATES),

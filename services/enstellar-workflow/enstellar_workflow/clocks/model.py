@@ -19,6 +19,9 @@ CLOCK_RULES: dict[tuple[str, str], int] = {
     ("expedited", "decision"): 3,
     ("standard", "decision"): 7,
     ("concurrent", "decision"): 1,
+    ("standard", "appeal"): 30,
+    ("expedited", "appeal"): 3,
+    ("concurrent", "appeal"): 30,
 }
 
 

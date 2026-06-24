@@ -29,6 +29,9 @@ class Status(StrEnum):
     closed = 'closed'
     determined = 'determined'
     voided = 'voided'
+    appeal_review = 'appeal_review'
+    appeal_overturned = 'appeal_overturned'
+    appeal_upheld = 'appeal_upheld'
 
 
 class Urgency(StrEnum):

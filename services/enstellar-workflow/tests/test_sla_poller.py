@@ -29,8 +29,9 @@ async def _seed_case(pool: asyncpg.Pool, *, tenant_id: str, status: Status):
 
 
 async def _seed_clock(pool: asyncpg.Pool, *, tenant_id, case_id, started_sql, deadline_sql,
-                      total_paused_seconds=0.0):
-    """Insert a running decision clock with explicit started_at/deadline SQL."""
+                      total_paused_seconds=0.0, clock_type="decision", urgency="standard",
+                      duration_calendar_days=7):
+    """Insert a running clock with explicit started_at/deadline SQL."""
     async with pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(
@@ -39,13 +40,16 @@ async def _seed_clock(pool: asyncpg.Pool, *, tenant_id, case_id, started_sql, de
                   (clock_id, tenant_id, case_id, clock_type, state, urgency,
                    duration_calendar_days, started_at, deadline,
                    paused_at, total_paused_seconds, breached_at, warned_at)
-                VALUES (gen_random_uuid(), $1, $2, 'decision', 'running', 'standard',
-                        7, {started_sql}, {deadline_sql},
+                VALUES (gen_random_uuid(), $1, $2, $4, 'running', $5,
+                        $6, {started_sql}, {deadline_sql},
                         NULL, $3, NULL, NULL)
                 """,
                 tenant_id,
                 case_id,
                 total_paused_seconds,
+                clock_type,
+                urgency,
+                duration_calendar_days,
             )
 
 
@@ -181,3 +185,72 @@ async def test_poll_batch_excludes_terminal_case(pg_pool: asyncpg.Pool):
 
     breached = await _count_events(pg_pool, tenant_id, case.case_id, "sim.clock/ClockBreached/v1")
     assert breached == 0
+
+
+# ---------------------------------------------------------------------------
+# Appeal clock — the poller now monitors clock_type='appeal' too
+# ---------------------------------------------------------------------------
+
+
+async def test_poll_batch_breaches_and_escalates_overdue_appeal_clock(pg_pool: asyncpg.Pool):
+    tenant_id = f"tenant-sla-appeal-{uuid.uuid4()}"
+    case = await _seed_case(pg_pool, tenant_id=tenant_id, status=Status.appeal_review)
+    await _seed_clock(
+        pg_pool,
+        tenant_id=tenant_id,
+        case_id=case.case_id,
+        started_sql="NOW() - INTERVAL '31 days'",
+        deadline_sql="NOW() - INTERVAL '1 second'",
+        clock_type="appeal",
+        duration_calendar_days=30,
+    )
+
+    poller = SlaPoller(pg_pool)
+    await poller._poll_batch()
+
+    async with pg_pool.acquire() as conn:
+        clock_state = await conn.fetchval(
+            "SELECT state FROM clocks WHERE case_id=$1 AND clock_type='appeal'",
+            case.case_id,
+        )
+        queue = await conn.fetchval(
+            "SELECT assignee_queue FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id,
+            tenant_id,
+        )
+    assert clock_state == "breached"
+    assert queue == "md_review"
+
+    breached = await _count_events(pg_pool, tenant_id, case.case_id, "sim.clock/ClockBreached/v1")
+    assigned = await _count_events(
+        pg_pool, tenant_id, case.case_id, "sim.case.lifecycle/CaseAssigned/v1"
+    )
+    assert breached == 1
+    assert assigned == 1
+
+
+# ---------------------------------------------------------------------------
+# Appeal Status values + resolve_clock appeal duration (CLOCK_RULES fallback)
+# ---------------------------------------------------------------------------
+
+
+async def test_appeal_status_values_and_resolve_clock_appeal_duration(pg_pool: asyncpg.Pool):
+    assert Status.appeal_review == "appeal_review"
+    assert Status.appeal_overturned == "appeal_overturned"
+    assert Status.appeal_upheld == "appeal_upheld"
+
+    from enstellar_workflow.workflow_config import ConfigService
+    from simintero_tenant_context import tenant_transaction
+
+    tenant_id = f"tenant-appeal-clock-{uuid.uuid4()}"
+    config = ConfigService()
+    async with tenant_transaction(pg_pool, tenant_id) as conn:
+        defn = await config.resolve_clock(
+            conn,
+            tenant_id=tenant_id,
+            lob="commercial",
+            urgency="standard",
+            clock_type="appeal",
+        )
+    assert defn.duration_calendar_days == 30
+    assert defn.clock_type == "appeal"
