@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING
 from canonical_model import Case
 from simintero_outbox import SchemaRef, make_envelope
 
-from ..clocks.model import ClockDefinition
 from ..clocks.service import ClockService
+from ..workflow_config import ConfigService
 from simintero_tenant_context import tenant_transaction
 from ..escalation.service import EscalationService
 from ..outbox.publisher import OutboxPublisher, lob_for_envelope
@@ -44,6 +44,7 @@ class CaseService:
         self._engine = TransitionEngine()
         self._publisher = OutboxPublisher()
         self._clock_svc = ClockService(self._publisher)
+        self._config_svc = ConfigService()
         self._rfi_svc = RfiService(self._publisher)
 
     async def create_case(self, case: Case) -> Case:
@@ -100,7 +101,12 @@ class CaseService:
 
             # Start the decision clock for the new case
             try:
-                defn = ClockDefinition.for_case(case.urgency.value)
+                defn = await self._config_svc.resolve_clock(
+                    conn,
+                    tenant_id=case.tenant_id,
+                    lob=case.lob,
+                    urgency=case.urgency.value,
+                )
                 await self._clock_svc.start(
                     conn,
                     tenant_id=case.tenant_id,
