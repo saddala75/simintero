@@ -18,5 +18,14 @@ VALUES
    'Your request received a determination of {{ outcome }}.{% if reason %} Reason: {{ reason }}.{% endif %} You have the right to appeal this determination. To file an appeal, contact your plan within the appeal period stated in your plan documents.'),
   ('demo-tenant', 'adverse_modification', 'portal',
    'Determination on your request',
-   'Your request received a determination of {{ outcome }}.{% if reason %} Reason: {{ reason }}.{% endif %} You have the right to appeal this determination. To file an appeal, contact your plan within the appeal period stated in your plan documents.')
+   'Your request received a determination of {{ outcome }}.{% if reason %} Reason: {{ reason }}.{% endif %} You have the right to appeal this determination. To file an appeal, contact your plan within the appeal period stated in your plan documents.'),
+  ('demo-tenant', 'appeal_filed', 'portal',
+   'Appeal update',
+   'Your appeal (level {{ level }}) has been received and is under review.{% if reason %} Reason on file: {{ reason }}.{% endif %}'),
+  ('demo-tenant', 'appeal_overturned', 'portal',
+   'Appeal update',
+   'Your appeal (level {{ level }}) was overturned — the prior determination is reversed.'),
+  ('demo-tenant', 'appeal_upheld', 'portal',
+   'Appeal update',
+   'Your appeal (level {{ level }}) was upheld.')
 ON CONFLICT (tenant_id, event_type, channel, version) DO NOTHING;

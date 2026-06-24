@@ -50,7 +50,18 @@ class ClockService:
                duration_calendar_days, started_at, deadline,
                paused_at, total_paused_seconds, breached_at)
             VALUES ($1, $2, $3, $4, 'running', $5, $6, $7, $8, NULL, 0.0, NULL)
-            ON CONFLICT (case_id, clock_type) DO NOTHING
+            ON CONFLICT (case_id, clock_type) DO UPDATE SET
+                   clock_id               = EXCLUDED.clock_id,
+                   state                  = 'running',
+                   urgency                = EXCLUDED.urgency,
+                   duration_calendar_days = EXCLUDED.duration_calendar_days,
+                   started_at             = EXCLUDED.started_at,
+                   deadline               = EXCLUDED.deadline,
+                   paused_at              = NULL,
+                   total_paused_seconds   = 0.0,
+                   breached_at            = NULL,
+                   updated_at             = $7
+              WHERE clocks.state = 'stopped'
             RETURNING *
             """,
             clock_id,
