@@ -6,7 +6,7 @@ export interface Case {
   correlationId: string;
   lob: string;
   program?: string;
-  status: "intake" | "completeness_check" | "auto_determination" | "clinical_review" | "pend_rfi" | "approved" | "denied" | "partially_denied" | "adverse_modification" | "withdrawn" | "closed" | "determined" | "voided";
+  status: "intake" | "completeness_check" | "auto_determination" | "clinical_review" | "pend_rfi" | "approved" | "denied" | "partially_denied" | "adverse_modification" | "withdrawn" | "closed" | "determined" | "voided" | "appeal_review" | "appeal_overturned" | "appeal_upheld";
   urgency: "standard" | "expedited" | "concurrent";
   member: Member;
   coverage: Coverage;
@@ -113,8 +113,8 @@ export interface CaseIntakeReceived {
 
 export interface CaseStateChanged {
   caseId: string;
-  fromStatus: "intake" | "completeness_check" | "auto_determination" | "clinical_review" | "pend_rfi" | "approved" | "denied" | "partially_denied" | "adverse_modification" | "withdrawn" | "closed" | "determined" | "voided";
-  toStatus: "intake" | "completeness_check" | "auto_determination" | "clinical_review" | "pend_rfi" | "approved" | "denied" | "partially_denied" | "adverse_modification" | "withdrawn" | "closed" | "determined" | "voided";
+  fromStatus: "intake" | "completeness_check" | "auto_determination" | "clinical_review" | "pend_rfi" | "approved" | "denied" | "partially_denied" | "adverse_modification" | "withdrawn" | "closed" | "determined" | "voided" | "appeal_review" | "appeal_overturned" | "appeal_upheld";
+  toStatus: "intake" | "completeness_check" | "auto_determination" | "clinical_review" | "pend_rfi" | "approved" | "denied" | "partially_denied" | "adverse_modification" | "withdrawn" | "closed" | "determined" | "voided" | "appeal_review" | "appeal_overturned" | "appeal_upheld";
   reason?: unknown;
 }
 
