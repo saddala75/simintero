@@ -157,8 +157,20 @@ class RevitalPoller:
         )
         confidence = result.triage.confidence if result.triage else None
 
+        # Best-effort AI provenance (None-safe — interaction may be absent/partial).
+        # Write-only audit metadata (INV-1); NEVER raise on a missing interaction.
+        interaction = result.interaction
+        mb = interaction.model_binding if interaction else None
+        pr = interaction.prompt if interaction else None
+        prov = {
+            "model_binding_ref": mb.canonical_url if mb else None,
+            "model_binding_version": mb.version if mb else None,
+            "prompt_ref": pr.canonical_url if pr else None,
+            "prompt_version": pr.version if pr else None,
+        }
+
         async with tenant_transaction(self._pool, tenant_id) as conn:
-            if not await self._inflight.claim(conn, row["analysis_id"]):
+            if not await self._inflight.claim(conn, row["analysis_id"], **prov):
                 logger.info(
                     "revital_finalize_skipped_already_done",
                     extra={
@@ -181,6 +193,16 @@ class RevitalPoller:
                     "agent_id": "revital",
                     "confidence": confidence,
                     "citations": [],
+                    "provenance": {
+                        "model_binding": {
+                            "ref": prov["model_binding_ref"],
+                            "version": prov["model_binding_version"],
+                        },
+                        "prompt": {
+                            "ref": prov["prompt_ref"],
+                            "version": prov["prompt_version"],
+                        },
+                    },
                 },
             )
             if criteria_rows:

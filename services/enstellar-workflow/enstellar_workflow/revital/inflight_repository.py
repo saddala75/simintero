@@ -54,18 +54,41 @@ class InflightRepository:
         )
         return [dict(r) for r in rows]
 
-    async def claim(self, conn: asyncpg.Connection, analysis_id: str) -> bool:
+    async def claim(
+        self,
+        conn: asyncpg.Connection,
+        analysis_id: str,
+        *,
+        model_binding_ref: str | None = None,
+        model_binding_version: str | None = None,
+        prompt_ref: str | None = None,
+        prompt_version: str | None = None,
+    ) -> bool:
         """Atomically transition processing→done. Returns True if THIS caller won
         the claim (row was still 'processing'), False if already finalized.
 
         Run inside the per-tenant tenant_transaction BEFORE writing advisory rows:
         because it shares that transaction with the inserts/publish, a later
         failure rolls back the claim too and the row returns to 'processing'.
+
+        The optional provenance kwargs record the AI model_binding + prompt
+        (canonical_url + version) that produced the analysis — write-only audit
+        metadata (INV-1). Callers that have no provenance (the failure path) pass
+        nothing → all NULL.
         """
         status = await conn.execute(
-            """UPDATE revital_inflight SET status = 'done', completed_at = now()
+            """UPDATE revital_inflight
+               SET status = 'done', completed_at = now(),
+                   model_binding_ref = $2,
+                   model_binding_version = $3,
+                   prompt_ref = $4,
+                   prompt_version = $5
                WHERE analysis_id = $1 AND status = 'processing'""",
             analysis_id,
+            model_binding_ref,
+            model_binding_version,
+            prompt_ref,
+            prompt_version,
         )
         # asyncpg execute() returns the command tag, e.g. "UPDATE 1" / "UPDATE 0";
         # matches the existing idiom in escalation/signoff services.

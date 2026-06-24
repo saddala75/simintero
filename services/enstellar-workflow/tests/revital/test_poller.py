@@ -18,6 +18,8 @@ from enstellar_connectors.revital.models import (
     AnalysisResult,
     CompletenessBlock,
     Gap,
+    Interaction,
+    ModelRef,
     RevitalUnavailableError,
     TriageBlock,
 )
@@ -52,10 +54,28 @@ class FakeRepo:
 class FakeInflight:
     def __init__(self, claim_result=True):
         self.claimed = []
+        self.claim_kwargs = []
         self._claim_result = claim_result
 
-    async def claim(self, conn, analysis_id):
+    async def claim(
+        self,
+        conn,
+        analysis_id,
+        *,
+        model_binding_ref=None,
+        model_binding_version=None,
+        prompt_ref=None,
+        prompt_version=None,
+    ):
         self.claimed.append(analysis_id)
+        self.claim_kwargs.append(
+            {
+                "model_binding_ref": model_binding_ref,
+                "model_binding_version": model_binding_version,
+                "prompt_ref": prompt_ref,
+                "prompt_version": prompt_version,
+            }
+        )
         return self._claim_result
 
 
@@ -151,6 +171,71 @@ async def test_partial_is_treated_as_terminal_ok(monkeypatch):
     assert len(poller._outbox.published) == 1
     assert poller._outbox.published[0].schema_ref.endswith("AgentAssistProduced/v1")
     assert poller._inflight.claimed == ["an-1"]
+
+
+# ---------------------------------------------------------------------------
+# provenance capture — interaction → inflight finalize + AGENT_ASSIST_PRODUCED
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_finish_ok_captures_provenance(monkeypatch):
+    result = AnalysisResult(
+        analysis_id="an-1",
+        status="complete",
+        triage=TriageBlock(status="ok", suggestion="likely_meets", confidence=0.9),
+        interaction=Interaction(
+            model_binding=ModelRef(canonical_url="u", version="1.0.0"),
+            prompt=ModelRef(canonical_url="p", version="2.0.0"),
+        ),
+    )
+    poller = _make_poller(monkeypatch, FakeRevital(result=result))
+    row = _row()
+
+    await poller._process_one(row)
+
+    # The inflight finalize captured the provenance.
+    assert poller._inflight.claimed == ["an-1"]
+    assert poller._inflight.claim_kwargs[0] == {
+        "model_binding_ref": "u",
+        "model_binding_version": "1.0.0",
+        "prompt_ref": "p",
+        "prompt_version": "2.0.0",
+    }
+    # The AGENT_ASSIST_PRODUCED payload carries a provenance slot.
+    assert len(poller._outbox.published) == 1
+    payload = poller._outbox.published[0].payload
+    assert payload["provenance"] == {
+        "model_binding": {"ref": "u", "version": "1.0.0"},
+        "prompt": {"ref": "p", "version": "2.0.0"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_finish_ok_no_interaction_nulls_provenance(monkeypatch):
+    result = AnalysisResult(
+        analysis_id="an-1",
+        status="complete",
+        triage=TriageBlock(status="ok", suggestion="likely_meets", confidence=0.9),
+        interaction=None,
+    )
+    poller = _make_poller(monkeypatch, FakeRevital(result=result))
+    row = _row()
+
+    await poller._process_one(row)  # must not raise
+
+    # Finalization STILL succeeds — the row is claimed/done.
+    assert poller._inflight.claimed == ["an-1"]
+    assert poller._inflight.claim_kwargs[0] == {
+        "model_binding_ref": None,
+        "model_binding_version": None,
+        "prompt_ref": None,
+        "prompt_version": None,
+    }
+    assert len(poller._outbox.published) == 1
+    payload = poller._outbox.published[0].payload
+    assert payload["provenance"] == {
+        "model_binding": {"ref": None, "version": None},
+        "prompt": {"ref": None, "version": None},
+    }
 
 
 # ---------------------------------------------------------------------------

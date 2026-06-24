@@ -110,7 +110,8 @@ async def test_claim_returns_true_when_row_was_processing():
     assert "UPDATE revital_inflight" in sql
     assert "status = 'done'" in sql
     assert "status = 'processing'" in sql  # gated on still-processing
-    assert args == ("an-claim",)
+    # provenance binds default to None when the caller passes nothing.
+    assert args == ("an-claim", None, None, None, None)
 
 
 @pytest.mark.asyncio
