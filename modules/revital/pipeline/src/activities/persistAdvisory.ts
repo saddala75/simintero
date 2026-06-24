@@ -17,6 +17,8 @@ export interface PersistInput {
   member_ref?: string | undefined;
   model_binding_ref?: string | undefined;
   model_binding_version?: string | undefined;
+  prompt_ref?: string | undefined;
+  prompt_version?: string | undefined;
   status: 'complete' | 'partial' | 'failed';
   summary: SummaryBlock | null;
   extraction: ExtractionBlock | null;
@@ -46,7 +48,12 @@ export async function persistAdvisoryImpl(input: PersistInput, pool: Pool): Prom
         input.analysis_id,
         input.case_ref,
         input.status,
-        JSON.stringify({ started_at: completedAt, completed_at: completedAt }),
+        JSON.stringify({
+          model_binding: { canonical_url: input.model_binding_ref, version: input.model_binding_version },
+          prompt: { canonical_url: input.prompt_ref, version: input.prompt_version },
+          started_at: completedAt,
+          completed_at: completedAt,
+        }),
         JSON.stringify(input.summary),
         JSON.stringify(input.extraction),
         JSON.stringify(input.completeness),

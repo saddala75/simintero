@@ -31,6 +31,34 @@ describe('persistAdvisory', () => {
     expect(upsert![1]).toContain('partial');
   });
 
+  it('records model_binding + prompt provenance on the interaction JSONB', async () => {
+    const { pool, client } = makePool();
+    await persistAdvisoryImpl(
+      {
+        ...BASE,
+        status: 'complete',
+        model_binding_ref: 'https://artifacts.simintero.io/shared/model_binding/claude-pa',
+        model_binding_version: '1.0.0',
+        prompt_ref: 'https://artifacts.simintero.io/shared/prompt/pa-review',
+        prompt_version: '1.0.0',
+      },
+      pool,
+    );
+    const upsert = (client.query as ReturnType<typeof vi.fn>).mock.calls.find((c) => (c[0] as string).includes('revital.analysis'));
+    expect(upsert).toBeTruthy();
+    const interaction = JSON.parse((upsert![1] as string[])[3]!);
+    expect(interaction.model_binding).toEqual({
+      canonical_url: 'https://artifacts.simintero.io/shared/model_binding/claude-pa',
+      version: '1.0.0',
+    });
+    expect(interaction.prompt).toEqual({
+      canonical_url: 'https://artifacts.simintero.io/shared/prompt/pa-review',
+      version: '1.0.0',
+    });
+    expect(typeof interaction.started_at).toBe('string');
+    expect(typeof interaction.completed_at).toBe('string');
+  });
+
   it('emits AnalysisCompleted via shared.outbox with the real columns', async () => {
     const { pool, client } = makePool();
     await persistAdvisoryImpl(BASE, pool);

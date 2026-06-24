@@ -88,6 +88,8 @@ export async function revitalAnalyzeCase(input: AnalysisInput): Promise<Analysis
     member_ref: input.member_ref,
     model_binding_ref: input.model_binding_ref,
     model_binding_version: input.model_binding_version,
+    prompt_ref: input.prompt_ref,
+    prompt_version: input.prompt_version,
     status,
     summary: summaryResult,
     extraction: extracted,
