@@ -143,3 +143,100 @@ async def test_file_appeal_on_approved_case_raises(pg_pool: asyncpg.Pool):
             filed_by="member-7",
             reason=None,
         )
+
+
+# ---------------------------------------------------------------------------
+# Slice S6a review fix F2 — appeal_filed ack notice must render even when
+# reason=None when the production template body references {% if reason %}
+# ---------------------------------------------------------------------------
+
+
+async def _seed_prod_appeal_filed_template(pool: asyncpg.Pool, tenant_id: str) -> None:
+    """Seed the PRODUCTION-shaped appeal_filed template.
+
+    Body references ``{% if reason %}`` — exactly as in
+    db/seeds/notification_templates.sql.  When ``reason`` is absent from the
+    Jinja context AND StrictUndefined is active, this raises UndefinedError
+    → comms catches it → skips the notice → 0 notification_log rows.
+    """
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO notification_templates "
+            "(tenant_id, event_type, channel, subject_template, body_template) "
+            "VALUES ($1, 'appeal_filed', 'portal', "
+            "'Appeal update', "
+            "'Your appeal (level {{ level }}) has been received and is under review."
+            "{% if reason %} Reason on file: {{ reason }}.{% endif %}')",
+            tenant_id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_appeal_filed_notice_renders_with_prod_template_reason_none(
+    pg_pool: asyncpg.Pool,
+):
+    """appeal_filed ack notice must render (notification_log row created) even
+    when reason=None — production template shape used.
+
+    Regression: file_appeal passed context={'case_id': ..., 'level': ...}
+    WITHOUT 'reason'.  Jinja2 StrictUndefined raised UndefinedError on
+    ``{% if reason %}``, comms caught it and silently skipped the notice.
+    After the fix (``"reason": reason`` always present in context), the render
+    must succeed: None is falsy so ``{% if reason %}`` skips the clause, and
+    a notification_log row IS created.
+    """
+    tenant_id = f"tenant-appeal-prod-none-{uuid.uuid4()}"
+    await _seed_prod_appeal_filed_template(pg_pool, tenant_id)
+
+    service = CaseService(pg_pool)
+    created = await service.create_case(make_case(tenant_id=tenant_id))
+    await _drive_to(pg_pool, created, "denied")
+
+    await AppealService(pg_pool).file_appeal(
+        case_id=created.case_id,
+        tenant_id=tenant_id,
+        filed_by="member-999",
+        reason=None,
+    )
+
+    async with pg_pool.acquire() as conn:
+        notice_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM notification_log "
+            "WHERE tenant_id=$1 AND case_id=$2 AND event_type='appeal_filed'",
+            tenant_id,
+            created.case_id,
+        )
+    assert notice_count == 1, (
+        "appeal_filed notice was not created (notice_count=0) — "
+        "likely Jinja2 StrictUndefined raised UndefinedError for absent "
+        "'reason' key; fix: add \"reason\": reason to file_appeal notice context"
+    )
+
+
+@pytest.mark.asyncio
+async def test_appeal_filed_notice_renders_with_prod_template_reason_present(
+    pg_pool: asyncpg.Pool,
+):
+    """appeal_filed ack notice renders and includes reason text when reason is set."""
+    tenant_id = f"tenant-appeal-prod-reason-{uuid.uuid4()}"
+    await _seed_prod_appeal_filed_template(pg_pool, tenant_id)
+
+    service = CaseService(pg_pool)
+    created = await service.create_case(make_case(tenant_id=tenant_id))
+    await _drive_to(pg_pool, created, "denied")
+
+    await AppealService(pg_pool).file_appeal(
+        case_id=created.case_id,
+        tenant_id=tenant_id,
+        filed_by="member-999",
+        reason="Disagree with the outcome",
+    )
+
+    async with pg_pool.acquire() as conn:
+        notice_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM notification_log "
+            "WHERE tenant_id=$1 AND case_id=$2 AND event_type='appeal_filed'",
+            tenant_id,
+            created.case_id,
+        )
+    assert notice_count == 1, "appeal_filed notice must be created when reason is set"

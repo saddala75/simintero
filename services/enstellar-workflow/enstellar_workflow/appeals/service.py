@@ -173,7 +173,7 @@ class AppealService:
                 tenant_id,
                 str(case_id),
                 event_type="appeal_filed",
-                context={"case_id": str(case_id), "level": level},
+                context={"case_id": str(case_id), "level": level, "reason": reason},
                 actor_id="system",
                 actor_type="system",
                 correlation_id=str(appeal["appeal_id"]),
