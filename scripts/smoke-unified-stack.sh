@@ -167,7 +167,7 @@ echo "── 7b3. P2-2.3b: Revital grounds on the structured spans (real ingeste
 # must reach a terminal status with the doc PROCESSED (not in unprocessed_inputs).
 B23=$(curl -sf -X POST "http://localhost:3014/v1/assist/analyses" \
   -H "x-sim-tenant-id: ${TENANT_ID}" -H "Content-Type: application/json" \
-  -d "{\"case_ref\":\"${CORRELATION_ID}-2.3b\",\"analysis_kinds\":[\"summary\",\"triage\"],\"inputs\":{\"document_refs\":[\"$SDID\"],\"case_context\":{\"lob\":\"MA\",\"urgency\":\"standard\",\"service_lines\":[]}}}")
+  -d "{\"case_ref\":\"${CORRELATION_ID}-2.3b\",\"analysis_kinds\":[\"summary\",\"triage\"],\"inputs\":{\"document_refs\":[\"$SDID\"],\"case_context\":{\"lob\":\"MA\",\"urgency\":\"standard\",\"service_lines\":[],\"member_ref\":\"pat-revital-24b\"}}}")
 B23ID=$(echo "$B23" | python3 -c "import sys,json; print(json.load(sys.stdin).get('analysis_id',''))" 2>/dev/null)
 [ -n "$B23ID" ] || { echo "❌ P2-2.3b: no analysis_id from /v1/assist/analyses" >&2; exit 1; }
 echo "   analysis_id=$B23ID (document_refs=[$SDID])"
@@ -203,6 +203,18 @@ echo "$B24EX" | grep -q '239873007' \
 echo "$B24EX" | grep -q 'trc_pending' \
   && { echo "❌ P2-2.4a: provenance_ref still 'trc_pending' (request_id not captured from /inference)" >&2; docker compose logs revital-worker 2>&1 | tail -20 >&2; exit 1; }
 echo "✅ P2-2.4a: extraction block carries a CODED entity (SNOMED 239873007) + a real provenance_ref (request_id, not trc_pending)"
+
+# P2-2.4b: persistence round-trip. The same analysis that produced the coded extraction above must
+# have ALSO persisted the CODED resources + an ai_citation Provenance into fabric.resource
+# (source='ai-extraction', keyed by member_ref from case_context.member_ref='pat-revital-24b').
+echo "== 2.4b persistence: analysis $B23ID landed coded AI evidence + Provenance keyed to member =="
+AI_COND=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "select count(*) from fabric.resource where source='ai-extraction' and resource_type='Condition' and member_ref='pat-revital-24b' and content::text like '%239873007%' and provenance_ref not like 'trc_pending%' and tenant_id='${TENANT_ID}';" | tail -1)
+AI_PROV=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+  "select count(*) from fabric.resource where source='ai-extraction' and resource_type='Provenance' and member_ref='pat-revital-24b' and tenant_id='${TENANT_ID}';" | tail -1)
+if [ "${AI_COND:-0}" -lt 1 ] || [ "${AI_PROV:-0}" -lt 1 ]; then
+  echo "FAIL 2.4b persistence: ai_condition=$AI_COND prov=$AI_PROV (want >=1 each)"; exit 1; fi
+echo "PASS 2.4b persistence: ai-extraction Condition(239873007)=$AI_COND + Provenance=$AI_PROV in fabric"
 
 echo "── 7. case surfaces in portal-bff worklist ──"
 # queue_id "default" → all tenant cases (worklist_router), so this is a stable 200.
@@ -440,6 +452,31 @@ VS_NEG=$(fhir_eval 29828 member-002)
 echo "   value-set(29828, member-002) → ${VS_NEG}"
 [ "$VS_NEG" = "not_met False" ] || { echo "❌ 1.2: non-member code was NOT filtered out (got '${VS_NEG}') — value-set filtering regressed" >&2; exit 1; }
 echo "✅ slice 1.2: value-set MEMBERSHIP filtering — member-001 (SNOMED 239873007) meets_all, member-002 (73211009 not in VS) not_met"
+
+echo "── 12c2. slice 2.4b: ai-extraction evidence is INVISIBLE to Digicore retrieval (INV-1 guard) ──"
+# FabricRetrieveProvider.fetchContents carries 'AND source <> ''ai-extraction''' so AI-extracted
+# evidence can never drive a determination. Seed one pas-intake Condition + one ai-extraction
+# Condition for the same member, then prove the provider's predicate excludes only the
+# ai-extraction row — and that WITHOUT the clause both rows would return (so the guard is
+# load-bearing, not a tautology). Same tenant/GUC the provider runs under (TENANT_ID).
+echo "== 2.4b exclusion: ai-extraction invisible to Digicore retrieval =="
+docker compose exec -T postgres psql -U sim -d simintero -v ON_ERROR_STOP=1 <<SQL
+SET sim.tenant_id = '${TENANT_ID}';
+DELETE FROM fabric.resource WHERE member_ref='excltest-001' AND tenant_id='${TENANT_ID}';
+INSERT INTO fabric.resource (tenant_id,resource_type,fhir_id,member_ref,source,provenance_ref,content)
+VALUES ('${TENANT_ID}','Condition','pas-excl-1','excltest-001','pas-intake','prov-pas-1',
+ '{"resourceType":"Condition","id":"pas-excl-1","code":{"coding":[{"system":"http://snomed.info/sct","code":"111111"}]}}'::jsonb);
+INSERT INTO fabric.resource (tenant_id,resource_type,fhir_id,member_ref,source,provenance_ref,content)
+VALUES ('${TENANT_ID}','Condition','ai-excl-1','excltest-001','ai-extraction','prov-ai-1',
+ '{"resourceType":"Condition","id":"ai-excl-1","code":{"coding":[{"system":"http://snomed.info/sct","code":"239873007"}]}}'::jsonb);
+SQL
+WITH_FILTER=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+ "set sim.tenant_id='${TENANT_ID}'; select count(*) from fabric.resource where tenant_id=current_setting('sim.tenant_id',true) and resource_type='Condition' and member_ref='excltest-001' and source <> 'ai-extraction';" | tail -1)
+NO_FILTER=$(docker compose exec -T postgres psql -U sim -d simintero -tAc \
+ "set sim.tenant_id='${TENANT_ID}'; select count(*) from fabric.resource where tenant_id=current_setting('sim.tenant_id',true) and resource_type='Condition' and member_ref='excltest-001';" | tail -1)
+if [ "$WITH_FILTER" != "1" ] || [ "$NO_FILTER" != "2" ]; then
+  echo "FAIL 2.4b exclusion: with_filter=$WITH_FILTER (want 1) no_filter=$NO_FILTER (want 2)"; exit 1; fi
+echo "PASS 2.4b exclusion: only pas-intake retrieved (1); ai-extraction excluded (would be 2 without the guard)"
 
 echo "── 12d. slice 2.1: intake→fabric bridge — real \$submit writes evidence → meets_all ──"
 # Slice 2.1: on PAS \$submit the workflow-engine normalize handler synchronously bridges the
