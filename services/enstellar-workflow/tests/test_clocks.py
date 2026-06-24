@@ -637,3 +637,65 @@ async def test_warn_sets_warned_at_once_and_emits(pg_pool: asyncpg.Pool):
     # Idempotent: 2nd warn returns None and emits no new event.
     assert second is None
     assert at_risk_count_2 == 1
+
+
+# ---------------------------------------------------------------------------
+# Restart (stopped → running) clears warned_at (Slice S6a review fix F1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_restart_stopped_clock_clears_warned_at(pg_pool: asyncpg.Pool):
+    """start() on a stopped clock (restart path) must clear warned_at.
+
+    Regression: the ON CONFLICT DO UPDATE SET clause did not include
+    `warned_at = NULL`, so a restarted clock (e.g. re-appeal reusing the
+    same (case_id, 'appeal') row) carried a stale warned_at.  The SLA
+    poller's `elif row["warned_at"] is None:` branch was then permanently
+    False → the at-risk WARNING never fired for the restarted clock.
+    """
+    from enstellar_workflow.clocks.model import ClockDefinition
+    from enstellar_workflow.clocks.service import ClockService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+
+    svc = ClockService(OutboxPublisher())
+    defn = ClockDefinition.for_case("standard")
+    cid = uuid.uuid4()
+    tid = f"tenant-restart-warn-{cid}"
+
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            # 1. Start the clock.
+            await svc.start(conn, tenant_id=tid, case_id=cid, definition=defn)
+
+            # 2. Warn it — sets warned_at on the row.
+            warned = await svc.warn(conn, tenant_id=tid, case_id=cid)
+            assert warned is not None
+
+            warned_at_before = await conn.fetchval(
+                "SELECT warned_at FROM clocks "
+                "WHERE case_id=$1 AND clock_type='decision'",
+                cid,
+            )
+            assert warned_at_before is not None, "warn() must set warned_at"
+
+            # 3. Stop the clock (moves it to 'stopped').
+            await svc.stop(conn, tenant_id=tid, case_id=cid)
+
+            # 4. Restart it — same case_id/clock_type hits the ON CONFLICT path.
+            restarted = await svc.start(
+                conn, tenant_id=tid, case_id=cid, definition=defn
+            )
+
+            # 5. Read warned_at directly from the row.
+            warned_at_after = await conn.fetchval(
+                "SELECT warned_at FROM clocks "
+                "WHERE case_id=$1 AND clock_type='decision'",
+                cid,
+            )
+
+    assert restarted.state == "running", "restarted clock must be running"
+    assert warned_at_after is None, (
+        f"warned_at was {warned_at_after!r} after restart; expected NULL — "
+        "ON CONFLICT DO UPDATE SET must include `warned_at = NULL`"
+    )

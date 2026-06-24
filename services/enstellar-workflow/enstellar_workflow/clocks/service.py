@@ -60,6 +60,7 @@ class ClockService:
                    paused_at              = NULL,
                    total_paused_seconds   = 0.0,
                    breached_at            = NULL,
+                   warned_at              = NULL,
                    updated_at             = $7
               WHERE clocks.state = 'stopped'
             RETURNING *
