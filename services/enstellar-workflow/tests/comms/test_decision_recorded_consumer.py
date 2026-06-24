@@ -157,6 +157,57 @@ async def test_decision_notification_is_idempotent(pg_pool, kafka_bootstrap):
 
 
 @pytest.mark.asyncio
+async def test_adverse_decision_renders_reason(pg_pool, kafka_bootstrap):
+    """An adverse DECISION_RECORDED carrying a denial reason renders that reason
+    into the notice body (the NOTIFICATION_SENT outbox payload's body)."""
+    from enstellar_workflow.comms.consumers.decision_recorded import DecisionRecordedConsumer
+    from enstellar_workflow.comms.service import NotificationService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+
+    tenant_id = f"tenant-adverse-test-{uuid.uuid4()}"
+    case_id = str(uuid.uuid4())
+
+    # Seed a denied portal template whose body references the denial reason + appeal rights.
+    async with pg_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO notification_templates (tenant_id, event_type, channel, subject_template, body_template) "
+            "VALUES ($1, 'denied', 'portal', 'Determination', "
+            "'Determination: {{ outcome }}. Reason: {{ reason }}. You have the right to appeal.')",
+            tenant_id,
+        )
+
+    publisher = OutboxPublisher()
+    service = NotificationService(publisher)
+    consumer = DecisionRecordedConsumer(pg_pool, service)
+
+    event = make_envelope(
+        SchemaRef.DECISION_RECORDED,
+        tenant_id=tenant_id,
+        actor_id="system",
+        actor_type="system",
+        correlation_id=str(uuid.uuid4()),
+        payload={
+            "case_id": case_id,
+            "outcome": "denied",
+            "reason": "conservative therapy not documented",
+            "reason_codes": ["X"],
+        },
+    )
+
+    await consumer.handle(event)
+
+    async with pg_pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT envelope FROM shared.outbox WHERE tenant_id=$1", tenant_id
+        )
+    envelopes = [json.loads(r["envelope"]) for r in rows]
+    notif = [e for e in envelopes if e["schema_ref"] == SchemaRef.NOTIFICATION_SENT]
+    assert len(notif) == 1, f"expected one NOTIFICATION_SENT, got {len(notif)}"
+    body = notif[0]["payload"]["body"]
+    assert "conservative therapy not documented" in body, body
+
+
+@pytest.mark.asyncio
 async def test_non_terminal_outcome_skipped(pg_pool, kafka_bootstrap):
     """outcome=pending → no notification_log row."""
     from enstellar_workflow.comms.consumers.decision_recorded import DecisionRecordedConsumer

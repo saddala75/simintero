@@ -27,17 +27,24 @@ class DecisionRecordedConsumer(IdempotentKafkaConsumer):
         if outcome not in TERMINAL_OUTCOMES:
             logger.debug("Skipping non-terminal outcome %r for case %s", outcome, case_id)
             return
+        context = {
+            "case_id": str(case_id),
+            "outcome": outcome,
+            "decided_at": event.occurred_at.isoformat(),
+        }
+        # Adverse content for a compliant denial notice (reason + appeal rights);
+        # only present on adverse DECISION_RECORDED payloads.
+        for key in ("determination_type", "reason", "reason_codes", "citations"):
+            value = event.payload.get(key)
+            if value is not None:
+                context[key] = value
         async with tenant_transaction(self._pool, event.tenant.tenant_id) as conn:
             await self._notify.render_and_dispatch(
                 conn,
                 event.tenant.tenant_id,
                 str(case_id),
                 event_type=outcome,
-                context={
-                    "case_id": str(case_id),
-                    "outcome": outcome,
-                    "decided_at": event.occurred_at.isoformat(),
-                },
+                context=context,
                 actor_id=event.actor.id,
                 actor_type=event.actor.type.value,
                 correlation_id=event.correlation_id,
