@@ -41,6 +41,7 @@ export function createAnalysesRouter(pool: Pool, temporalClient: TemporalClientL
         analysis_kinds: string[];
         inputs: { document_refs: string[]; case_context: Record<string, unknown> };
       };
+      const member_ref = inputs?.case_context?.['member_ref'] as string | undefined;
 
       // Insert processing row under the tenant GUC (RLS-protected table).
       await withTenant(pool, tenantId, (c) =>
@@ -61,6 +62,7 @@ export function createAnalysesRouter(pool: Pool, temporalClient: TemporalClientL
           tenant_id: tenantId,
           case_ref,
           document_refs: inputs.document_refs,
+          member_ref,
           evidence_requirements_ref: null,
           model_binding_ref: process.env['DEFAULT_MODEL_BINDING'] ?? 'https://artifacts.simintero.io/shared/model_binding/claude-pa',
           model_binding_version: process.env['DEFAULT_MODEL_BINDING_VERSION'] ?? '1.0.0',

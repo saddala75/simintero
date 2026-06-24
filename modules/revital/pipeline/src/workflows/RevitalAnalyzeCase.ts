@@ -10,6 +10,7 @@ export interface AnalysisInput {
   tenant_id: string;
   case_ref: string;
   document_refs: string[];
+  member_ref?: string | undefined;
   evidence_requirements_ref: string | null;
   model_binding_ref: string;
   model_binding_version: string;
@@ -86,6 +87,7 @@ export async function revitalAnalyzeCase(input: AnalysisInput): Promise<Analysis
     tenant_id: input.tenant_id,
     case_ref: input.case_ref,
     document_refs: input.document_refs,
+    member_ref: input.member_ref,
     model_binding_ref: input.model_binding_ref,
     model_binding_version: input.model_binding_version,
     status,

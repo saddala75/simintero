@@ -6,7 +6,7 @@ interface PoolClient { query(sql: string, params?: any[]): Promise<{ rows: any[]
 
 export interface AiEvidenceInput {
   analysis_id: string;
-  case_ref: string;
+  member_ref?: string | undefined;
   document_refs: string[];
   model_binding_ref?: string | undefined;
   model_binding_version?: string | undefined;
@@ -34,16 +34,12 @@ const UPSERT = `INSERT INTO fabric.resource
  * Persist Revital's CODED extracted resources + their ai_citation Provenance to fabric.resource
  * (source='ai-extraction'). Runs inside an existing withTenant transaction (GUC already set).
  * Degrades open: a missing member_ref or an abstained extraction → skip, never throw.
+ * member_ref is threaded in from the analysis request's case_context (not resolved from ens.case).
  */
 export async function writeAiEvidence(client: PoolClient, input: AiEvidenceInput): Promise<void> {
   if (input.extraction.status !== 'ok') return;
 
-  const res = await client.query(
-    `SELECT member_ref FROM ens.case
-     WHERE tenant_id = current_setting('sim.tenant_id', true) AND case_ref = $1`,
-    [input.case_ref],
-  );
-  const member_ref: string | null = res.rows[0]?.member_ref ?? null;
+  const member_ref = input.member_ref;
   if (!member_ref) return; // degrade-open
 
   const model_agent =

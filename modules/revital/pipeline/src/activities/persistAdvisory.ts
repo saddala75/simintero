@@ -14,6 +14,7 @@ export interface PersistInput {
   tenant_id: string;
   case_ref: string;
   document_refs: string[];
+  member_ref?: string | undefined;
   model_binding_ref?: string | undefined;
   model_binding_version?: string | undefined;
   status: 'complete' | 'partial' | 'failed';
@@ -78,7 +79,7 @@ export async function persistAdvisoryImpl(input: PersistInput, pool: Pool): Prom
     if (input.extraction) {
       await writeAiEvidence(client, {
         analysis_id: input.analysis_id,
-        case_ref: input.case_ref,
+        member_ref: input.member_ref,
         document_refs: input.document_refs,
         model_binding_ref: input.model_binding_ref,
         model_binding_version: input.model_binding_version,
