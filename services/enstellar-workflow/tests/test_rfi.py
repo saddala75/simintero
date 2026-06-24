@@ -72,6 +72,36 @@ async def test_dispatch_rfi_writes_outbox_event(pg_pool: asyncpg.Pool):
     assert payload["free_text"] == "Please send CT scan report"
 
 
+async def test_dispatch_rfi_includes_requirement_ids_in_payload(pg_pool: asyncpg.Pool):
+    """dispatch_rfi propagates requirement_ids (Digicore gap ids) into the RFI_DISPATCHED payload (slice S4)."""
+    from enstellar_workflow.rfi.service import RfiRequest, RfiService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+    from simintero_tenant_context import tenant_transaction
+
+    svc = RfiService(OutboxPublisher())
+    tid = f"tenant-rfi-reqids-{uuid.uuid4()}"
+    cid = uuid.uuid4()
+    req = RfiRequest(
+        case_id=cid,
+        tenant_id=tid,
+        requirement_ids=["diagnosis_documented"],
+    )
+    async with tenant_transaction(pg_pool, tid) as conn:
+        await svc.dispatch_rfi(conn, req)
+        row = await conn.fetchrow(
+            "SELECT envelope FROM shared.outbox"
+            " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+            " ORDER BY event_id DESC LIMIT 1",
+            tid,
+            str(cid),
+        )
+
+    assert row is not None
+    envelope = json.loads(row["envelope"]) if isinstance(row["envelope"], str) else row["envelope"]
+    payload = envelope["payload"]
+    assert payload["requirement_ids"] == ["diagnosis_documented"]
+
+
 # ---------------------------------------------------------------------------
 # CaseService.pend_rfi integration tests
 # ---------------------------------------------------------------------------

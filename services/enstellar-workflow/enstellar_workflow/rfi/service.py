@@ -19,11 +19,12 @@ from ..outbox.publisher import OutboxPublisher
 class RfiRequest:
     case_id: uuid.UUID
     tenant_id: str
-    provider_npi: str
-    document_types: list[str]
+    provider_npi: str = ""
+    document_types: list[str] = field(default_factory=list)
     free_text: str | None = None
     requested_by: str = "system"
     request_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    requirement_ids: list[str] = field(default_factory=list)
 
 
 class RfiService:
@@ -52,6 +53,7 @@ class RfiService:
                 "provider_npi": request.provider_npi,
                 "document_types": request.document_types,
                 "free_text": request.free_text,
+                "requirement_ids": request.requirement_ids,
             },
         )
         await self._pub.publish(conn, event)
