@@ -3,9 +3,13 @@
 Subscribes to rfi.response.received events (published by the comms service
 when provider documentation is received). On each event:
   1. Resume the decision clock (extends deadline by accumulated pause time)
-  2. Transition the case from 'pend_rfi' → 'clinical_review'
+  2. Transition the case from 'pend_rfi' → 'auto_determination' (re-gate)
 
-Both side-effects are in a single transaction.
+The re-gate (step 2) routes the case back into auto_determination so the
+completeness gate (AutoDeterminator) can re-evaluate the now-arrived evidence.
+If the evidence is now complete, the case is approved; if it is still incomplete
+(already RFI-gated once, rfi_gated_at IS NOT NULL), it routes to clinical_review
+for human review.  Both side-effects are in a single transaction.
 """
 from __future__ import annotations
 
@@ -58,14 +62,17 @@ class RfiResponseConsumer:
                     tenant_id,
                 )
 
-            # 2. Transition case to clinical_review
+            # 2. Transition case to auto_determination (re-gate): the completeness
+            # gate (AutoDeterminator) will re-evaluate the now-arrived evidence.
+            # Complete evidence → approved; still-incomplete (rfi_gated_at set) →
+            # clinical_review.  This is the S4 re-gate loop.
             from ..engine.transitions import TransitionRequest
             from ..cases.repository import CaseRepository
             repo = CaseRepository()
             req = TransitionRequest(
                 case_id=case_id,
                 tenant_id=tenant_id,
-                to_state="clinical_review",
+                to_state="auto_determination",
                 actor_id="system",
                 actor_type="system",
                 # Preserve the triggering event's correlation_id (do NOT regenerate);
@@ -82,7 +89,7 @@ class RfiResponseConsumer:
                 _result_case, rfi_event_id = await self._engine.apply(conn, req)
             except Exception as exc:
                 logger.warning(
-                    "Could not transition case %s to clinical_review: %s",
+                    "Could not transition case %s to auto_determination (re-gate): %s",
                     case_id,
                     exc,
                 )

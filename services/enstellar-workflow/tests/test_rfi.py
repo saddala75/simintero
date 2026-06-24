@@ -318,13 +318,19 @@ async def test_accumulated_pause_standard_7_day_rule(pg_pool: asyncpg.Pool):
     assert delta <= timedelta(days=2, minutes=5)
 
 
-async def test_rfi_response_consumer_resumes_clock_and_transitions_to_clinical_review(
+async def test_rfi_response_consumer_resumes_clock_and_transitions_to_auto_determination(
     pg_pool: asyncpg.Pool,
 ):
-    """RfiResponseConsumer: resumes clock and transitions case to clinical_review."""
+    """RfiResponseConsumer: resumes clock and transitions case to auto_determination (re-gate).
+
+    Slice S4 re-gate: the RFI response re-enters auto_determination so the completeness
+    gate can re-evaluate the now-arrived evidence.  The OLD target was clinical_review;
+    the NEW target is auto_determination.
+    """
     from simintero_outbox import make_envelope
     from enstellar_workflow.consumers.rfi_response_consumer import RfiResponseConsumer
     from enstellar_workflow.cases.service import CaseService
+    from enstellar_workflow.cases.repository import CaseRepository
 
     consumer = RfiResponseConsumer(pg_pool)
     svc = CaseService(pg_pool)
@@ -365,5 +371,13 @@ async def test_rfi_response_consumer_resumes_clock_and_transitions_to_clinical_r
             "SELECT state FROM clocks WHERE case_id = $1 AND tenant_id = $2",
             created.case_id, tid
         )
+        # Verify case state is auto_determination (re-gate), NOT clinical_review
+        case_row = await conn.fetchrow(
+            "SELECT status FROM workflow_instances WHERE case_id = $1 AND tenant_id = $2",
+            created.case_id, tid
+        )
 
     assert clock_row["state"] == "running"
+    assert case_row["status"] == "auto_determination", (
+        f"expected auto_determination (re-gate), got {case_row['status']!r}"
+    )
