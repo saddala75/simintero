@@ -72,10 +72,18 @@ class NotificationService:
             nid = await conn.fetchval(
                 "INSERT INTO notification_log "
                 "(tenant_id, case_id, event_type, channel, template_id, rendered_subject) "
-                "VALUES ($1, $2, $3, $4, $5, $6) RETURNING notification_id",
+                "VALUES ($1, $2, $3, $4, $5, $6) "
+                "ON CONFLICT (tenant_id, case_id, event_type, channel) DO NOTHING "
+                "RETURNING notification_id",
                 tenant_id, uuid.UUID(case_id), event_type,
                 tmpl["channel"], tmpl["template_id"], subject,
             )
+            if nid is None:
+                logger.info(
+                    "notice already sent for case=%s event_type=%s channel=%s — skipping",
+                    case_id, event_type, tmpl["channel"],
+                )
+                continue  # do not publish NOTIFICATION_SENT for an already-sent notice
             await self._pub.publish(
                 conn,
                 make_envelope(
