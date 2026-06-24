@@ -20,7 +20,10 @@ app.post('/v1/messages', (req, res) => {
   let output;
   if (task_kind === 'extract_entities') {
     const span = (inputs.document_span_refs || [])[0] || 'span-1';
-    output = { entities: [{ resource_type: 'Condition', raw_text: 'osteoarthritis of knee', coding_hint: null, span_ref: span }] };
+    output = { entities: [
+      { resource_type: 'Condition', raw_text: 'osteoarthritis of knee', coding_hint: null, span_ref: span },
+      { resource_type: 'Condition', raw_text: 'knee pain', coding_hint: null, span_ref: span },
+    ] };
   } else if (task_kind === 'summarize') {
     const refs = inputs.document_span_refs || [];
     // Input-aware: cite a real span at page 1 so summarizeGrounded's isCitationValid passes.
