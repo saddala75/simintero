@@ -32,7 +32,9 @@ from enstellar_connectors.digicore.client import DigiCoreClient
 from enstellar_connectors.digicore.models import DecisionRequest, DecisionResponse
 from simintero_outbox import SchemaRef, make_envelope
 
+from ..clocks.service import ClockService
 from ..outbox.publisher import OutboxPublisher, lob_for_envelope
+from ..rfi.service import RfiRequest, RfiService
 from .decision_recorder import DecisionRecorder
 from .transitions import TransitionEngine, TransitionRequest
 
@@ -83,6 +85,8 @@ class AutoDeterminator:
         self._digicore = digicore
         self._decision_recorder = DecisionRecorder()
         self._publisher = OutboxPublisher()
+        self._clock_svc = ClockService(self._publisher)
+        self._rfi_svc = RfiService(self._publisher)
 
     async def run(
         self,
@@ -137,7 +141,23 @@ class AutoDeterminator:
         if resp.decision == "approved":
             return await self._approve(conn, case, correlation_id, resp, causation_id)
 
-        # 'pending_review' or 'denied' from Digicore → clinical review.
+        # S4 completeness gate: Digicore gaps (missing required evidence) → pend +
+        # auto-RFI, at most once per case. A gap is NEVER a denial (approve-only
+        # invariant preserved); the single Digicore call above is reused here.
+        gaps = [p for p in resp.pins if p.status == "gap"]
+        if gaps:
+            already_gated = await conn.fetchval(
+                "SELECT rfi_gated_at FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+                case.case_id, case.tenant_id,
+            )
+            if already_gated is None:
+                return await self._pend_for_rfi(
+                    conn, case, correlation_id,
+                    [p.criterion_id for p in gaps], causation_id,
+                )
+
+        # 'pending_review' or 'denied' (no gaps) OR already RFI-gated and still
+        # incomplete → human review.
         # INVARIANT: 'denied' from Digicore does NOT map to Status.denied here.
         # A human reviewer must make any adverse determination.
         logger.info(
@@ -242,6 +262,65 @@ class AutoDeterminator:
                 "decisions": (updated_case.decisions or []) + [decision]
             }
         )
+
+    async def _pend_for_rfi(
+        self,
+        conn: asyncpg.Connection,
+        case: Case,
+        correlation_id: str,
+        requirement_ids: list[str],
+        causation_id: str | None = None,
+    ) -> Case:
+        """Pend the case for an RFI seeded with the gap requirement_ids (system-initiated).
+
+        Transitions to pend_rfi, pauses the clock, marks rfi_gated_at, dispatches
+        the RFI. A gap is NEVER a denial — the approve-only invariant is preserved.
+        """
+        req = TransitionRequest(
+            case_id=case.case_id,
+            tenant_id=case.tenant_id,
+            to_state="pend_rfi",
+            actor_id=_ACTOR_ID,
+            actor_type=_ACTOR_TYPE,
+            correlation_id=f"{correlation_id}-to-pend",
+            payload={"reason": "completeness_gap", "requirement_ids": requirement_ids},
+            human_signoff_recorded=False,
+            causation_id=causation_id,
+        )
+        updated_case, _event_id = await self._engine.apply(conn, req)
+
+        # Pause the decision clock while waiting for the RFI response (non-fatal
+        # if no running clock exists).
+        try:
+            await self._clock_svc.pause(
+                conn, tenant_id=case.tenant_id, case_id=case.case_id,
+                reason="completeness_gap",
+            )
+        except ValueError:
+            pass
+
+        # Mark the case as RFI-gated so a still-incomplete re-gate routes to human
+        # review instead of dispatching a second RFI (at most one auto-RFI).
+        await conn.execute(
+            "UPDATE workflow_instances SET rfi_gated_at=now(), updated_at=now() "
+            "WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id, case.tenant_id,
+        )
+
+        await self._rfi_svc.dispatch_rfi(conn, RfiRequest(
+            case_id=case.case_id,
+            tenant_id=case.tenant_id,
+            provider_npi="",
+            document_types=[],
+            requirement_ids=requirement_ids,
+            requested_by=_ACTOR_ID,
+        ))
+
+        logger.info(
+            "completeness_gap_pend_rfi case_id=%s tenant_id=%s requirement_ids=%s",
+            case.case_id, case.tenant_id, requirement_ids,
+        )
+        return updated_case
 
     async def _route_to_clinical_review(
         self,

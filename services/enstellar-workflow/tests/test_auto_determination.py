@@ -20,12 +20,22 @@ import pytest
 from hypothesis import given, settings as h_settings
 from hypothesis import strategies as st
 
+import json
+
 from canonical_model.case import Case, Status
 from canonical_model.decision import Decision, Outcome
 from enstellar_connectors import CircuitOpenError, DecisionRequest, DecisionResponse
-from enstellar_connectors.digicore.models import StructuredTrace
+from enstellar_connectors.digicore.client import DigiCoreClient
+from enstellar_connectors.digicore.models import Pin, StructuredTrace
+from simintero_outbox import SchemaRef
+from simintero_tenant_context import tenant_transaction
+from enstellar_workflow.cases.repository import CaseRepository
+from enstellar_workflow.cases.service import CaseService
+from enstellar_workflow.clocks.model import ClockDefinition
+from enstellar_workflow.clocks.service import ClockService
 from enstellar_workflow.engine.auto_determination import AutoDeterminator
 from enstellar_workflow.engine.transitions import TransitionEngine, TransitionRequest
+from enstellar_workflow.outbox.publisher import OutboxPublisher
 from tests.conftest import make_case
 
 
@@ -433,3 +443,187 @@ async def test_tenant_id_propagated_to_transition_request():
 
     req: TransitionRequest = mock_engine.apply.call_args[0][1]
     assert req.tenant_id == "tenant-t10-scope"
+
+
+# ---------------------------------------------------------------------------
+# ══════════════════════════════════════════════════════════════════════════
+# Slice S4 — completeness gate (Digicore gaps → pend + auto-RFI, at most once)
+# ══════════════════════════════════════════════════════════════════════════
+# A gap (missing required evidence) is NEVER a denial. The auto path can now
+# produce one additional non-adverse state — pend_rfi — when Digicore reports
+# gaps and the case has not already been RFI-gated. These are DB-backed
+# integration tests (real TransitionEngine + Postgres) because the gate reads
+# and writes workflow_instances.rfi_gated_at, pauses the clock, and dispatches
+# an RFI outbox event.
+# ---------------------------------------------------------------------------
+
+
+def _gap_response(
+    decision: str = "pending_review",
+    gap_ids: tuple[str, ...] = ("diagnosis_documented", "imaging_documented"),
+) -> DecisionResponse:
+    """Digicore response carrying gap pins (missing required evidence)."""
+    return DecisionResponse(
+        decision=decision,
+        requirements=list(gap_ids),
+        structured_trace=MOCK_TRACE,
+        pins=[
+            Pin(
+                pin_id=f"pin-{i}",
+                criterion_id=cid,
+                text=f"missing {cid}",
+                status="gap",
+            )
+            for i, cid in enumerate(gap_ids)
+        ],
+    )
+
+
+async def _seed_auto_determination_case(pool, tenant_id: str):
+    """Create a case in auto_determination state with a running decision clock."""
+    service = CaseService(pool)
+    case = make_case(tenant_id=tenant_id, status=Status.auto_determination)
+    await service.create_case(case)
+    # Guarantee a running clock exists (create_case may or may not start one
+    # depending on tenant clock config); pause is asserted in the gap test.
+    clock_svc = ClockService(OutboxPublisher())
+    async with tenant_transaction(pool, tenant_id) as conn:
+        try:
+            await clock_svc.start(
+                conn,
+                tenant_id=tenant_id,
+                case_id=case.case_id,
+                definition=ClockDefinition.for_case(case.urgency.value),
+            )
+        except ValueError:
+            pass  # already started by create_case — non-fatal
+    return case
+
+
+async def _fetch_rfi_dispatched(pool, case):
+    async with tenant_transaction(pool, case.tenant_id) as conn:
+        row = await conn.fetchrow(
+            "SELECT envelope FROM shared.outbox"
+            " WHERE envelope->>'schema_ref' = $1"
+            "   AND envelope->'payload'->>'case_id' = $2",
+            SchemaRef.RFI_DISPATCHED,
+            str(case.case_id),
+        )
+    if row is None:
+        return None
+    envelope = row["envelope"]
+    if isinstance(envelope, str):
+        envelope = json.loads(envelope)
+    return envelope
+
+
+@pytest.mark.asyncio
+async def test_gaps_pend_and_dispatch_rfi(pg_pool):
+    """Digicore gaps + no prior rfi_gated_at → pend_rfi + RFI_DISPATCHED with the
+    gap requirement_ids + rfi_gated_at set + the running clock paused.
+    NOT _approve, NOT clinical_review."""
+    case = await _seed_auto_determination_case(pg_pool, "tenant-s4-gap")
+
+    digicore = AsyncMock(spec=DigiCoreClient)
+    digicore.evaluate_request.return_value = _gap_response()
+    auto = AutoDeterminator(engine=TransitionEngine(), digicore=digicore)
+
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        result = await auto.run(conn, case, f"corr-{uuid.uuid4()}")
+
+    # The single Digicore call is reused — the gate inspects resp.pins.
+    assert digicore.evaluate_request.call_count == 1
+    assert result.status == Status.pend_rfi
+
+    repo = CaseRepository()
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        fetched = await repo.fetch_by_id(conn, case.case_id, case.tenant_id)
+        assert fetched.status == Status.pend_rfi
+        gated = await conn.fetchval(
+            "SELECT rfi_gated_at FROM workflow_instances"
+            " WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id,
+            case.tenant_id,
+        )
+        assert gated is not None
+        clock_state = await conn.fetchval(
+            "SELECT state FROM clocks WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id,
+            case.tenant_id,
+        )
+        assert clock_state == "paused"
+
+    envelope = await _fetch_rfi_dispatched(pg_pool, case)
+    assert envelope is not None
+    req_ids = envelope["payload"]["requirement_ids"]
+    assert set(req_ids) == {"diagnosis_documented", "imaging_documented"}
+
+
+@pytest.mark.asyncio
+async def test_meets_all_still_approves(pg_pool):
+    """decision='approved' with no pins → approved (unchanged by the gate)."""
+    case = await _seed_auto_determination_case(pg_pool, "tenant-s4-approve")
+
+    digicore = AsyncMock(spec=DigiCoreClient)
+    digicore.evaluate_request.return_value = DecisionResponse(
+        decision="approved",
+        requirements=[],
+        structured_trace=MOCK_TRACE,
+        pins=[],
+    )
+    auto = AutoDeterminator(engine=TransitionEngine(), digicore=digicore)
+
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        result = await auto.run(conn, case, f"corr-{uuid.uuid4()}")
+
+    assert result.status == Status.approved
+    assert await _fetch_rfi_dispatched(pg_pool, case) is None
+
+
+@pytest.mark.asyncio
+async def test_gaps_but_already_rfi_gated_routes_to_clinical_review(pg_pool):
+    """Gaps but rfi_gated_at already set (RFI already sent once) → clinical_review,
+    NO second RFI_DISPATCHED. The loop is bounded to one auto-RFI."""
+    case = await _seed_auto_determination_case(pg_pool, "tenant-s4-regate")
+
+    # Pre-mark the case as already RFI-gated.
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        await conn.execute(
+            "UPDATE workflow_instances SET rfi_gated_at=now()"
+            " WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id,
+            case.tenant_id,
+        )
+
+    digicore = AsyncMock(spec=DigiCoreClient)
+    digicore.evaluate_request.return_value = _gap_response()
+    auto = AutoDeterminator(engine=TransitionEngine(), digicore=digicore)
+
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        result = await auto.run(conn, case, f"corr-{uuid.uuid4()}")
+
+    assert result.status == Status.clinical_review
+    # No new RFI was dispatched — at most one auto-RFI per case.
+    assert await _fetch_rfi_dispatched(pg_pool, case) is None
+
+
+@pytest.mark.asyncio
+async def test_pending_review_no_gaps_routes_to_clinical_review(pg_pool):
+    """decision='pending_review' with no gap pins (abstain) → clinical_review,
+    no pend/RFI (unchanged regression)."""
+    case = await _seed_auto_determination_case(pg_pool, "tenant-s4-abstain")
+
+    digicore = AsyncMock(spec=DigiCoreClient)
+    digicore.evaluate_request.return_value = DecisionResponse(
+        decision="pending_review",
+        requirements=["additional_documentation"],
+        structured_trace=MOCK_TRACE,
+        pins=[],
+    )
+    auto = AutoDeterminator(engine=TransitionEngine(), digicore=digicore)
+
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        result = await auto.run(conn, case, f"corr-{uuid.uuid4()}")
+
+    assert result.status == Status.clinical_review
+    assert await _fetch_rfi_dispatched(pg_pool, case) is None
