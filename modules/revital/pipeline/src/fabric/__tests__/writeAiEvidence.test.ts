@@ -41,7 +41,7 @@ describe('writeAiEvidence', () => {
     // returns one descriptor of what it wrote
     expect(written).toEqual([
       {
-        fabric_ref: 'Condition/ai-an_123-0',
+        fabric_ref: 'fabric/Condition/ai-an_123-0',
         resource_type: 'Condition',
         member_ref: 'pat-001',
         provenance_ref: '01KVV7VTYN0C950YZHQC36JWZP',

@@ -81,7 +81,7 @@ describe('persistAdvisory', () => {
     expect(env.schema_ref).toBe('sim.evidence.added/v1');
     expect(env.tenant.tenant_id).toBe('tenant-x');
     expect(env.correlation_id).toBe('case_1');
-    expect(env.payload.fabric_ref).toBe('Condition/ai-ana_1-0');
+    expect(env.payload.fabric_ref).toBe('fabric/Condition/ai-ana_1-0');
     expect(env.payload.resource_type).toBe('Condition');
     expect(env.payload.member_ref).toBe('pat-001');
     expect(env.payload.source).toBe('revital_extraction');

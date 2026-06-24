@@ -23,7 +23,7 @@ export interface AiEvidenceInput {
 }
 
 export interface WrittenEvidence {
-  fabric_ref: string;        // `${resource_type}/${fhir_id}`
+  fabric_ref: string;        // `fabric/${resource_type}/${fhir_id}`
   resource_type: string;
   member_ref: string;
   provenance_ref: string;
@@ -76,7 +76,7 @@ export async function writeAiEvidence(client: PoolClient, input: AiEvidenceInput
     await client.query(UPSERT, ['Provenance', prov_fhir_id, member_ref, AI_SOURCE, r.provenance_ref, JSON.stringify(provenance)]);
 
     written.push({
-      fabric_ref: `${n.resource_type}/${fhir_id}`,
+      fabric_ref: `fabric/${n.resource_type}/${fhir_id}`,
       resource_type: n.resource_type,
       member_ref,
       provenance_ref: r.provenance_ref,
