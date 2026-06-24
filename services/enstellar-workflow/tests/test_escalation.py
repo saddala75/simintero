@@ -92,6 +92,89 @@ async def test_escalate_raises_if_case_not_found(pg_pool: asyncpg.Pool):
                 await svc.escalate(conn, missing_id, "tenant-esc-04", "user-reviewer-4", "user")
 
 
+async def test_breach_mode_escalates_non_clinical_review_open_case(pg_pool: asyncpg.Pool):
+    """breach_mode escalates any OPEN (non-terminal) case, even non-clinical_review."""
+    case = make_case(tenant_id="tenant-esc-breach-01", status=Status.pend_rfi)
+    repo = CaseRepository()
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await repo.insert(conn, case)
+
+    svc = EscalationService(OutboxPublisher())
+
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        result = await svc.escalate(
+            conn, str(case.case_id), case.tenant_id, "sla-monitor", "service",
+            reason="sla_breach", breach_mode=True, queue="md_review",
+        )
+
+    assert result["case_id"] == str(case.case_id)
+    assert result["queue"] == "md_review"
+    assert result["escalated"] is True
+
+    async with pg_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT assignee_queue FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id, case.tenant_id,
+        )
+        outbox = await conn.fetchrow(
+            "SELECT envelope FROM shared.outbox"
+            " WHERE envelope->'payload'->>'case_id' = $1"
+            "   AND envelope->>'schema_ref' = 'sim.case.lifecycle/CaseAssigned/v1'",
+            str(case.case_id),
+        )
+    assert row["assignee_queue"] == "md_review"
+    assert outbox is not None, "CaseAssigned event not found in shared.outbox"
+    assert outbox["envelope"] is not None
+
+
+async def test_breach_mode_skips_terminal_case(pg_pool: asyncpg.Pool):
+    """breach_mode is a no-op (no raise, no queue change) for a terminal case."""
+    case = make_case(tenant_id="tenant-esc-breach-02", status=Status.closed)
+    repo = CaseRepository()
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await repo.insert(conn, case)
+
+    svc = EscalationService(OutboxPublisher())
+
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        result = await svc.escalate(
+            conn, str(case.case_id), case.tenant_id, "sla-monitor", "service",
+            reason="sla_breach", breach_mode=True,
+        )
+
+    assert result["escalated"] is False
+    assert result["queue"] is None
+    assert result["case_id"] == str(case.case_id)
+
+    async with pg_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT assignee_queue FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id, case.tenant_id,
+        )
+    assert row["assignee_queue"] != "md_review"
+
+
+async def test_non_breach_mode_still_requires_clinical_review(pg_pool: asyncpg.Pool):
+    """breach_mode=False (default) preserves the clinical_review ValueError guard."""
+    case = make_case(tenant_id="tenant-esc-breach-03", status=Status.pend_rfi)
+    repo = CaseRepository()
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await repo.insert(conn, case)
+
+    svc = EscalationService(OutboxPublisher())
+
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            with pytest.raises(ValueError, match="clinical_review"):
+                await svc.escalate(
+                    conn, str(case.case_id), case.tenant_id, "user-x", "user",
+                    breach_mode=False,
+                )
+
+
 async def test_escalate_tenant_isolation(pg_pool: asyncpg.Pool):
     """Escalating with a different tenant_id must raise ValueError (case not found)."""
     case = make_case(tenant_id="tenant-esc-05", status=Status.clinical_review)
