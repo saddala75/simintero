@@ -223,7 +223,7 @@ class ClockService:
                    updated_at  = $3
              WHERE case_id = $1 AND clock_type = $2 AND tenant_id = $4
                AND state = 'running'
-               AND deadline <= $3
+               AND deadline + (total_paused_seconds || ' seconds')::interval <= $3
             RETURNING *
             """,
             case_id,
@@ -246,6 +246,60 @@ class ClockService:
                     "clock_type": clock_type,
                     "breached_at": now.isoformat(),
                     "deadline": state.deadline.isoformat(),
+                },
+            ),
+        )
+        return state
+
+    # ------------------------------------------------------------------
+    # warn
+    # ------------------------------------------------------------------
+
+    async def warn(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        tenant_id: str,
+        case_id: uuid.UUID,
+        clock_type: str = "decision",
+    ) -> ClockState | None:
+        """Mark a running clock as at-risk (warned) and emit CLOCK_AT_RISK.
+
+        Idempotent: only fires for a running clock whose warned_at is still
+        NULL. Returns the new state, or None if there was nothing to warn
+        (no running clock, or it was already warned).
+        """
+        now = datetime.now(timezone.utc)
+        row = await conn.fetchrow(
+            """
+            UPDATE clocks
+               SET warned_at  = $3,
+                   updated_at = $3
+             WHERE case_id = $1 AND clock_type = $2 AND tenant_id = $4
+               AND state = 'running'
+               AND warned_at IS NULL
+            RETURNING *
+            """,
+            case_id,
+            clock_type,
+            now,
+            tenant_id,
+        )
+        if row is None:
+            return None
+
+        state = _row_to_state(row)
+        await self._pub.publish(
+            conn,
+            _make_event(
+                tenant_id=tenant_id,
+                case_id=case_id,
+                clock_id=state.clock_id,
+                schema_ref=SchemaRef.CLOCK_AT_RISK,
+                payload={
+                    "clock_type": clock_type,
+                    "deadline": state.deadline.isoformat(),
+                    "warned_at": now.isoformat(),
                 },
             ),
         )

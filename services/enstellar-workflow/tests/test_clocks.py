@@ -511,3 +511,129 @@ async def test_stop_also_stops_paused_clock(pg_pool: asyncpg.Pool):
             stopped = await svc.stop(conn, tenant_id=tid, case_id=cid)
 
     assert stopped.state == "stopped"
+
+
+# ---------------------------------------------------------------------------
+# Pause-aware check_breach + warn (Slice S3, Task 3)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_check_breach_accounts_for_pause(pg_pool: asyncpg.Pool):
+    """check_breach is pause-aware: deadline + total_paused_seconds is the
+    effective deadline.
+
+    A running clock whose RAW deadline is just past now but whose accumulated
+    pause time pushes the effective deadline into the future must NOT breach.
+    A running clock whose effective deadline is already past must breach.
+    """
+    from enstellar_workflow.clocks.service import ClockService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+
+    svc = ClockService(OutboxPublisher())
+
+    # Case A: raw deadline 1 minute ago, but 1 hour of accumulated pause →
+    # effective deadline ~59 minutes in the future → NOT breached.
+    tid_a = f"tenant-breach-pause-future-{uuid.uuid4()}"
+    cid_a = uuid.uuid4()
+    # Case B: raw deadline 1 hour ago, 1 minute of accumulated pause →
+    # effective deadline ~59 minutes ago → breached.
+    tid_b = f"tenant-breach-pause-past-{uuid.uuid4()}"
+    cid_b = uuid.uuid4()
+
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                """
+                INSERT INTO clocks
+                  (clock_id, tenant_id, case_id, clock_type, state, urgency,
+                   duration_calendar_days, started_at, deadline,
+                   paused_at, total_paused_seconds, breached_at)
+                VALUES (gen_random_uuid(), $1, $2, 'decision', 'running', 'standard',
+                        7, NOW() - INTERVAL '8 days', NOW() - INTERVAL '1 minute',
+                        NULL, 3600.0, NULL)
+                """,
+                tid_a,
+                cid_a,
+            )
+            result_a = await svc.check_breach(conn, tenant_id=tid_a, case_id=cid_a)
+
+            await conn.execute(
+                """
+                INSERT INTO clocks
+                  (clock_id, tenant_id, case_id, clock_type, state, urgency,
+                   duration_calendar_days, started_at, deadline,
+                   paused_at, total_paused_seconds, breached_at)
+                VALUES (gen_random_uuid(), $1, $2, 'decision', 'running', 'standard',
+                        7, NOW() - INTERVAL '8 days', NOW() - INTERVAL '1 hour',
+                        NULL, 60.0, NULL)
+                """,
+                tid_b,
+                cid_b,
+            )
+            result_b = await svc.check_breach(conn, tenant_id=tid_b, case_id=cid_b)
+
+            breached_row = await conn.fetchrow(
+                "SELECT envelope->>'schema_ref' AS schema_ref FROM shared.outbox"
+                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+                " ORDER BY event_id DESC LIMIT 1",
+                tid_b,
+                str(cid_b),
+            )
+
+    # Case A: pause pushed the effective deadline into the future → no breach.
+    assert result_a is None
+
+    # Case B: effective deadline already passed → breached + event emitted.
+    assert result_b is not None
+    assert result_b.state == "breached"
+    assert breached_row is not None
+    assert breached_row["schema_ref"] == "sim.clock/ClockBreached/v1"
+
+
+@pytest.mark.asyncio
+async def test_warn_sets_warned_at_once_and_emits(pg_pool: asyncpg.Pool):
+    """warn() sets warned_at + emits CLOCK_AT_RISK once; a 2nd warn is a no-op."""
+    from enstellar_workflow.clocks.model import ClockDefinition
+    from enstellar_workflow.clocks.service import ClockService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+
+    svc = ClockService(OutboxPublisher())
+    defn = ClockDefinition.for_case("standard")
+    tid = f"tenant-warn-{uuid.uuid4()}"
+    cid = uuid.uuid4()
+
+    async with pg_pool.acquire() as conn:
+        async with conn.transaction():
+            await svc.start(conn, tenant_id=tid, case_id=cid, definition=defn)
+
+            first = await svc.warn(conn, tenant_id=tid, case_id=cid)
+
+            warned_at = await conn.fetchval(
+                "SELECT warned_at FROM clocks WHERE case_id = $1 AND clock_type = 'decision'",
+                cid,
+            )
+            at_risk_count_1 = await conn.fetchval(
+                "SELECT count(*) FROM shared.outbox"
+                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+                " AND envelope->>'schema_ref' = 'sim.clock/ClockAtRisk/v1'",
+                tid,
+                str(cid),
+            )
+
+            second = await svc.warn(conn, tenant_id=tid, case_id=cid)
+
+            at_risk_count_2 = await conn.fetchval(
+                "SELECT count(*) FROM shared.outbox"
+                " WHERE tenant_id = $1 AND envelope->'payload'->>'case_id' = $2"
+                " AND envelope->>'schema_ref' = 'sim.clock/ClockAtRisk/v1'",
+                tid,
+                str(cid),
+            )
+
+    assert first is not None
+    assert warned_at is not None
+    assert at_risk_count_1 == 1
+    # Idempotent: 2nd warn returns None and emits no new event.
+    assert second is None
+    assert at_risk_count_2 == 1
