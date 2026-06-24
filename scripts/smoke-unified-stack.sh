@@ -838,4 +838,58 @@ BROKER_MSG=$(docker compose exec -T redpanda rpk topic consume sim.task.lifecycl
 echo "   broker envelope: ${BROKER_MSG}"
 echo "$BROKER_MSG" | python3 -c "import sys,json; e=json.load(sys.stdin); assert e['schema_ref'].startswith('sim.task.lifecycle/'), e; print('   broker carries a sim.task.lifecycle envelope')"
 echo "✅ P0-0.2: substrate event flowed producer → simintero.shared.outbox → relay → redpanda"
+
+echo "── 17. S2: LOB-aware clock durations from the config substrate ──"
+# Slice S2: the decision clock starts with a per-(tenant, lob) duration resolved from the
+# workflow_config substrate (migration 0014 seeds demo-tenant: commercial standard-decision=5d,
+# ma=7d) via ConfigService, falling back to the hardcoded CLOCK_RULES. We create TWO cases under
+# ONE tenant (demo-tenant) differing ONLY by LOB (commercial vs ma), both urgency=standard, then
+# assert their decision-clock durations are 5 and 7 — same tenant, same urgency, different LOB →
+# different duration proves the substrate-driven, LOB-aware resolution.
+# POST /cases takes the tenant from the body (no JWT) and starts the clock in-band; workflow-engine
+# is internal-only (expose:8000, no host port), so we POST from inside the container.
+echo "== S2: LOB-aware clock durations from the config substrate =="
+s2_make_case() {  # $1=lob → prints the created case_id on stdout
+  docker compose exec -T workflow-engine python3 - "$1" <<'PY'
+import json, sys, uuid, urllib.request
+lob = sys.argv[1]
+TEN = "demo-tenant"
+now = "2026-01-01T00:00:00+00:00"
+cid = str(uuid.uuid4()); mid = str(uuid.uuid4())
+case = {
+    "case_id": cid, "tenant_id": TEN,
+    "correlation_id": f"s2-smoke-{lob}-{uuid.uuid4()}",
+    "lob": lob, "status": "intake", "urgency": "standard",
+    "member": {"member_id": mid, "tenant_id": TEN, "first_name": "Alice",
+               "last_name": "Smith", "date_of_birth": "1985-03-15"},
+    "coverage": {"coverage_id": str(uuid.uuid4()), "tenant_id": TEN, "member_id": mid,
+                 "plan_id": "PLAN-001", "subscriber_id": "SUB-001",
+                 "payer_name": "Acme Health", "lob": lob, "effective_date": "2024-01-01"},
+    "requesting_provider": {"provider_id": str(uuid.uuid4()), "tenant_id": TEN,
+                            "npi": "1234567890", "name": "Dr. Bob Jones"},
+    "service_lines": [{"service_line_id": str(uuid.uuid4()), "tenant_id": TEN, "sequence": 1,
+                       "service_type_code": "3", "procedure_code": "27447",
+                       "diagnosis_codes": ["M17.0"]}],
+    "created_at": now, "updated_at": now,
+}
+req = urllib.request.Request("http://localhost:8000/cases",
+    data=json.dumps(case).encode(), headers={"Content-Type": "application/json"}, method="POST")
+with urllib.request.urlopen(req, timeout=30) as r:
+    assert r.status == 201, f"create_case HTTP {r.status}"
+print(cid)
+PY
+}
+COMM_CASE=$(s2_make_case commercial | tr -d '[:space:]')
+MA_CASE=$(s2_make_case ma | tr -d '[:space:]')
+echo "   commercial case=${COMM_CASE} ; ma case=${MA_CASE}"
+{ [ -n "$COMM_CASE" ] && [ -n "$MA_CASE" ]; } || { echo "❌ S2: case creation failed (commercial='${COMM_CASE}' ma='${MA_CASE}')" >&2; docker compose logs workflow-engine 2>&1 | tail -30 >&2; exit 1; }
+# Read each case's decision-clock duration from the workflow DB (superuser 'sim' bypasses RLS).
+COMM_DAYS=$(docker compose exec -T postgres psql -U sim -d workflow -tAc \
+  "select duration_calendar_days from clocks where case_id='${COMM_CASE}' and clock_type='decision';" | tr -d '[:space:]')
+MA_DAYS=$(docker compose exec -T postgres psql -U sim -d workflow -tAc \
+  "select duration_calendar_days from clocks where case_id='${MA_CASE}' and clock_type='decision';" | tr -d '[:space:]')
+if [ "$COMM_DAYS" != "5" ] || [ "$MA_DAYS" != "7" ]; then
+  echo "❌ FAIL S2: commercial=$COMM_DAYS (want 5) ma=$MA_DAYS (want 7)" >&2; exit 1; fi
+echo "✅ PASS S2: LOB-aware clocks — commercial=5d, ma=7d from workflow_config"
+
 echo "✅ unified-stack smoke PASSED"
