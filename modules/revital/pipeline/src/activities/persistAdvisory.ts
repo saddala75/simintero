@@ -76,15 +76,41 @@ export async function persistAdvisoryImpl(input: PersistInput, pool: Pool): Prom
       [eventId, 'sim.ai.interaction', input.case_ref, JSON.stringify(envelope)],
     );
 
-    if (input.extraction) {
-      await writeAiEvidence(client, {
-        analysis_id: input.analysis_id,
-        member_ref: input.member_ref,
-        document_refs: input.document_refs,
-        model_binding_ref: input.model_binding_ref,
-        model_binding_version: input.model_binding_version,
-        extraction: input.extraction,
-      });
+    const written = input.extraction
+      ? await writeAiEvidence(client, {
+          analysis_id: input.analysis_id,
+          member_ref: input.member_ref,
+          document_refs: input.document_refs,
+          model_binding_ref: input.model_binding_ref,
+          model_binding_version: input.model_binding_version,
+          extraction: input.extraction,
+        })
+      : [];
+
+    for (const w of written) {
+      const evId = `evt_${ulid()}`;
+      const evEnvelope = {
+        event_id: evId,
+        schema_ref: 'sim.evidence.added/v1',
+        occurred_at: completedAt,
+        tenant: { tenant_id: input.tenant_id },
+        correlation_id: input.case_ref,
+        payload: {
+          fabric_ref: w.fabric_ref,
+          resource_type: w.resource_type,
+          member_ref: w.member_ref,
+          source: 'revital_extraction',
+          provenance_ref: w.provenance_ref,
+          classification: 'non_standard',
+          clinical_context: { codes: w.codes },
+          case_ref: input.case_ref,
+        },
+      };
+      await client.query(
+        `INSERT INTO shared.outbox (event_id, topic, key, envelope, tenant_id)
+         VALUES ($1, $2, $3, $4::jsonb, current_setting('sim.tenant_id', true))`,
+        [evId, 'sim.evidence', w.member_ref, JSON.stringify(evEnvelope)],
+      );
     }
   });
 }

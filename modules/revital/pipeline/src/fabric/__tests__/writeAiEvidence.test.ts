@@ -25,9 +25,9 @@ const baseInput = {
 };
 
 describe('writeAiEvidence', () => {
-  it('upserts a fabric resource + a Provenance with source=ai-extraction when member_ref is given', async () => {
+  it('upserts a fabric resource + a Provenance with source=ai-extraction when member_ref is given, and RETURNS the descriptor', async () => {
     const { client, calls } = mockClient();
-    await writeAiEvidence(client, baseInput as any);
+    const written = await writeAiEvidence(client, baseInput as any);
     const inserts = calls.filter((c) => /insert into fabric\.resource/i.test(c.sql));
     expect(inserts).toHaveLength(2); // resource + provenance
     // every fabric write tags source='ai-extraction' and carries the request_id provenance_ref
@@ -38,25 +38,38 @@ describe('writeAiEvidence', () => {
     const types = inserts.map((c) => c.params[0]);
     expect(types).toContain('Condition');
     expect(types).toContain('Provenance');
+    // returns one descriptor of what it wrote
+    expect(written).toEqual([
+      {
+        fabric_ref: 'Condition/ai-an_123-0',
+        resource_type: 'Condition',
+        member_ref: 'pat-001',
+        provenance_ref: '01KVV7VTYN0C950YZHQC36JWZP',
+        codes: [{ system: 'http://snomed.info/sct', code: '239873007' }],
+      },
+    ]);
   });
 
-  it('SKIPS the write when no member_ref is provided (degrade-open, no throw)', async () => {
+  it('SKIPS the write when no member_ref is provided (degrade-open, no throw) and returns []', async () => {
     const { client, calls } = mockClient();
     const { member_ref: _omit, ...noMember } = baseInput;
-    await writeAiEvidence(client, noMember as any);
+    const written = await writeAiEvidence(client, noMember as any);
     expect(calls.filter((c) => /insert into fabric\.resource/i.test(c.sql))).toHaveLength(0);
+    expect(written).toEqual([]);
   });
 
-  it('SKIPS when extraction abstained', async () => {
+  it('SKIPS when extraction abstained and returns []', async () => {
     const { client, calls } = mockClient();
-    await writeAiEvidence(client, { ...baseInput, extraction: { status: 'abstained', resources: [] } } as any);
+    const written = await writeAiEvidence(client, { ...baseInput, extraction: { status: 'abstained', resources: [] } } as any);
     expect(calls.filter((c) => /insert into fabric\.resource/i.test(c.sql))).toHaveLength(0);
+    expect(written).toEqual([]);
   });
 
-  it('skips uncoded resources (only coded become fabric rows)', async () => {
+  it('skips uncoded resources (only coded become fabric rows) and returns []', async () => {
     const { client, calls } = mockClient();
     const uncoded = { ...codedResource, normalization: { coded: false, source: 'uncoded', raw_text: 'foo', resource_type: 'Condition' } };
-    await writeAiEvidence(client, { ...baseInput, extraction: { status: 'ok', resources: [uncoded] } } as any);
+    const written = await writeAiEvidence(client, { ...baseInput, extraction: { status: 'ok', resources: [uncoded] } } as any);
     expect(calls.filter((c) => /insert into fabric\.resource/i.test(c.sql))).toHaveLength(0);
+    expect(written).toEqual([]);
   });
 });

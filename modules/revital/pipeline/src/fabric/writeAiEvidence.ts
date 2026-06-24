@@ -22,6 +22,14 @@ export interface AiEvidenceInput {
   };
 }
 
+export interface WrittenEvidence {
+  fabric_ref: string;        // `${resource_type}/${fhir_id}`
+  resource_type: string;
+  member_ref: string;
+  provenance_ref: string;
+  codes: Array<{ system: string; code: string }>;
+}
+
 const AI_SOURCE = 'ai-extraction';
 const UPSERT = `INSERT INTO fabric.resource
   (tenant_id, resource_type, fhir_id, member_ref, source, provenance_ref, content)
@@ -36,17 +44,18 @@ const UPSERT = `INSERT INTO fabric.resource
  * Degrades open: a missing member_ref or an abstained extraction → skip, never throw.
  * member_ref is threaded in from the analysis request's case_context (not resolved from ens.case).
  */
-export async function writeAiEvidence(client: PoolClient, input: AiEvidenceInput): Promise<void> {
-  if (input.extraction.status !== 'ok') return;
+export async function writeAiEvidence(client: PoolClient, input: AiEvidenceInput): Promise<WrittenEvidence[]> {
+  if (input.extraction.status !== 'ok') return [];
 
   const member_ref = input.member_ref;
-  if (!member_ref) return; // degrade-open
+  if (!member_ref) return []; // degrade-open
 
   const model_agent =
     input.model_binding_ref && input.model_binding_version
       ? `${input.model_binding_ref}@${input.model_binding_version}`
       : undefined;
 
+  const written: WrittenEvidence[] = [];
   let i = 0;
   for (const r of input.extraction.resources) {
     const n = r.normalization;
@@ -65,6 +74,15 @@ export async function writeAiEvidence(client: PoolClient, input: AiEvidenceInput
       request_id: r.provenance_ref, document_refs: input.document_refs, model_agent,
     });
     await client.query(UPSERT, ['Provenance', prov_fhir_id, member_ref, AI_SOURCE, r.provenance_ref, JSON.stringify(provenance)]);
+
+    written.push({
+      fabric_ref: `${n.resource_type}/${fhir_id}`,
+      resource_type: n.resource_type,
+      member_ref,
+      provenance_ref: r.provenance_ref,
+      codes: [{ system: n.system, code: n.code }],
+    });
     i++;
   }
+  return written;
 }
