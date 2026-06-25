@@ -11,16 +11,20 @@ NormalizationClient.java calls it synchronously from PasClaimSubmitProvider.
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 from canonical_model import Status
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from simintero_outbox import SchemaRef, make_envelope
+from simintero_tenant_context import tenant_transaction
 
 from ..cases.service import CaseService
 from ..db.connection import get_pool
 from ..engine.auto_determination import _stable_member_ref
 from ..engine.transitions import TransitionRequest
+from ..outbox.publisher import OutboxPublisher
 from .config import get_normalization_settings
 from .fabric_writer import write_case_evidence
 from .mapper import PasBundleMapper
@@ -40,6 +44,12 @@ class NormalizeRequest(BaseModel):
     bundle: dict[str, Any]
     tenant_id: str = Field(min_length=1)
     correlation_id: str = Field(min_length=1)
+
+
+class RfiResponseRequest(BaseModel):
+    bundle: dict[str, Any]
+    tenant_id: str = Field(min_length=1)
+    case_id: uuid.UUID
 
 
 @router.post("/normalize", response_model=None)
@@ -125,3 +135,67 @@ async def normalize(
     data = case.model_dump(mode="json")
     data["_raw_bundle_key"] = raw_key
     return data
+
+
+@router.post("/rfi-response", response_model=None)
+async def rfi_response(
+    req: RfiResponseRequest,
+    request: Request,
+    case_service: CaseService = Depends(_get_case_service),
+) -> dict[str, Any]:
+    """Provider RFI response (supplemental FHIR bundle).
+
+    Writes the bundle's clinical evidence to fabric.resource as SUBMITTED
+    (source='rfi-response') under the case's stable member_ref, THEN publishes
+    RFIResponseReceived. The RfiResponseConsumer re-gates pend_rfi ->
+    auto_determination.
+
+    Cross-DB note: fabric.resource lives in the FABRIC pool while shared.outbox
+    lives in the WORKFLOW pool — DIFFERENT databases, so they cannot share one
+    transaction. We write the evidence FIRST, then publish the event
+    (evidence-before-event). A publish failure after the fabric write leaves the
+    idempotent-upserted evidence written but no event → the case stays pend_rfi,
+    safe to retry. We do NOT swallow the publish error (it raises a 500 so the
+    caller retries).
+    """
+    # 1. Resolve the case (workflow pool) + require pend_rfi.
+    async with tenant_transaction(case_service._pool, req.tenant_id) as conn:
+        case = await case_service._repo.fetch_by_id(conn, req.case_id, req.tenant_id)
+    if case is None:
+        raise HTTPException(status_code=404, detail="case not found")
+    if case.status.value != "pend_rfi":
+        raise HTTPException(
+            status_code=409, detail=f"case is {case.status.value}, not pend_rfi"
+        )
+    member_ref = _stable_member_ref(case)
+    if not member_ref:
+        raise HTTPException(status_code=422, detail="case has no stable member_ref")
+
+    # 2. Write the response evidence to fabric as SUBMITTED (fabric pool) — EVIDENCE FIRST.
+    n = await write_case_evidence(
+        request.app.state.fabric_pool,
+        req.tenant_id,
+        member_ref,
+        f"rfi-response:{req.case_id}",
+        req.bundle,
+        source="rfi-response",
+    )
+    logger.info("rfi-response wrote %d fabric rows for case=%s", n, req.case_id)
+
+    # 3. Publish RFIResponseReceived (workflow pool shared.outbox) — EVENT AFTER.
+    async with tenant_transaction(case_service._pool, req.tenant_id) as conn:
+        event = make_envelope(
+            SchemaRef.RFI_RESPONSE_RECEIVED,
+            tenant_id=req.tenant_id,
+            actor_id="system",
+            actor_type="system",
+            correlation_id=str(case.correlation_id),
+            payload={"case_id": str(req.case_id)},
+        )
+        await OutboxPublisher().publish(conn, event)
+
+    return {
+        "case_id": str(req.case_id),
+        "fabric_rows": n,
+        "status": "rfi_response_received",
+    }
