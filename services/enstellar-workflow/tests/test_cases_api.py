@@ -269,3 +269,68 @@ async def test_api_transition_denied_with_signoff_returns_200(ac: AsyncClient):
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "denied"
+
+
+# ============================================================
+# Task 4 — S6b: route-level block for all appeal_* states
+# POST /cases/{id}/transitions must never set appeal_* states.
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_api_transition_appeal_upheld_blocked_409(ac: AsyncClient):
+    """POST /cases/{id}/transitions to 'appeal_upheld' is always 409 — use the appeals API.
+
+    Belt-and-suspenders: even with human_signoff_recorded=True the generic route
+    must reject appeal_* so the COI guard in AppealService can never be sidestepped.
+    """
+    case = make_case()
+    await ac.post(
+        "/cases",
+        content=case.model_dump_json(),
+        headers={"Content-Type": "application/json"},
+    )
+
+    resp = await ac.post(
+        f"/cases/{case.case_id}/transitions",
+        json={
+            "tenant_id": case.tenant_id,
+            "to_state": "appeal_upheld",
+            "actor_id": "reviewer-001",
+            "actor_type": "user",
+            "correlation_id": case.correlation_id,
+            "human_signoff_recorded": True,
+        },
+    )
+    assert resp.status_code == 409, (
+        f"Expected 409 but got {resp.status_code} — appeal_* must be blocked on "
+        f"the generic /transitions route. Response: {resp.text}"
+    )
+    assert "appeal" in resp.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_api_transition_appeal_review_blocked_409(ac: AsyncClient):
+    """POST /cases/{id}/transitions to 'appeal_review' is always 409 — use the appeals API."""
+    case = make_case()
+    await ac.post(
+        "/cases",
+        content=case.model_dump_json(),
+        headers={"Content-Type": "application/json"},
+    )
+
+    resp = await ac.post(
+        f"/cases/{case.case_id}/transitions",
+        json={
+            "tenant_id": case.tenant_id,
+            "to_state": "appeal_review",
+            "actor_id": "system",
+            "actor_type": "system",
+            "correlation_id": case.correlation_id,
+        },
+    )
+    assert resp.status_code == 409, (
+        f"Expected 409 but got {resp.status_code} — appeal_* must be blocked on "
+        f"the generic /transitions route. Response: {resp.text}"
+    )
+    assert "appeal" in resp.json().get("detail", "").lower()

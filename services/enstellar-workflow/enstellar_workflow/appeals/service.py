@@ -295,6 +295,12 @@ class AppealService:
                     actor_id="system",
                     actor_type="system",
                     correlation_id=str(uuid.uuid4()),
+                    # For appeal_upheld (continued adverse), forward the sign-off flag so
+                    # the SIGNOFF_REQUIRED_STATES guard in adverse_transition_guard passes.
+                    # The uphold sign-off gate above already validated this is True for upholds.
+                    # For appeal_overturned, human_signoff_recorded may be False — that is fine
+                    # because appeal_overturned is not in SIGNOFF_REQUIRED_STATES.
+                    human_signoff_recorded=human_signoff_recorded,
                     payload={
                         "reason": "appeal_decided",
                         "appeal_id": str(appeal_id),

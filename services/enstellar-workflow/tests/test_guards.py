@@ -76,3 +76,33 @@ def test_guard_error_carries_reason():
     err = GuardError("test reason")
     assert err.reason == "test reason"
     assert str(err) == "test reason"
+
+
+# ============================================================
+# Task 4 — S6b: sign-off gate on appeal_upheld (continued adverse)
+# appeal_upheld is in SIGNOFF_REQUIRED_STATES but NOT in ADVERSE_STATES.
+# ============================================================
+
+
+def test_adverse_guard_blocks_appeal_upheld_without_signoff():
+    """appeal_upheld (continued adverse) requires sign-off — must be blocked without it."""
+    result = adverse_transition_guard("appeal_upheld", human_signoff_recorded=False)
+    assert result.passed is False, (
+        "INVARIANT VIOLATED: appeal_upheld without sign-off must be blocked"
+    )
+    assert result.reason is not None
+
+
+def test_adverse_guard_allows_appeal_upheld_with_signoff():
+    """appeal_upheld WITH sign-off is the legitimate AppealService uphold path — must pass."""
+    result = adverse_transition_guard("appeal_upheld", human_signoff_recorded=True)
+    assert result.passed is True
+    assert result.reason is None
+
+
+def test_appeal_upheld_not_in_adverse_states():
+    """appeal_upheld MUST NOT be added to ADVERSE_STATES — that would re-introduce a
+    DECISION_RECORDED for appeals and break the S6a no-double-fire invariant."""
+    assert "appeal_upheld" not in ADVERSE_STATES, (
+        "S6a INVARIANT VIOLATED: appeal_upheld must not be in ADVERSE_STATES"
+    )

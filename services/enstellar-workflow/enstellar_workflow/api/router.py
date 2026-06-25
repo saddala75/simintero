@@ -154,7 +154,16 @@ async def transition_case(
 
     Returns 200 with the updated Case on success.
     Returns 409 if a guard rejects the transition (e.g. adverse state without sign-off).
+    Returns 409 if the target state starts with 'appeal_' — those transitions must
+    go through POST /cases/{id}/appeals or POST /cases/{id}/appeals/{id}/decision
+    so the COI guard and sign-off gate in AppealService are always enforced.
     """
+    if body.to_state.startswith("appeal_"):
+        raise HTTPException(
+            status_code=409,
+            detail="appeal transitions must go through the appeals API",
+        )
+
     req = TransitionRequest(
         case_id=case_id,
         tenant_id=body.tenant_id,
