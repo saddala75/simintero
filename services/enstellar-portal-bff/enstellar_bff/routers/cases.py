@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import uuid as uuid_module
+from typing import Any
 from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 
-from enstellar_bff.auth import require_reviewer
+from enstellar_bff.auth import require_auth, require_reviewer
 from enstellar_bff.clients.fhir import fhir_client
 from enstellar_bff.clients.workflow import workflow_client
 from enstellar_bff.models import (
@@ -25,6 +27,24 @@ from enstellar_bff.models import (
 ADVERSE_STATES = frozenset({"denied", "partially_denied", "adverse_modification"})
 
 router = APIRouter(tags=["cases"])
+
+
+class CloseBody(BaseModel):
+    reason: str | None = None
+
+
+@router.post("/cases/{case_id}/close")
+async def close_case(
+    case_id: UUID,
+    body: CloseBody,
+    auth: tuple = Depends(require_auth),
+) -> Any:
+    """Thin pass-through: forward the bearer to the engine close endpoint.
+
+    Gated by ``require_auth`` (authenticate only); the engine enforces the
+    specific role on the forwarded token."""
+    _ctx, bearer = auth
+    return await workflow_client.close_case(str(case_id), bearer, reason=body.reason)
 
 
 @router.get("/cases/{case_id}", response_model=CaseDetail)
