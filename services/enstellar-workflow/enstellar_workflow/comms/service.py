@@ -9,6 +9,7 @@ from jinja2 import StrictUndefined
 
 from simintero_outbox import SchemaRef, make_envelope
 from enstellar_workflow.outbox.publisher import OutboxPublisher
+from ..workflow_config import ConfigService
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class NotificationService:
         actor_type: str,
         correlation_id: str | None = None,
         causation_id: str | None = None,
+        lob: str | None = None,
     ) -> list[str]:
         """Render all active templates for the given event_type and persist log + outbox events.
 
@@ -53,16 +55,25 @@ class NotificationService:
         # Strip PHI fields from context before rendering (invariant #3 — PHI minimum-necessary)
         safe_context = {k: v for k, v in context.items() if k not in _PHI_FIELDS}
 
+        # Resolve per-(tenant, lob) notice params + expose lob; caller's safe_context
+        # wins on key collision. lob=None is a DEFINED key → StrictUndefined-safe.
+        params = await ConfigService().resolve_notice_params(conn, tenant_id=tenant_id, lob=lob)
+        render_ctx = {**params, "lob": lob, **safe_context}
+
+        # LOB-preferring per-channel select: keep the LOB-specific row when present,
+        # else fall back to the generic (lob IS NULL) row. One template per channel.
         templates = await conn.fetch(
-            "SELECT * FROM notification_templates "
-            "WHERE tenant_id=$1 AND event_type=$2 AND active=TRUE",
-            tenant_id, event_type,
+            "SELECT DISTINCT ON (channel) * FROM notification_templates "
+            "WHERE tenant_id=$1 AND event_type=$2 AND active=TRUE "
+            "  AND (lob = $3 OR lob IS NULL) "
+            "ORDER BY channel, (lob IS NULL) ASC, version DESC",
+            tenant_id, event_type, lob,
         )
         notification_ids: list[str] = []
         for tmpl in templates:
             try:
-                subject = _jinja.from_string(tmpl["subject_template"]).render(**safe_context)
-                body = _jinja.from_string(tmpl["body_template"]).render(**safe_context)
+                subject = _jinja.from_string(tmpl["subject_template"]).render(**render_ctx)
+                body = _jinja.from_string(tmpl["body_template"]).render(**render_ctx)
             except Exception as exc:
                 logger.error(
                     "Template render failed for template_id=%s: %s",
@@ -71,12 +82,12 @@ class NotificationService:
                 continue
             nid = await conn.fetchval(
                 "INSERT INTO notification_log "
-                "(tenant_id, case_id, event_type, channel, template_id, rendered_subject) "
-                "VALUES ($1, $2, $3, $4, $5, $6) "
+                "(tenant_id, case_id, event_type, channel, template_id, rendered_subject, lob) "
+                "VALUES ($1, $2, $3, $4, $5, $6, $7) "
                 "ON CONFLICT (tenant_id, case_id, event_type, channel) DO NOTHING "
                 "RETURNING notification_id",
                 tenant_id, uuid.UUID(case_id), event_type,
-                tmpl["channel"], tmpl["template_id"], subject,
+                tmpl["channel"], tmpl["template_id"], subject, lob,
             )
             if nid is None:
                 logger.info(
