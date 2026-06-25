@@ -131,11 +131,15 @@ def make_case(
     tenant_id: str = "tenant-t08",
     correlation_id: str | None = None,
     status: Status = Status.intake,
+    lob: str = "commercial",
+    urgency: Urgency = Urgency.standard,
 ) -> Case:
     """Build a minimal valid Case for testing.
 
     correlation_id defaults to a new random UUID on each call so tests are
     isolated by default. Pass an explicit value to test idempotency.
+    lob and urgency default to "commercial" / Urgency.standard so all existing
+    callers are unaffected.
     """
     now = _datetime.now(_tz.utc)
     member_id = _uuid.uuid4()
@@ -143,9 +147,9 @@ def make_case(
         case_id=_uuid.uuid4(),
         tenant_id=tenant_id,
         correlation_id=correlation_id or f"corr-{_uuid.uuid4()}",
-        lob="commercial",
+        lob=lob,
         status=status,
-        urgency=Urgency.standard,
+        urgency=urgency,
         member=Member(
             member_id=member_id,
             tenant_id=tenant_id,
@@ -160,7 +164,7 @@ def make_case(
             plan_id="PLAN-001",
             subscriber_id="SUB-001",
             payer_name="Acme Health",
-            lob="commercial",
+            lob=lob,
             effective_date=_date(2024, 1, 1),
         ),
         requesting_provider=Provider(
