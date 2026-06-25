@@ -163,5 +163,129 @@ class WorkflowClient:
         r.raise_for_status()
         return r.json()
 
+    # --- Appeals ---
+    async def file_appeal(self, case_id, bearer_token, *, filed_by, reason=None):
+        r = await self._http.post(
+            f"/cases/{case_id}/appeals",
+            json={"filed_by": filed_by, "reason": reason},
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def decide_appeal(
+        self,
+        case_id,
+        appeal_id,
+        bearer_token,
+        *,
+        outcome,
+        reason=None,
+        human_signoff_recorded=False,
+    ):
+        r = await self._http.post(
+            f"/cases/{case_id}/appeals/{appeal_id}/decision",
+            json={
+                "outcome": outcome,
+                "reason": reason,
+                "human_signoff_recorded": human_signoff_recorded,
+            },
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def assign_appeal_reviewer(
+        self, case_id, appeal_id, bearer_token, *, reviewer_id
+    ):
+        r = await self._http.post(
+            f"/cases/{case_id}/appeals/{appeal_id}/assignment",
+            json={"reviewer_id": reviewer_id},
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def list_assigned_appeals(self, bearer_token):
+        r = await self._http.get(
+            "/appeals/assigned", headers=self._auth(bearer_token)
+        )
+        r.raise_for_status()
+        return r.json()
+
+    # --- Closure ---
+    async def close_case(self, case_id, bearer_token, *, reason=None):
+        r = await self._http.post(
+            f"/cases/{case_id}/close",
+            json={"reason": reason},
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
+    # --- Grievances ---
+    async def file_grievance(
+        self,
+        bearer_token,
+        *,
+        member_ref,
+        filed_by,
+        case_id=None,
+        category=None,
+        description=None,
+        urgency="standard",
+        lob=None,
+    ):
+        r = await self._http.post(
+            "/grievances",
+            json={
+                "member_ref": member_ref,
+                "filed_by": filed_by,
+                "case_id": case_id,
+                "category": category,
+                "description": description,
+                "urgency": urgency,
+                "lob": lob,
+            },
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def acknowledge_grievance(self, grievance_id, bearer_token):
+        r = await self._http.post(
+            f"/grievances/{grievance_id}/acknowledgement",
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def assign_investigator(
+        self, grievance_id, bearer_token, *, investigator_id
+    ):
+        r = await self._http.post(
+            f"/grievances/{grievance_id}/assignment",
+            json={"investigator_id": investigator_id},
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def resolve_grievance(self, grievance_id, bearer_token, *, resolution):
+        r = await self._http.post(
+            f"/grievances/{grievance_id}/resolution",
+            json={"resolution": resolution},
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def list_assigned_grievances(self, bearer_token):
+        r = await self._http.get(
+            "/grievances/assigned", headers=self._auth(bearer_token)
+        )
+        r.raise_for_status()
+        return r.json()
+
 
 workflow_client = WorkflowClient()
