@@ -114,6 +114,14 @@ class TransitionEngine:
 
         from_state = case.status.value
 
+        # 1b. `closed` is terminal — no outgoing transitions. This protects the
+        #     closure audit stamp (disposition/closed_at/closed_by) + the CaseClosed
+        #     event from being clobbered by a reopen via the public transition API
+        #     or any consumer. (Adverse/appeal_upheld are NOT terminal — they
+        #     legitimately transition to appeal_review via file_appeal.)
+        if from_state == "closed":
+            raise GuardError("case is closed; no further transitions are allowed")
+
         # 2. Evaluate the adverse-transition guard (INVARIANT #1 — non-bypassable,
         #    in-process defense-in-depth). MUST pass before the OPA gate.
         guard_result = adverse_transition_guard(req.to_state, req.human_signoff_recorded)

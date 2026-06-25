@@ -115,3 +115,41 @@ async def test_close_route_reclose_returns_409(ac: AsyncClient, pg_pool: asyncpg
         f"/cases/{created.case_id}/close", headers=headers, json={"reason": "again"}
     )
     assert second.status_code == 409, second.text
+
+
+@pytest.mark.asyncio
+async def test_closed_case_cannot_be_reopened(ac: AsyncClient, pg_pool: asyncpg.Pool):
+    """`closed` is terminal — the public transitions API must reject a reopen,
+    protecting the closure audit stamp + not re-emitting CaseClosed."""
+    tenant_id = f"tenant-close-route-{uuid.uuid4()}"
+    created = await CaseService(pg_pool).create_case(make_case(tenant_id=tenant_id))
+    await _drive_to(pg_pool, created, "denied")
+    await ac.post(
+        f"/cases/{created.case_id}/close",
+        headers={"Authorization": f"Bearer {tenant_id}", "X-Test-Sub": "ops-bob"},
+        json={"reason": "lapsed"},
+    )
+
+    # Attempt to reopen via the generic transition API → GuardError → 409.
+    resp = await ac.post(
+        f"/cases/{created.case_id}/transitions",
+        json={
+            "tenant_id": tenant_id,
+            "to_state": "clinical_review",
+            "actor_id": "attacker",
+            "actor_type": "user",
+            "correlation_id": str(uuid.uuid4()),
+        },
+    )
+    assert resp.status_code == 409, resp.text
+
+    # The case is still closed; the audit stamp is intact.
+    async with pg_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT status, disposition, closed_by FROM workflow_instances "
+            "WHERE case_id=$1 AND tenant_id=$2",
+            created.case_id, tenant_id,
+        )
+    assert row["status"] == "closed"
+    assert row["disposition"] == "denied"
+    assert row["closed_by"] == "ops-bob"

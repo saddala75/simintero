@@ -1,8 +1,6 @@
 """Case closure — terminal `closed` state + disposition/audit stamp + CaseClosed."""
 from __future__ import annotations
 
-import uuid
-
 import asyncpg
 
 from simintero_outbox import SchemaRef, make_envelope
@@ -37,9 +35,12 @@ async def _do_close(conn, *, case, tenant_id, closed_by, reason, actor_type,
     """Transition case->closed (disposition=current status), stamp, stop clocks,
     emit CaseClosed. Caller guarantees the case is settled + not already closed."""
     disposition = case.status.value
+    # Use the case's correlation_id so the closure events stay on the case's
+    # lineage (audit/trace by correlation_id), not a detached fresh id.
+    correlation_id = str(case.correlation_id)
     await engine.apply(conn, TransitionRequest(
         case_id=case.case_id, tenant_id=tenant_id, to_state="closed",
-        actor_id=closed_by, actor_type=actor_type, correlation_id=str(uuid.uuid4()),
+        actor_id=closed_by, actor_type=actor_type, correlation_id=correlation_id,
         payload={"disposition": disposition, "reason": reason},
     ))
     await conn.execute(
@@ -54,7 +55,7 @@ async def _do_close(conn, *, case, tenant_id, closed_by, reason, actor_type,
             pass
     await publisher.publish(conn, make_envelope(
         SchemaRef.CASE_CLOSED, tenant_id=tenant_id, actor_id=closed_by, actor_type=actor_type,
-        correlation_id=str(uuid.uuid4()),
+        correlation_id=correlation_id,
         payload={"case_id": str(case.case_id), "disposition": disposition, "closed_by": closed_by},
     ))
 
