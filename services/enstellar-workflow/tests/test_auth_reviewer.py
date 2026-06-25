@@ -104,3 +104,12 @@ async def test_missing_tenant_id_raises_auth_error(patch_validate) -> None:
     patch_validate(_claims(["reviewer"], tenant_id=None))
     with pytest.raises(AuthError):
         await require_reviewer(_creds()).__anext__()
+
+
+@pytest.mark.asyncio
+async def test_blank_sub_raises_auth_error(patch_validate) -> None:
+    """A blank sub must be rejected — it is the reviewer identity matched by the
+    decide-time assignment gate; an empty sub could slip a blank assigned_to."""
+    patch_validate(_claims(["reviewer"], sub="   "))
+    with pytest.raises(AuthError):
+        await require_reviewer(_creds()).__anext__()

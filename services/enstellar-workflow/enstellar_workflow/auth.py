@@ -84,7 +84,7 @@ async def _authed_with_role(
     ``ReviewerContext`` carrying the JWT ``sub``.
 
     Raises:
-        ``AuthError``      → token absent, or missing tenant_id.
+        ``AuthError``      → token absent, or missing tenant_id / sub.
         ``ForbiddenError`` → required role absent from the token.
     """
     if creds is None:
@@ -93,6 +93,11 @@ async def _authed_with_role(
     tid = (claims.tenant_id or "").strip()
     if not tid:
         raise AuthError("Token missing tenant_id")
+    # The sub is the reviewer identity stamped on appeal decisions + matched by
+    # the assignment gate; a blank sub must never reach those (it could otherwise
+    # match a blank assigned_to and slip the gate).
+    if not (claims.sub or "").strip():
+        raise AuthError("Token missing sub")
     if required_role not in claims.roles:
         raise ForbiddenError(f"{required_role} role required")
     base = tenant_context_from_claims(claims)

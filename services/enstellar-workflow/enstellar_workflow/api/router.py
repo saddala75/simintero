@@ -21,7 +21,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import AssignerRequest, AuthedRequest, ReviewerRequest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from canonical_model import Case
 from ..cases.service import CaseService
@@ -101,7 +101,11 @@ class AppealDecisionBody(BaseModel):
 class AssignReviewerBody(BaseModel):
     """Request body for POST /cases/{case_id}/appeals/{appeal_id}/assignment."""
 
-    reviewer_id: str
+    # The reviewer's Keycloak subject id (their JWT ``sub``) — NOT a username.
+    # The worklist + the decide-time assignment gate match this against the
+    # deciding reviewer's authenticated ``sub``, so a username here would mean
+    # the reviewer never sees nor can decide the appeal.
+    reviewer_id: str = Field(min_length=1)
 
 
 async def _get_service() -> CaseService:

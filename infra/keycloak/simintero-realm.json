@@ -192,7 +192,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["reviewer", "medical_director"]
+      "realmRoles": ["reviewer", "medical_director", "appeals_coordinator"]
     }
   ],
 
@@ -201,7 +201,8 @@
       { "name": "reviewer", "description": "PA reviewer" },
       { "name": "clinical-reviewer", "description": "Clinician reviewer — may sign off on adverse" },
       { "name": "admin", "description": "Tenant admin" },
-      { "name": "medical_director", "description": "Medical director — required by sim.guards.adverse_action for adverse-outcome sign-off" }
+      { "name": "medical_director", "description": "Medical director — required by sim.guards.adverse_action for adverse-outcome sign-off" },
+      { "name": "appeals_coordinator", "description": "Appeals coordinator — assigns reviewers to appeals (P2 require_appeals_assigner)" }
     ]
   }
 }
