@@ -24,7 +24,12 @@ ENGINE = "http://workflow-engine:8000"
 
 
 def _override(roles: list[str]) -> None:
+    # The thin routes gate on require_auth; the decision route gates on
+    # require_reviewer (it records the uphold sign-off from the reviewer's sub).
     app.dependency_overrides[auth_module.require_auth] = lambda: make_principal(
+        roles=roles
+    )
+    app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal(
         roles=roles
     )
 
@@ -38,8 +43,36 @@ def bypass_auth():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_decide_appeal_forwards_bearer_and_body() -> None:
+async def test_overturn_forwards_without_signoff() -> None:
+    """An overturn (favorable) needs no sign-off → forwarded with human_signoff_recorded=False."""
     route = respx.post(
+        f"{ENGINE}/cases/{CASE_ID}/appeals/{APPEAL_ID}/decision"
+    ).mock(return_value=Response(200, json={"status": "overturned"}))
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            f"/bff/cases/{CASE_ID}/appeals/{APPEAL_ID}/decision",
+            json={"outcome": "overturned", "reason": "criteria now met"},
+        )
+
+    assert r.status_code == 200
+    sent = route.calls[0].request
+    assert sent.headers["Authorization"] == f"Bearer {TEST_BEARER}"
+    body = json.loads(sent.content)
+    assert body == {"outcome": "overturned", "reason": "criteria now met",
+                    "human_signoff_recorded": False}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_uphold_records_signoff_serverside_and_derives_flag() -> None:
+    """Upholding = continued adverse: the BFF records the sign-off server-side and
+    derives human_signoff_recorded=True — it does NOT accept the flag from the body."""
+    signoff = respx.post(f"{ENGINE}/cases/{CASE_ID}/human-signoff").mock(
+        return_value=Response(201, json={"ok": True}))
+    decide = respx.post(
         f"{ENGINE}/cases/{CASE_ID}/appeals/{APPEAL_ID}/decision"
     ).mock(return_value=Response(200, json={"status": "upheld"}))
 
@@ -48,23 +81,36 @@ async def test_decide_appeal_forwards_bearer_and_body() -> None:
     ) as client:
         r = await client.post(
             f"/bff/cases/{CASE_ID}/appeals/{APPEAL_ID}/decision",
-            json={
-                "outcome": "upheld",
-                "reason": "criteria still unmet",
-                "human_signoff_recorded": True,
-            },
+            # A forged human_signoff_recorded would be ignored — only sign_off_confirmed counts.
+            json={"outcome": "upheld", "reason": "criteria still unmet", "sign_off_confirmed": True},
         )
 
     assert r.status_code == 200
-    assert r.json() == {"status": "upheld"}
-    sent = route.calls[0].request
-    assert sent.headers["Authorization"] == f"Bearer {TEST_BEARER}"
-    body = json.loads(sent.content)
-    assert body == {
-        "outcome": "upheld",
-        "reason": "criteria still unmet",
-        "human_signoff_recorded": True,
-    }
+    # The sign-off was recorded server-side (audit trail), keyed by the reviewer.
+    assert signoff.called
+    # decide_appeal is called with the DERIVED flag = True (not a client boolean).
+    decide_body = json.loads(decide.calls[0].request.content)
+    assert decide_body["human_signoff_recorded"] is True
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_uphold_without_signoff_confirmed_returns_400() -> None:
+    """Upholding without sign_off_confirmed is rejected at the BFF — no engine call."""
+    decide = respx.post(
+        f"{ENGINE}/cases/{CASE_ID}/appeals/{APPEAL_ID}/decision"
+    ).mock(return_value=Response(200, json={"status": "upheld"}))
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            f"/bff/cases/{CASE_ID}/appeals/{APPEAL_ID}/decision",
+            json={"outcome": "upheld"},
+        )
+
+    assert r.status_code == 400
+    assert not decide.called
 
 
 @pytest.mark.asyncio
@@ -187,7 +233,7 @@ async def test_engine_409_propagates_to_bff() -> None:
     ) as client:
         r = await client.post(
             f"/bff/cases/{CASE_ID}/appeals/{APPEAL_ID}/decision",
-            json={"outcome": "upheld"},
+            json={"outcome": "overturned"},  # overturn reaches the engine (no BFF sign-off gate)
         )
 
     assert r.status_code == 409
