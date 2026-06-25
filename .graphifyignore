@@ -1,0 +1,8 @@
+# .graphifyignore
+
+docs/
+node_modules/
+dist/
+build/
+_.test.js
+_.spec.ts
