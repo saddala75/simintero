@@ -10,6 +10,8 @@ from ..clocks.model import CLOCK_RULES, ClockDefinition
 _DEFAULT_SLA_WARNING_PCT = 75
 _DEFAULT_SLA_QUEUE = "md_review"
 
+NOTICE_PARAM_DEFAULTS = {"appeal_deadline_days": 60}
+
 
 @dataclass
 class SlaConfig:
@@ -84,3 +86,29 @@ class ConfigService:
                 pct = int(cfg.get("warning_threshold_pct", pct))
                 queue = str(cfg.get("escalation_queue", queue))
         return SlaConfig(warning_threshold_pct=pct, escalation_queue=queue)
+
+    async def resolve_notice_params(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        tenant_id: str,
+        lob: str | None,
+    ) -> dict:
+        """Per-(tenant, lob) notice params (table→default fallback). ALWAYS returns a
+        full dict (every key present) so StrictUndefined templates never raise."""
+        params = dict(NOTICE_PARAM_DEFAULTS)
+        if lob is None:
+            return params
+        row = await conn.fetchrow(
+            "SELECT config FROM workflow_config "
+            "WHERE tenant_id=$1 AND lob=$2 AND domain='notifications' AND active",
+            tenant_id,
+            lob,
+        )
+        if row is not None:
+            cfg = row["config"]
+            if isinstance(cfg, str):  # asyncpg returns jsonb as str (no codec set)
+                cfg = json.loads(cfg)
+            if isinstance(cfg, dict):
+                params.update(cfg)
+        return params
