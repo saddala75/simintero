@@ -24,6 +24,7 @@ class SchemaRef:
     GRIEVANCE_FILED = "sim.case.lifecycle/GrievanceFiled/v1"
     GRIEVANCE_ACKNOWLEDGED = "sim.case.lifecycle/GrievanceAcknowledged/v1"
     GRIEVANCE_RESOLVED = "sim.case.lifecycle/GrievanceResolved/v1"
+    GRIEVANCE_SLA_BREACHED = "sim.case.lifecycle/GrievanceSlaBreached/v1"
 
     CLOCK_STARTED = "sim.clock/ClockStarted/v1"
     CLOCK_PAUSED = "sim.clock/ClockPaused/v1"

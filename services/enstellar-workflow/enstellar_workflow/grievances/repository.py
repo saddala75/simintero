@@ -85,6 +85,30 @@ class GrievanceRepository:
         )
         return dict(row) if row is not None else None
 
+    async def mark_breached(
+        self, conn: asyncpg.Connection, *, grievance_id, tenant_id: str, breach_type: str
+    ) -> bool:
+        """Stamp the breach flag IFF not already stamped AND the grievance is
+        still in a state the breach applies to. True on a FRESH breach.
+
+        `col`/`status_cond` are selected from fixed whitelist branches (never user
+        input), so the f-string interpolation is injection-safe. The `<col> IS NULL`
+        guard makes the stamp idempotent (a re-poll returns False); the status guard
+        closes the scan→process TOCTOU — a grievance acknowledged/resolved between
+        the scan and this write no longer matches, so no stale breach is stamped.
+        """
+        if breach_type == "acknowledgement":
+            col, status_cond = "acknowledgement_breached_at", "status = 'filed'"
+        else:
+            col, status_cond = "resolution_breached_at", "status <> 'resolved'"
+        row = await conn.fetchrow(
+            f"UPDATE grievances SET {col}=now() "
+            f"WHERE grievance_id=$1 AND tenant_id=$2 AND {col} IS NULL AND {status_cond} "
+            f"RETURNING grievance_id",
+            grievance_id, tenant_id,
+        )
+        return row is not None
+
     async def assigned_open(
         self, conn: asyncpg.Connection, *, tenant_id: str, investigator_sub: str
     ) -> list[dict]:
