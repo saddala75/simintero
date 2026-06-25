@@ -11,7 +11,7 @@ import logging
 import asyncpg
 
 from canonical_model import Case, EventEnvelope
-from simintero_outbox import Topics
+from simintero_outbox import SchemaRef, Topics
 
 from ..kafka.consumer import IdempotentKafkaConsumer
 from ..cases.service import CaseService
@@ -37,6 +37,12 @@ class IntakeConsumer(IdempotentKafkaConsumer):
         CaseService.create_case. Idempotent: if the case already exists
         (same correlation_id), create_case returns the existing record silently.
         """
+        # Filter by schema_ref FIRST — this consumer shares the broad CASE_LIFECYCLE
+        # topic with every other case-lifecycle event (appeals, grievances, decisions,
+        # …). Without this guard those events fall through to the missing-case ERROR
+        # log below (false-positive alerts). Mirrors the other consumers.
+        if event.schema_ref != SchemaRef.CASE_INTAKE_RECEIVED:
+            return
         tenant_id = event.tenant.tenant_id
         raw_case = event.payload.get("case")
         if not raw_case:

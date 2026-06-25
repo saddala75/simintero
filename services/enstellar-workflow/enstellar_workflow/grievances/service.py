@@ -87,9 +87,11 @@ class GrievanceService:
                     actor_id=filed_by,
                     actor_type="user",
                     correlation_id=gid,
+                    # Minimum-necessary: do NOT broadcast member_ref on the event
+                    # plane — grievance_id is the handle; a consumer reads member_ref
+                    # from the RLS-scoped grievance row if it needs it.
                     payload={
                         "grievance_id": gid,
-                        "member_ref": member_ref,
                         "category": category,
                     },
                 ),

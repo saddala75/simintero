@@ -63,9 +63,13 @@ class GrievanceRepository:
         self, conn: asyncpg.Connection, *, grievance_id, tenant_id: str,
         investigator_id: str, assigned_by: str,
     ) -> dict | None:
+        # Allow (re)assignment from 'acknowledged' OR 'investigating' so a coordinator
+        # can correct a mis-typed / stale investigator — otherwise a grievance assigned
+        # to a bad sub is permanently stuck (resolve needs the exact assigned_to) and
+        # would silently breach its SLA.
         row = await conn.fetchrow(
             "UPDATE grievances SET assigned_to=$3, assigned_at=now(), assigned_by=$4, status='investigating' "
-            "WHERE grievance_id=$1 AND tenant_id=$2 AND status='acknowledged' RETURNING *",
+            "WHERE grievance_id=$1 AND tenant_id=$2 AND status IN ('acknowledged','investigating') RETURNING *",
             grievance_id, tenant_id, investigator_id, assigned_by,
         )
         return dict(row) if row is not None else None

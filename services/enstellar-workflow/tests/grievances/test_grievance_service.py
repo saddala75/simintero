@@ -113,8 +113,11 @@ async def test_full_lifecycle(pg_pool):
     assert row["resolution_due_at"] < now + timedelta(days=31)
 
     # GrievanceFiled outbox event + grievance_filed notice carrying resolution_days (30).
+    # member_ref is NOT broadcast on the event plane (minimum-necessary) — the
+    # grievance_id is the handle.
     payload = await _outbox_payload(pg_pool, SchemaRef.GRIEVANCE_FILED, gid)
-    assert payload is not None and payload["member_ref"] == member_ref
+    assert payload is not None and payload["grievance_id"] == gid
+    assert "member_ref" not in payload
     body = await _notice_body(pg_pool, gid, "grievance_filed")
     assert body is not None and "30" in body
 
@@ -196,6 +199,36 @@ async def test_status_guards_and_assignment_gate(pg_pool):
             tenant_id=tenant_id, grievance_id=gid,
             resolution="again", resolved_by="inv-1",
         )
+
+
+@pytest.mark.asyncio
+async def test_reassign_corrects_a_stuck_investigator(pg_pool):
+    """A mis-assigned (typo'd/stale) investigator must be correctable — reassign from
+    'investigating' so the grievance is never permanently stuck before its SLA."""
+    tenant_id = f"griev-{uuid.uuid4()}"
+    await _seed_templates(pg_pool, tenant_id)
+    svc = GrievanceService(pg_pool)
+
+    filed = await svc.file_grievance(
+        tenant_id=tenant_id, member_ref="m1", case_id=None, category="c",
+        description="d", urgency="standard", lob="ma", filed_by="portal",
+    )
+    gid = uuid.UUID(filed["grievance_id"])
+    await svc.acknowledge_grievance(tenant_id=tenant_id, grievance_id=gid, acknowledged_by="coord")
+    # First assignment goes to the WRONG sub (a typo) — grievance is 'investigating'.
+    await svc.assign_investigator(
+        tenant_id=tenant_id, grievance_id=gid, investigator_id="inv-typo", assigned_by="coord")
+    # The wrong investigator can't resolve, and the right one isn't assigned yet.
+    with pytest.raises(NotAssignedError):
+        await svc.resolve_grievance(
+            tenant_id=tenant_id, grievance_id=gid, resolution="x", resolved_by="inv-correct")
+    # Reassign (from 'investigating') to the correct investigator → now resolvable.
+    reassigned = await svc.assign_investigator(
+        tenant_id=tenant_id, grievance_id=gid, investigator_id="inv-correct", assigned_by="coord")
+    assert reassigned["assigned_to"] == "inv-correct"
+    resolved = await svc.resolve_grievance(
+        tenant_id=tenant_id, grievance_id=gid, resolution="addressed", resolved_by="inv-correct")
+    assert resolved["status"] == "resolved"
 
 
 @pytest.mark.asyncio
