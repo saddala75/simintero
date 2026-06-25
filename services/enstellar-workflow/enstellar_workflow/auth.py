@@ -11,12 +11,15 @@ Tests override the underlying ``require_auth`` dependency.
 """
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends
-from simintero_authz import JWTValidator
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from simintero_authz import AuthError, ForbiddenError, JWTValidator
+from simintero_authz.context import tenant_context_from_claims
 from simintero_authz.fastapi import make_require_auth
-from simintero_tenant_context import TenantContext
+from simintero_tenant_context import TenantContext, tenant_context
 
 from .config import get_settings
 
@@ -46,3 +49,73 @@ async def _require_ctx(
 # Drop-in replacement for the old per-service AuthedRequest annotation —
 # handlers receive a TenantContext and read `auth.tenant_id` unchanged.
 AuthedRequest = Annotated[TenantContext, Depends(_require_ctx)]
+
+
+# ---------------------------------------------------------------------------
+# Role-gated reviewer/assigner deps (P2 — appeals reviewer identity).
+#
+# Mirrors the proven portal-bff ``require_reviewer`` pattern: validate the JWT,
+# enforce a realm role, recover the ``sub`` (authenticated user id) and scope the
+# tenant context for the request. Appeal decisions stamp the reviewer actor from
+# ``ReviewerContext.sub`` — NEVER from the (untrusted) request body.
+# ---------------------------------------------------------------------------
+REVIEWER_ROLE = "reviewer"
+# Configurable; matches the Keycloak ``simintero`` realm role for the people who
+# assign appeal cases to reviewers.
+APPEALS_ASSIGNER_ROLE = "appeals_coordinator"
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+class ReviewerContext(TenantContext):
+    """TenantContext + the JWT ``sub`` (the authenticated user id).
+
+    The platform TenantContext intentionally omits ``sub``; appeal decisions
+    stamp ``reviewer_actor`` from it, NEVER from the request body.
+    """
+
+    sub: str = ""
+
+
+async def _authed_with_role(
+    creds: HTTPAuthorizationCredentials | None, required_role: str
+) -> ReviewerContext:
+    """Validate the bearer JWT, enforce ``required_role`` and return a scoped
+    ``ReviewerContext`` carrying the JWT ``sub``.
+
+    Raises:
+        ``AuthError``      → token absent, or missing tenant_id.
+        ``ForbiddenError`` → required role absent from the token.
+    """
+    if creds is None:
+        raise AuthError("Missing Authorization header")
+    claims = await jwt_validator.validate(creds.credentials)
+    tid = (claims.tenant_id or "").strip()
+    if not tid:
+        raise AuthError("Token missing tenant_id")
+    if required_role not in claims.roles:
+        raise ForbiddenError(f"{required_role} role required")
+    base = tenant_context_from_claims(claims)
+    return ReviewerContext(**base.model_dump(), sub=claims.sub)
+
+
+async def require_reviewer(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> AsyncIterator[ReviewerContext]:
+    """Enforce the ``reviewer`` role; yield a scoped ``ReviewerContext``."""
+    ctx = await _authed_with_role(creds, REVIEWER_ROLE)
+    with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
+        yield ctx
+
+
+async def require_appeals_assigner(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> AsyncIterator[ReviewerContext]:
+    """Enforce the ``appeals_coordinator`` role; yield a scoped ``ReviewerContext``."""
+    ctx = await _authed_with_role(creds, APPEALS_ASSIGNER_ROLE)
+    with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
+        yield ctx
+
+
+ReviewerRequest = Annotated[ReviewerContext, Depends(require_reviewer)]
+AssignerRequest = Annotated[ReviewerContext, Depends(require_appeals_assigner)]

@@ -13,7 +13,12 @@ from testcontainers.kafka import RedpandaContainer
 from simintero_authz import AuthError
 from simintero_tenant_context import TenantContext, set_context
 
-from enstellar_workflow.auth import require_auth
+from enstellar_workflow.auth import (
+    ReviewerContext,
+    require_appeals_assigner,
+    require_auth,
+    require_reviewer,
+)
 
 
 async def _fake_require_auth(request: Request):
@@ -39,13 +44,50 @@ async def _fake_require_auth(request: Request):
     return ctx, token
 
 
+async def _fake_require_reviewer(request: Request):
+    """Test replacement for require_reviewer — authenticates as a reviewer.
+
+    Reads 'Bearer <tenant_id>' for the tenant and 'X-Test-Sub' for the
+    authenticated user id (defaults to 'test-reviewer'), builds a ReviewerContext
+    with the reviewer role, sets it as the current context and returns it.
+    """
+    token = request.headers.get("Authorization", "")[len("Bearer "):]
+    sub = request.headers.get("X-Test-Sub", "test-reviewer")
+    ctx = ReviewerContext(
+        tenant_id=token,
+        sub=sub,
+        roles=["reviewer"],
+        principal_type="human",
+    )
+    set_context(ctx)
+    return ctx
+
+
+async def _fake_require_assigner(request: Request):
+    """Test replacement for require_appeals_assigner — authenticates as an assigner."""
+    token = request.headers.get("Authorization", "")[len("Bearer "):]
+    sub = request.headers.get("X-Test-Sub", "test-assigner")
+    ctx = ReviewerContext(
+        tenant_id=token,
+        sub=sub,
+        roles=["appeals_coordinator"],
+        principal_type="human",
+    )
+    set_context(ctx)
+    return ctx
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _install_fake_auth() -> None:
-    """Register _fake_require_auth for all workflow-engine API tests."""
+    """Register the fake auth deps for all workflow-engine API tests."""
     from enstellar_workflow.main import app
     app.dependency_overrides[require_auth] = _fake_require_auth
+    app.dependency_overrides[require_reviewer] = _fake_require_reviewer
+    app.dependency_overrides[require_appeals_assigner] = _fake_require_assigner
     yield
     app.dependency_overrides.pop(require_auth, None)
+    app.dependency_overrides.pop(require_reviewer, None)
+    app.dependency_overrides.pop(require_appeals_assigner, None)
 
 
 # OPA URL the workflow engine calls by default (config opa_url default).
