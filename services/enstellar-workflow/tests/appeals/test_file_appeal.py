@@ -240,3 +240,122 @@ async def test_appeal_filed_notice_renders_with_prod_template_reason_present(
             created.case_id,
         )
     assert notice_count == 1, "appeal_filed notice must be created when reason is set"
+
+
+# ---------------------------------------------------------------------------
+# Task 3 (S6b) — partial unique index + concurrent double-file guard
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_double_file_on_active_appeal_raises(pg_pool: asyncpg.Pool):
+    """Concurrent double-file race: AppealNotAllowedError when an under_review
+    appeal already exists for the same (case_id, tenant_id).
+
+    Simulates the race: the case stays 'denied' (still eligible) but a competing
+    request has already committed an under_review appeal row.  Without the
+    partial unique index + error translation the second INSERT would silently
+    succeed (two active appeals).  With both in place the UniqueViolationError
+    is caught in file_appeal and re-raised as AppealNotAllowedError (→ 409).
+
+    RED: before the migration + try/except the second INSERT succeeds → test
+    fails with "DID NOT RAISE".  GREEN: after both changes the test passes.
+    """
+    tenant_id = f"tenant-dbl-{uuid.uuid4()}"
+    await _seed_appeal_filed_template(pg_pool, tenant_id)
+
+    service = CaseService(pg_pool)
+    created = await service.create_case(make_case(tenant_id=tenant_id))
+    await _drive_to(pg_pool, created, "denied")
+
+    # Pre-insert an under_review appeal directly (the "race winner").
+    # The test pool is a superuser → RLS is bypassed; no GUC setup needed.
+    async with pg_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO appeals (case_id, tenant_id, level, appealed_ref, filed_by) "
+            "VALUES ($1, $2, 1, $3, 'race-winner')",
+            created.case_id, tenant_id, str(created.case_id),
+        )
+
+    # file_appeal: case is still 'denied' (eligible) → passes the eligibility
+    # guard → hits insert_appeal → unique constraint → AppealNotAllowedError.
+    with pytest.raises(AppealNotAllowedError, match="already under review"):
+        await AppealService(pg_pool).file_appeal(
+            case_id=created.case_id,
+            tenant_id=tenant_id,
+            filed_by="member-8",
+            reason="Concurrent filer — should be blocked",
+        )
+
+
+@pytest.mark.asyncio
+async def test_re_appeal_after_uphold_succeeds(pg_pool: asyncpg.Pool):
+    """After L1 is upheld (status='upheld', NOT 'under_review') a L2 re-appeal
+    is allowed — the partial unique index (WHERE status='under_review') must not
+    block a new filing once the prior appeal is decided.
+
+    This is a regression guard: ensures the partial unique does not accidentally
+    break the re-appeal ladder.
+    """
+    tenant_id = f"tenant-re-appeal-{uuid.uuid4()}"
+    # Seed both templates needed for file + uphold flows.
+    async with pg_pool.acquire() as conn:
+        for event_type, body in (
+            ("appeal_filed",
+             "Your appeal (level {{ level }}) is under review."),
+            ("appeal_upheld",
+             "Your appeal (level {{ level }}) was upheld."),
+        ):
+            await conn.execute(
+                "INSERT INTO notification_templates "
+                "(tenant_id, event_type, channel, subject_template, body_template) "
+                "VALUES ($1, $2, 'portal', 'Appeal update', $3)",
+                tenant_id, event_type, body,
+            )
+
+    service = CaseService(pg_pool)
+    created = await service.create_case(make_case(tenant_id=tenant_id))
+    # _drive_to uses actor_id="reviewer-001" → that becomes the adverse determiner.
+    await _drive_to(pg_pool, created, "denied")
+
+    svc = AppealService(pg_pool)
+
+    # File L1 → under_review.
+    l1 = await svc.file_appeal(
+        case_id=created.case_id,
+        tenant_id=tenant_id,
+        filed_by="member-7",
+        reason="First appeal",
+    )
+    assert l1["level"] == 1
+
+    # Uphold L1 (L1 status becomes 'upheld', not 'under_review').
+    # reviewer_actor must differ from the adverse determiner ("reviewer-001").
+    from enstellar_workflow.appeals.service import AppealService as _AS  # noqa: F401
+    await svc.decide_appeal(
+        case_id=created.case_id,
+        tenant_id=tenant_id,
+        appeal_id=uuid.UUID(l1["appeal_id"]),
+        outcome="upheld",
+        reviewer_actor="rev-independent",
+        reason="Denial upheld on review",
+        human_signoff_recorded=True,
+    )
+
+    # Re-appeal L2 — must SUCCEED because L1 is 'upheld' (not 'under_review');
+    # the partial unique only blocks duplicate under_review rows.
+    l2 = await svc.file_appeal(
+        case_id=created.case_id,
+        tenant_id=tenant_id,
+        filed_by="member-7",
+        reason="Escalating to independent review",
+    )
+    assert l2["level"] == 2
+    assert l2["status"] == "appeal_review"
+
+    async with pg_pool.acquire() as conn:
+        l2_row = await conn.fetchrow(
+            "SELECT status FROM appeals WHERE appeal_id = $1",
+            uuid.UUID(l2["appeal_id"]),
+        )
+    assert l2_row["status"] == "under_review"

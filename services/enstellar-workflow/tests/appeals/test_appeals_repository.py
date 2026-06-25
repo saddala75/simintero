@@ -110,10 +110,18 @@ async def test_insert_fetch_latest_and_record_outcome(pg_pool):
 async def test_latest_appeal_returns_highest_level(pg_pool):
     repo = AppealsRepository()
     case_id = uuid.uuid4()
+    # Insert L1 and decide it (uphold) before inserting L2 — mirrors the real
+    # appeal ladder and is required by the partial unique index on
+    # (case_id, tenant_id) WHERE status='under_review': only one active appeal
+    # per case at a time.
     async with tenant_transaction(pg_pool, TENANT) as conn:
-        await repo.insert_appeal(
+        l1 = await repo.insert_appeal(
             conn, case_id=case_id, tenant_id=TENANT, level=1,
             appealed_ref="dec-1", filed_by="m1", reason=None,
+        )
+        await repo.record_outcome(
+            conn, appeal_id=l1["appeal_id"], tenant_id=TENANT,
+            status="upheld", outcome_reason="held", reviewer_actor="rev-x",
         )
         l2 = await repo.insert_appeal(
             conn, case_id=case_id, tenant_id=TENANT, level=2,

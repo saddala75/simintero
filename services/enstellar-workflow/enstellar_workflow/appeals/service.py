@@ -102,15 +102,20 @@ class AppealService:
                     f"Case {case_id} (status={status!r}) is not eligible for an appeal"
                 )
 
-            appeal = await self._appeals.insert_appeal(
-                conn,
-                case_id=case_id,
-                tenant_id=tenant_id,
-                level=level,
-                appealed_ref=appealed_ref,
-                filed_by=filed_by,
-                reason=reason,
-            )
+            try:
+                appeal = await self._appeals.insert_appeal(
+                    conn,
+                    case_id=case_id,
+                    tenant_id=tenant_id,
+                    level=level,
+                    appealed_ref=appealed_ref,
+                    filed_by=filed_by,
+                    reason=reason,
+                )
+            except asyncpg.UniqueViolationError:
+                raise AppealNotAllowedError(
+                    "an appeal is already under review for this case"
+                )
 
             # Stop the prior clock BEFORE starting the appeal clock so only one
             # running clock exists per case (the poller monitors single clocks).
