@@ -144,6 +144,14 @@ class CaseService:
                     )
                 except ValueError:
                     pass  # No clock exists (or already stopped) — non-fatal
+            # Auto-close cleanly-final cases (approved/withdrawn/appeal_overturned).
+            # No-op otherwise; closure stops clocks itself (harmless overlap above).
+            from ..closure.service import auto_close_if_resolved
+            await auto_close_if_resolved(
+                conn, case=case, tenant_id=req.tenant_id,
+                engine=self._engine, clock_svc=self._clock_svc,
+                publisher=self._publisher,
+            )
         # Notify platform OUTSIDE the transaction (fire-and-forget)
         if from_state is not None:
             await engine.notify_platform(req, from_state=from_state, event_id=event_id)

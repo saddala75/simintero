@@ -77,13 +77,20 @@ async def test_approve_path_transitions_case_to_approved(pg_pool: asyncpg.Pool):
         async with conn.transaction():
             result = await auto.run(conn, case, f"corr-{uuid.uuid4()}")
 
+    # The returned snapshot reflects the determination outcome (approved); the
+    # case is then auto-closed (cleanly-final) as a DB side effect.
     assert result.status == Status.approved
 
-    # DB-level proof
+    # DB-level proof: approved is auto-closed, with the disposition preserved.
     repo = CaseRepository()
     async with pg_pool.acquire() as conn:
         fetched = await repo.fetch_by_id(conn, case.case_id, case.tenant_id)
-    assert fetched.status == Status.approved
+        disposition = await conn.fetchval(
+            "SELECT disposition FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id, case.tenant_id,
+        )
+    assert fetched.status == Status.closed
+    assert disposition == "approved"
 
 
 @pytest.mark.asyncio

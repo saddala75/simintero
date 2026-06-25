@@ -247,6 +247,17 @@ class AutoDeterminator:
         )
         await self._publisher.publish(conn, event)
 
+        # 4. Auto-close the now-approved case (closed_by=system). Fires AFTER the
+        #    approval events so DECISION_RECORDED is emitted first. This is a DB
+        #    side effect only — the return below still reflects the determination
+        #    outcome (approved), keeping AutoDeterminator.run()'s contract stable.
+        from ..closure.service import auto_close_if_resolved
+        await auto_close_if_resolved(
+            conn, case=updated_case, tenant_id=case.tenant_id,
+            engine=self._engine, clock_svc=self._clock_svc,
+            publisher=self._publisher,
+        )
+
         logger.info(
             "auto_approved case_id=%s tenant_id=%s decision_id=%s artifact=%s version=%s",
             case.case_id,

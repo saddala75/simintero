@@ -297,19 +297,23 @@ async def test_two_lob_full_lifecycle(
     assert decided["status"] == "appeal_overturned"
 
     # ── Stage 6 · Terminal == closure (SLA monitor no longer touches it) ────
+    # appeal_overturned is cleanly-final → auto-closed (closed, disposition kept).
     async with pg_pool.acquire() as conn:
-        final_status = await conn.fetchval(
-            "SELECT status FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+        row = await conn.fetchrow(
+            "SELECT status, disposition FROM workflow_instances "
+            "WHERE case_id=$1 AND tenant_id=$2",
             case.case_id, tenant_id,
         )
+        final_status = row["status"]
         running_clocks = await conn.fetchval(
             "SELECT COUNT(*) FROM clocks "
             "WHERE case_id=$1 AND tenant_id=$2 AND state='running'",
             case.case_id, tenant_id,
         )
-    assert final_status == "appeal_overturned"
+    assert final_status == "closed"
+    assert row["disposition"] == "appeal_overturned"
     assert final_status in TERMINAL_STATES, (
-        f"{lob}: appeal_overturned must be terminal (excluded from SLA scan)"
+        f"{lob}: closed must be terminal (excluded from SLA scan)"
     )
     # Terminal-as-closure: the SLA poller scans only running clocks of non-terminal
     # cases — this case is terminal AND its appeal clock is stopped, so the monitor

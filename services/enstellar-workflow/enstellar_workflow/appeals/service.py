@@ -301,7 +301,7 @@ class AppealService:
             except ValueError:
                 pass
 
-            await self._engine.apply(
+            updated_case, _evt = await self._engine.apply(
                 conn,
                 TransitionRequest(
                     case_id=case_id,
@@ -350,6 +350,16 @@ class AppealService:
                 actor_id="system",
                 actor_type="system",
                 correlation_id=str(appeal_id),
+            )
+
+            # Auto-close on a cleanly-final appeal outcome. Only appeal_overturned
+            # is in AUTO_CLOSE_STATES; appeal_upheld is a no-op (retains next-level
+            # appeal rights). DB side effect only — the returned dict is unchanged.
+            from ..closure.service import auto_close_if_resolved
+            await auto_close_if_resolved(
+                conn, case=updated_case, tenant_id=tenant_id,
+                engine=self._engine, clock_svc=self._clock_svc,
+                publisher=self._pub,
             )
 
         return {

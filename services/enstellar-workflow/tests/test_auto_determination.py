@@ -171,34 +171,45 @@ async def test_auto_determination_never_produces_adverse_outcome(digicore_outcom
         f"'{result_case.status}' from Digicore outcome {digicore_outcome!r}"
     )
 
-    # 2. The engine was called exactly once
-    assert mock_engine.apply.call_count == 1, (
-        f"Expected exactly 1 engine.apply() call; got {mock_engine.apply.call_count}"
+    # 2. The engine is called once (clinical_review) or twice (an approved case is
+    #    then auto-closed: approved → closed). The auto-close transition is a DB
+    #    side effect, never a determination — see closure.auto_close_if_resolved.
+    assert mock_engine.apply.call_count in (1, 2), (
+        f"Expected 1 or 2 engine.apply() calls; got {mock_engine.apply.call_count}"
     )
 
-    # 3. The to_state passed to engine.apply() must not be adverse
-    assert len(applied_states) == 1
+    # 3. NO to_state EVER passed to engine.apply() may be adverse — checked over
+    #    EVERY applied state (strengthened: the auto-close follow-up included).
+    for s in applied_states:
+        assert s not in {
+            "denied", "partially_denied", "adverse_modification"
+        }, (
+            f"INVARIANT VIOLATED: engine.apply() was called with to_state={s!r} "
+            f"(an adverse state) for Digicore outcome {digicore_outcome!r}"
+        )
+
+    # The determination transition is always the FIRST apply.
     applied_state = applied_states[0]
-    assert applied_state not in {
-        "denied", "partially_denied", "adverse_modification"
-    }, (
-        f"INVARIANT VIOLATED: engine.apply() was called with to_state={applied_state!r} "
-        f"(an adverse state) for Digicore outcome {digicore_outcome!r}"
-    )
 
-    # 4. If result is approved, to_state was 'approved'
+    # 4. If result is approved, the determination was 'approved', followed by
+    #    exactly the auto-close transition ('closed').
     if result_case.status == Status.approved:
         assert applied_state == "approved", (
             f"Result status=approved but applied_state={applied_state!r}"
         )
+        assert applied_states == ["approved", "closed"], (
+            f"approved must be auto-closed; got applied_states={applied_states!r}"
+        )
 
-    # 5. If result is not approved, it must be clinical_review
+    # 5. If result is not approved, it must be clinical_review — a single
+    #    transition, no auto-close (clinical_review is not cleanly-final).
     else:
         assert result_case.status == Status.clinical_review, (
             f"Non-approved result must be clinical_review; got '{result_case.status}'"
         )
-        assert applied_state == "clinical_review", (
-            f"Non-approved case must transition to clinical_review; got {applied_state!r}"
+        assert applied_states == ["clinical_review"], (
+            f"Non-approved case must transition only to clinical_review; "
+            f"got {applied_states!r}"
         )
 
 
@@ -223,7 +234,9 @@ async def test_approved_response_transitions_to_approved():
     output = await determinator.run(conn, case, f"corr-{uuid.uuid4()}")
 
     assert output.status == Status.approved
-    req: TransitionRequest = mock_engine.apply.call_args[0][1]
+    # Grab the APPROVAL transition (the first apply); a second apply auto-closes
+    # the now-approved case to `closed` (a DB side effect, not the determination).
+    req: TransitionRequest = mock_engine.apply.call_args_list[0][0][1]
     assert req.to_state == "approved"
     assert req.human_signoff_recorded is False
     assert req.actor_id == "auto-determination"
@@ -245,7 +258,8 @@ async def test_approved_path_decision_payload_contains_decision():
 
     await determinator.run(conn, case, f"corr-{uuid.uuid4()}")
 
-    req: TransitionRequest = mock_engine.apply.call_args[0][1]
+    # First apply == the approval transition (a later apply auto-closes the case).
+    req: TransitionRequest = mock_engine.apply.call_args_list[0][0][1]
     assert "decision" in req.payload
     decision_data = req.payload["decision"]
     assert decision_data["outcome"] == "approved"
@@ -281,7 +295,8 @@ async def test_approved_path_decision_trace_pinned_to_digicore_artifact():
 
     await determinator.run(conn, make_case(), f"corr-{uuid.uuid4()}")
 
-    req: TransitionRequest = mock_engine.apply.call_args[0][1]
+    # First apply == the approval transition (a later apply auto-closes the case).
+    req: TransitionRequest = mock_engine.apply.call_args_list[0][0][1]
     decision_data = req.payload["decision"]
     assert decision_data["rule_artifact_id"] == "policy-v2-2026-q2", (
         "Decision.rule_artifact_id must be pinned to Digicore structured_trace.artifact"

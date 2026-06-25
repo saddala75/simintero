@@ -189,11 +189,14 @@ async def test_multi_level_appeal_ladder(pg_pool: asyncpg.Pool):
     assert ov2["status"] == "appeal_overturned"
 
     async with pg_pool.acquire() as conn:
-        case_status = await conn.fetchval(
-            "SELECT status FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+        # The L2 overturn is cleanly-final → auto-closed (disposition preserved).
+        case_row = await conn.fetchrow(
+            "SELECT status, disposition FROM workflow_instances "
+            "WHERE case_id=$1 AND tenant_id=$2",
             created.case_id, tenant_id,
         )
-        assert case_status == "appeal_overturned"
+        assert case_row["status"] == "closed"
+        assert case_row["disposition"] == "appeal_overturned"
 
         rows = await conn.fetch(
             "SELECT level, status FROM appeals WHERE case_id=$1 AND tenant_id=$2 "

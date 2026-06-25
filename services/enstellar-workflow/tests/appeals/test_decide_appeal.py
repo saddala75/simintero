@@ -90,11 +90,14 @@ async def test_decide_appeal_overturn(pg_pool: asyncpg.Pool):
     assert result["status"] == "appeal_overturned"
 
     async with pg_pool.acquire() as conn:
-        case_status = await conn.fetchval(
-            "SELECT status FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+        # appeal_overturned is cleanly-final → auto-closed (disposition preserved).
+        case_row = await conn.fetchrow(
+            "SELECT status, disposition FROM workflow_instances "
+            "WHERE case_id=$1 AND tenant_id=$2",
             created.case_id, tenant_id,
         )
-        assert case_status == "appeal_overturned"
+        assert case_row["status"] == "closed"
+        assert case_row["disposition"] == "appeal_overturned"
 
         appeal_row = await conn.fetchrow(
             "SELECT * FROM appeals WHERE appeal_id=$1 AND tenant_id=$2",
