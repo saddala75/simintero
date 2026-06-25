@@ -1,0 +1,4 @@
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+export default function MeasureRateCard({ run, summary }) {
+    return (_jsxs("div", { "data-testid": "measure-rate-card", children: [_jsx("h3", { children: run.measure_ref }), _jsxs("p", { children: ["Period: ", run.period_start, " \u2014 ", run.period_end] }), _jsxs("p", { children: ["Status: ", run.status] }), summary && (_jsxs(_Fragment, { children: [_jsxs("p", { "data-testid": "rate", children: ["Rate: ", (summary.rate * 100).toFixed(1), "%"] }), _jsxs("p", { children: ["Denominator: ", summary.denominator_count] }), _jsxs("p", { children: ["Numerator: ", summary.numerator_count] }), _jsxs("p", { children: ["Exclusions: ", summary.exclusion_count] }), _jsxs("p", { children: ["Open Gaps: ", summary.gap_count] }), _jsx("small", { children: "\u26A0 Rate display \u2014 internal use only until quality specialist review" })] }))] }));
+}
