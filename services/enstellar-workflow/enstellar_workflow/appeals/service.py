@@ -200,6 +200,7 @@ class AppealService:
                 actor_id="system",
                 actor_type="system",
                 correlation_id=str(appeal["appeal_id"]),
+                lob=case.lob,
             )
 
         return {
@@ -350,6 +351,7 @@ class AppealService:
                 actor_id="system",
                 actor_type="system",
                 correlation_id=str(appeal_id),
+                lob=updated_case.lob,
             )
 
             # Auto-close on a cleanly-final appeal outcome. Only appeal_overturned

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 
 import asyncpg
 
@@ -41,6 +42,13 @@ class DecisionRecordedConsumer(IdempotentKafkaConsumer):
         for key in ("determination_type", "reason", "reason_codes", "citations"):
             context[key] = event.payload.get(key)
         async with tenant_transaction(self._pool, event.tenant.tenant_id) as conn:
+            # Thread the case's LOB so LOB-specific notices are preferred
+            # (generic fallback when the case row is absent → lob=None).
+            lob_row = await conn.fetchrow(
+                "SELECT lob FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+                uuid.UUID(str(case_id)), event.tenant.tenant_id,
+            )
+            lob = lob_row["lob"] if lob_row is not None else None
             await self._notify.render_and_dispatch(
                 conn,
                 event.tenant.tenant_id,
@@ -51,4 +59,5 @@ class DecisionRecordedConsumer(IdempotentKafkaConsumer):
                 actor_type=event.actor.type.value,
                 correlation_id=event.correlation_id,
                 causation_id=event.event_id,
+                lob=lob,
             )

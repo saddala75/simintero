@@ -67,7 +67,8 @@ async def _seed_denied_template(pool: asyncpg.Pool, tenant_id: str) -> None:
             "'Your request received a determination of {{ outcome }}."
             "{% if reason %} Reason: {{ reason }}.{% endif %}"
             " You have the right to appeal this determination.') "
-            "ON CONFLICT (tenant_id, event_type, channel, version) DO NOTHING",
+            "ON CONFLICT (tenant_id, COALESCE(lob,''), event_type, channel, version) "
+            "DO NOTHING",
             tenant_id,
         )
 
@@ -88,7 +89,8 @@ async def _seed_appeal_templates(pool: asyncpg.Pool, tenant_id: str) -> None:
                 "INSERT INTO notification_templates "
                 "(tenant_id, event_type, channel, subject_template, body_template) "
                 "VALUES ($1, $2, 'portal', 'Appeal update', $3) "
-                "ON CONFLICT (tenant_id, event_type, channel, version) DO NOTHING",
+                "ON CONFLICT (tenant_id, COALESCE(lob,''), event_type, channel, version) "
+                "DO NOTHING",
                 tenant_id, event_type, body,
             )
 
