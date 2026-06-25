@@ -112,6 +112,26 @@ class AppealsRepository:
         )
         return dict(row) if row is not None else None
 
+    async def assigned_appeals(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        tenant_id: str,
+        reviewer_sub: str,
+    ) -> list[dict]:
+        """Open (under_review) appeals assigned to this reviewer, newest first."""
+        rows = await conn.fetch(
+            """
+            SELECT appeal_id, case_id, level, appealed_ref, filed_by, filed_at,
+                   status, assigned_at
+              FROM appeals
+             WHERE tenant_id = $1 AND assigned_to = $2 AND status = 'under_review'
+             ORDER BY filed_at DESC
+            """,
+            tenant_id, reviewer_sub,
+        )
+        return [dict(r) for r in rows]
+
     async def record_outcome(
         self,
         conn: asyncpg.Connection,

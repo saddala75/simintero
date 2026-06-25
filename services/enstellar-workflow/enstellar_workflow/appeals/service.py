@@ -343,6 +343,27 @@ class AppealService:
             "status": to_state,
         }
 
+    async def list_assigned(
+        self, *, tenant_id: str, reviewer_sub: str
+    ) -> list[dict]:
+        """The reviewer's open (under_review) assigned appeals, newest first."""
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            rows = await self._appeals.assigned_appeals(
+                conn, tenant_id=tenant_id, reviewer_sub=reviewer_sub
+            )
+        return [
+            {
+                **r,
+                "appeal_id": str(r["appeal_id"]),
+                "case_id": str(r["case_id"]),
+                "filed_at": r["filed_at"].isoformat() if r.get("filed_at") else None,
+                "assigned_at": (
+                    r["assigned_at"].isoformat() if r.get("assigned_at") else None
+                ),
+            }
+            for r in rows
+        ]
+
     async def assign_reviewer(
         self,
         *,
