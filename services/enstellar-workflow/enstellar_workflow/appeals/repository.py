@@ -90,6 +90,28 @@ class AppealsRepository:
         )
         return dict(row) if row is not None else None
 
+    async def assign(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        appeal_id: uuid.UUID,
+        tenant_id: str,
+        reviewer_id: str,
+        assigned_by: str,
+    ) -> dict | None:
+        """Assign a reviewer to an under_review appeal. Returns the updated row,
+        or None if the appeal does not exist / is no longer under_review."""
+        row = await conn.fetchrow(
+            """
+            UPDATE appeals
+               SET assigned_to = $3, assigned_at = now(), assigned_by = $4
+             WHERE appeal_id = $1 AND tenant_id = $2 AND status = 'under_review'
+            RETURNING appeal_id, level, status, assigned_to
+            """,
+            appeal_id, tenant_id, reviewer_id, assigned_by,
+        )
+        return dict(row) if row is not None else None
+
     async def record_outcome(
         self,
         conn: asyncpg.Connection,

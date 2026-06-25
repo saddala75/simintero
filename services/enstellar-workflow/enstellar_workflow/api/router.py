@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..auth import AuthedRequest
+from ..auth import AssignerRequest, AuthedRequest
 from pydantic import BaseModel
 
 from canonical_model import Case
@@ -97,6 +97,12 @@ class AppealDecisionBody(BaseModel):
     reviewer_actor: str
     reason: str | None = None
     human_signoff_recorded: bool = False
+
+
+class AssignReviewerBody(BaseModel):
+    """Request body for POST /cases/{case_id}/appeals/{appeal_id}/assignment."""
+
+    reviewer_id: str
 
 
 async def _get_service() -> CaseService:
@@ -276,6 +282,40 @@ async def decide_appeal(
         )
     except GuardError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except COIError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AppealConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{case_id}/appeals/{appeal_id}/assignment",
+    status_code=200,
+    response_model=None,
+)
+async def assign_appeal_reviewer(
+    case_id: uuid.UUID,
+    appeal_id: uuid.UUID,
+    body: AssignReviewerBody,
+    auth: AssignerRequest,
+) -> Any:
+    """Assign a reviewer to an under_review appeal (assigner role; COI-checked).
+
+    Returns 200 with {'appeal_id', 'assigned_to', 'status'}.
+    Returns 409 if the assigned reviewer is not independent (COI), or if the
+    appeal is no longer under_review.
+    """
+    from ..appeals.service import AppealConflictError, AppealService, COIError
+
+    pool = await get_pool()
+    try:
+        return await AppealService(pool).assign_reviewer(
+            case_id=case_id,
+            tenant_id=auth.tenant_id,
+            appeal_id=appeal_id,
+            reviewer_id=body.reviewer_id,
+            assigned_by=auth.sub,
+        )
     except COIError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AppealConflictError as exc:

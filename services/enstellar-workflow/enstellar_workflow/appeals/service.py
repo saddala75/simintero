@@ -342,3 +342,61 @@ class AppealService:
             "outcome": outcome,
             "status": to_state,
         }
+
+    async def assign_reviewer(
+        self,
+        *,
+        case_id: uuid.UUID,
+        tenant_id: str,
+        appeal_id: uuid.UUID,
+        reviewer_id: str,
+        assigned_by: str,
+    ) -> dict:
+        """Assign a reviewer to an under_review appeal (COI-checked).
+
+        The assigned reviewer must be independent: they cannot be the original
+        adverse determiner, nor (level >= 2) the prior-level reviewer. The COI
+        check runs BEFORE the write, so a violation commits nothing.
+        """
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            appeal = await self._appeals.fetch(conn, appeal_id, tenant_id)
+            if appeal is None or appeal["status"] != "under_review":
+                raise AppealConflictError(
+                    f"Appeal {appeal_id} is not under_review (already decided or not found)"
+                )
+            determiner = await self._appeals.adverse_determiner(
+                conn, case_id, tenant_id
+            )
+            if determiner is not None and reviewer_id == determiner:
+                raise COIError(
+                    "assigned reviewer must differ from the original determiner"
+                )
+            if appeal["level"] >= 2:
+                prior = await self._appeals.appeal_at_level(
+                    conn, case_id, tenant_id, appeal["level"] - 1
+                )
+                if (
+                    prior
+                    and prior.get("reviewer_actor")
+                    and reviewer_id == prior["reviewer_actor"]
+                ):
+                    raise COIError(
+                        "assigned reviewer must differ from the prior-level reviewer"
+                    )
+
+            row = await self._appeals.assign(
+                conn,
+                appeal_id=appeal_id,
+                tenant_id=tenant_id,
+                reviewer_id=reviewer_id,
+                assigned_by=assigned_by,
+            )
+            if row is None:
+                raise AppealConflictError(
+                    f"Appeal {appeal_id} is not under_review"
+                )
+            return {
+                "appeal_id": str(appeal_id),
+                "assigned_to": reviewer_id,
+                "status": row["status"],
+            }
