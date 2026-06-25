@@ -104,16 +104,61 @@ async def test_write_case_evidence_upserts_one_execute_per_row(monkeypatch):
         sql = args[0]
         assert "INSERT INTO fabric.resource" in sql
         assert "ON CONFLICT (tenant_id, resource_type, fhir_id) DO UPDATE" in sql
-        assert "$6::jsonb" in sql
-        # Positional params: tenant, type, fhir_id, member_ref, raw_key, content-json
+        assert "$7::jsonb" in sql
+        # Positional params: tenant, type, fhir_id, member_ref, source, raw_key, content-json
         assert args[1] == "tenant-a"
         assert args[2] == row["resource_type"]
         assert args[3] == row["fhir_id"]
         assert args[4] == row["member_ref"]
-        assert args[5] == "raw/key"
+        assert args[5] == "pas-intake"  # default source
+        assert args[6] == "raw/key"
         # JSONB param must be a JSON string, not a dict.
-        assert isinstance(args[6], str)
-        assert json.loads(args[6]) == row["content"]
+        assert isinstance(args[7], str)
+        assert json.loads(args[7]) == row["content"]
+
+
+@pytest.mark.asyncio
+async def test_write_case_evidence_source_param_defaults_and_overrides(monkeypatch):
+    """source is a bound param: default 'pas-intake', overridable to 'rfi-response'.
+
+    Mirrors the existing upsert test's mock-transaction pattern. Asserts the SQL
+    binds source as $5 (content as $7::jsonb) and the override lands as args[5].
+    """
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    @asynccontextmanager
+    async def fake_tx(pool, tenant_id):
+        yield conn
+
+    monkeypatch.setattr(fabric_writer, "tenant_transaction", fake_tx)
+
+    rows = collect_evidence_rows(BUNDLE, "pat-001")
+
+    # Override to rfi-response.
+    n = await write_case_evidence(
+        object(), "tenant-a", "pat-001", "raw/key", BUNDLE, source="rfi-response"
+    )
+    assert n == len(rows)
+    for call, row in zip(conn.execute.await_args_list, rows):
+        args = call.args
+        sql = args[0]
+        assert "$7::jsonb" in sql
+        # Positional params: tenant, type, fhir_id, member_ref, source, raw_key, content-json
+        assert args[1] == "tenant-a"
+        assert args[2] == row["resource_type"]
+        assert args[3] == row["fhir_id"]
+        assert args[4] == row["member_ref"]
+        assert args[5] == "rfi-response"
+        assert args[6] == "raw/key"
+        assert isinstance(args[7], str)
+        assert json.loads(args[7]) == row["content"]
+
+    # Default stays 'pas-intake' when source is omitted.
+    conn.execute.reset_mock()
+    await write_case_evidence(object(), "tenant-a", "pat-001", "raw/key", BUNDLE)
+    for call in conn.execute.await_args_list:
+        assert call.args[5] == "pas-intake"
 
 
 @pytest.mark.asyncio

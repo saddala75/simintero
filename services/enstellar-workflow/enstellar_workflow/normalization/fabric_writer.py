@@ -26,7 +26,7 @@ _ACTIVE = {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/conditio
 UPSERT = (
     "INSERT INTO fabric.resource "
     "(tenant_id, resource_type, fhir_id, member_ref, source, provenance_ref, content) "
-    "VALUES ($1,$2,$3,$4,'pas-intake',$5,$6::jsonb) "
+    "VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb) "
     "ON CONFLICT (tenant_id, resource_type, fhir_id) DO UPDATE SET "
     "content=EXCLUDED.content, member_ref=EXCLUDED.member_ref, "
     "version=fabric.resource.version+1, last_updated=now()"
@@ -89,6 +89,7 @@ async def write_case_evidence(
     member_logical_id: str,
     raw_key: str,
     bundle: dict[str, Any],
+    source: str = "pas-intake",
 ) -> int:
     """Upsert the bundle's evidence rows into ``fabric.resource``.
 
@@ -110,6 +111,7 @@ async def write_case_evidence(
                 r["resource_type"],
                 r["fhir_id"],
                 r["member_ref"],
+                source,
                 raw_key,
                 json.dumps(r["content"]),
             )
