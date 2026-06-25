@@ -34,5 +34,15 @@ VALUES
    'Your appeal (level {{ level }}) was overturned — the prior determination is reversed.'),
   ('demo-tenant', NULL, 'appeal_upheld', 'portal',
    'Appeal update',
-   'Your appeal (level {{ level }}) was upheld.')
+   'Your appeal (level {{ level }}) was upheld.'),
+  -- Grievances (P5) — member complaint lifecycle, parallel to cases.
+  ('demo-tenant', NULL, 'grievance_filed', 'portal',
+   'Grievance received',
+   'We received your grievance and will respond within {{ resolution_days }} days.'),
+  ('demo-tenant', NULL, 'grievance_acknowledged', 'portal',
+   'Grievance acknowledged',
+   'Your grievance has been acknowledged and is being reviewed.'),
+  ('demo-tenant', NULL, 'grievance_resolved', 'portal',
+   'Grievance resolved',
+   'Your grievance has been resolved.')
 ON CONFLICT (tenant_id, COALESCE(lob,''), event_type, channel, version) DO NOTHING;
