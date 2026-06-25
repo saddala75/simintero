@@ -70,6 +70,10 @@ async def test_decide_appeal_overturn(pg_pool: asyncpg.Pool):
     tenant_id = f"tenant-decide-{uuid.uuid4()}"
     await _seed_template(pg_pool, tenant_id, "appeal_overturned")
     created, appeal_id = await _setup_appeal_review(pg_pool, tenant_id)
+    await AppealService(pg_pool).assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(appeal_id), reviewer_id="rev-1", assigned_by="coord",
+    )
 
     result = await AppealService(pg_pool).decide_appeal(
         case_id=created.case_id,
@@ -141,6 +145,10 @@ async def test_decide_appeal_uphold_with_signoff(pg_pool: asyncpg.Pool):
     tenant_id = f"tenant-decide-{uuid.uuid4()}"
     await _seed_template(pg_pool, tenant_id, "appeal_upheld")
     created, appeal_id = await _setup_appeal_review(pg_pool, tenant_id)
+    await AppealService(pg_pool).assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(appeal_id), reviewer_id="rev-2", assigned_by="coord",
+    )
 
     result = await AppealService(pg_pool).decide_appeal(
         case_id=created.case_id,
@@ -172,6 +180,10 @@ async def test_decide_appeal_uphold_with_signoff(pg_pool: asyncpg.Pool):
 async def test_decide_appeal_uphold_without_signoff_blocks(pg_pool: asyncpg.Pool):
     tenant_id = f"tenant-decide-{uuid.uuid4()}"
     created, appeal_id = await _setup_appeal_review(pg_pool, tenant_id)
+    await AppealService(pg_pool).assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(appeal_id), reviewer_id="rev-3", assigned_by="coord",
+    )
 
     with pytest.raises(GuardError):
         await AppealService(pg_pool).decide_appeal(

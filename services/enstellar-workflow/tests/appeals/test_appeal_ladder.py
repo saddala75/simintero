@@ -105,6 +105,10 @@ async def test_multi_level_appeal_ladder(pg_pool: asyncpg.Pool):
         assert l1_row["status"] == "under_review"
 
     # ── Uphold L1 (with sign-off) ──────────────────────────────────────────
+    await svc.assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(l1_appeal_id), reviewer_id="rev-1", assigned_by="coord",
+    )
     up1 = await svc.decide_appeal(
         case_id=created.case_id,
         tenant_id=tenant_id,
@@ -169,6 +173,10 @@ async def test_multi_level_appeal_ladder(pg_pool: asyncpg.Pool):
         assert l2_clock == "running"
 
     # ── Overturn L2 ────────────────────────────────────────────────────────
+    await svc.assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(l2_appeal_id), reviewer_id="rev-2", assigned_by="coord",
+    )
     ov2 = await svc.decide_appeal(
         case_id=created.case_id,
         tenant_id=tenant_id,
@@ -231,6 +239,11 @@ async def test_file_appeal_beyond_max_level_raises(pg_pool: asyncpg.Pool):
             reason=f"Appeal at level {level}",
         )
         assert filed["level"] == level
+        await svc.assign_reviewer(
+            case_id=created.case_id, tenant_id=tenant_id,
+            appeal_id=uuid.UUID(filed["appeal_id"]),
+            reviewer_id=f"rev-{level}", assigned_by="coord",
+        )
         await svc.decide_appeal(
             case_id=created.case_id,
             tenant_id=tenant_id,

@@ -261,6 +261,13 @@ async def test_two_lob_full_lifecycle(
     assert appeal_clock == "running", f"{lob}: appeal clock must be running"
 
     # ── Stage 5b · COI — the determiner cannot decide their own appeal ──────
+    # Force-assign the conflicted determiner directly (assign_reviewer would
+    # reject this on COI) so the decide passes the assignment gate and hits COI.
+    async with pg_pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE appeals SET assigned_to=$1 WHERE appeal_id=$2 AND tenant_id=$3",
+            _DETERMINER, appeal_id, tenant_id,
+        )
     with pytest.raises(COIError):
         await svc.decide_appeal(
             case_id=case.case_id,
@@ -273,6 +280,11 @@ async def test_two_lob_full_lifecycle(
         )
 
     # ── Stage 5c · Independent reviewer overturns ───────────────────────────
+    # Reassign to the independent reviewer (COI-clean) before they decide.
+    await svc.assign_reviewer(
+        case_id=case.case_id, tenant_id=tenant_id,
+        appeal_id=appeal_id, reviewer_id=_INDEPENDENT_REVIEWER, assigned_by="coord",
+    )
     decided = await svc.decide_appeal(
         case_id=case.case_id,
         tenant_id=tenant_id,

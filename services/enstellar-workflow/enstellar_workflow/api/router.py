@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..auth import AssignerRequest, AuthedRequest
+from ..auth import AssignerRequest, AuthedRequest, ReviewerRequest
 from pydantic import BaseModel
 
 from canonical_model import Case
@@ -94,7 +94,6 @@ class AppealDecisionBody(BaseModel):
     """Request body for POST /cases/{case_id}/appeals/{appeal_id}/decision."""
 
     outcome: Literal["overturned", "upheld"]
-    reviewer_actor: str
     reason: str | None = None
     human_signoff_recorded: bool = False
 
@@ -259,15 +258,26 @@ async def decide_appeal(
     case_id: uuid.UUID,
     appeal_id: uuid.UUID,
     body: AppealDecisionBody,
-    auth: AuthedRequest,
+    auth: ReviewerRequest,
 ) -> Any:
     """Decide an appeal — overturn or uphold (uphold requires human sign-off).
 
+    The reviewer identity (reviewer_actor) is taken from the authenticated JWT
+    ``sub`` — NEVER from the request body — and the appeal must be assigned to
+    that reviewer (the COI check is the backstop).
+
     Returns 200 with {'appeal_id', 'outcome', 'status'}.
     Returns 422 if an uphold is attempted without a recorded human sign-off.
-    Returns 409 if the appeal is no longer under_review.
+    Returns 403 if the appeal is not assigned to the authenticated reviewer.
+    Returns 409 if the reviewer has a conflict of interest, or the appeal is no
+    longer under_review.
     """
-    from ..appeals.service import AppealConflictError, AppealService, COIError
+    from ..appeals.service import (
+        AppealConflictError,
+        AppealService,
+        COIError,
+        NotAssignedError,
+    )
 
     pool = await get_pool()
     try:
@@ -276,12 +286,14 @@ async def decide_appeal(
             tenant_id=auth.tenant_id,
             appeal_id=appeal_id,
             outcome=body.outcome,
-            reviewer_actor=body.reviewer_actor,
+            reviewer_actor=auth.sub,
             reason=body.reason,
             human_signoff_recorded=body.human_signoff_recorded,
         )
     except GuardError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except NotAssignedError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except COIError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AppealConflictError as exc:

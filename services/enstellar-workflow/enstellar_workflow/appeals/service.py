@@ -47,6 +47,14 @@ class COIError(Exception):
         self.reason = reason
 
 
+class NotAssignedError(Exception):
+    """Raised when a reviewer tries to decide an appeal not assigned to them.
+
+    The decide route stamps reviewer_actor from the authenticated JWT ``sub``;
+    this gate makes the COI check enforceable rather than advisory — only the
+    reviewer the appeal is assigned to may decide it. Mapped to HTTP 403."""
+
+
 class AppealService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         # Lazy import breaks the engine ↔ cases circular dependency at init time.
@@ -241,6 +249,13 @@ class AppealService:
             if appeal is None or appeal["status"] != "under_review":
                 raise AppealConflictError(
                     f"Appeal {appeal_id} is not under_review (already decided or not found)"
+                )
+            # Assignment gate — a reviewer may only decide an appeal assigned to
+            # them. Runs BEFORE the COI block so a decide-time COI test (which
+            # sets assigned_to == the conflicted reviewer) still reaches COI.
+            if appeal.get("assigned_to") != reviewer_actor:
+                raise NotAssignedError(
+                    f"appeal {appeal_id} is not assigned to {reviewer_actor!r}"
                 )
             determiner = await self._appeals.adverse_determiner(
                 conn, case_id, tenant_id

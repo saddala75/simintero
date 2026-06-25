@@ -58,6 +58,19 @@ async def _drive_to_denied(pool: asyncpg.Pool, created, actor_id: str) -> None:
             await engine.apply(conn, req)
 
 
+async def _force_assign(
+    pool: asyncpg.Pool, tenant_id: str, appeal_id, reviewer: str
+) -> None:
+    """Set assigned_to DIRECTLY via SQL — bypasses assign_reviewer's COI check so
+    a CONFLICTED reviewer can be assigned, letting the COI-at-decide gate fire."""
+    aid = appeal_id if isinstance(appeal_id, uuid.UUID) else uuid.UUID(appeal_id)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE appeals SET assigned_to=$1 WHERE appeal_id=$2 AND tenant_id=$3",
+            reviewer, aid, tenant_id,
+        )
+
+
 async def _setup(pool: asyncpg.Pool, tenant_id: str, determiner: str):
     """Create a case, drive it to denied by `determiner` (human), file an appeal."""
     await _seed_templates(pool, tenant_id)
@@ -78,6 +91,9 @@ async def test_coi_reviewer_equals_determiner_blocks(pg_pool: asyncpg.Pool):
     """reviewer == the original adverse determiner → COIError, NO write."""
     tenant_id = f"tenant-coi-{uuid.uuid4()}"
     created, appeal_id = await _setup(pg_pool, tenant_id, determiner="clinician-7")
+    # Force-assign the conflicted determiner directly (assign_reviewer would
+    # reject this on COI) so the decide passes the assignment gate and reaches COI.
+    await _force_assign(pg_pool, tenant_id, appeal_id, "clinician-7")
 
     with pytest.raises(COIError):
         await AppealService(pg_pool).decide_appeal(
@@ -109,6 +125,10 @@ async def test_coi_independent_reviewer_succeeds(pg_pool: asyncpg.Pool):
     """An independent reviewer (!= determiner) decides successfully."""
     tenant_id = f"tenant-coi-{uuid.uuid4()}"
     created, appeal_id = await _setup(pg_pool, tenant_id, determiner="clinician-7")
+    await AppealService(pg_pool).assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(appeal_id), reviewer_id="rev-1", assigned_by="coord",
+    )
 
     result = await AppealService(pg_pool).decide_appeal(
         case_id=created.case_id,
@@ -137,7 +157,11 @@ async def test_coi_level2_prior_reviewer_blocks(pg_pool: asyncpg.Pool):
     svc = AppealService(pg_pool)
     created, l1_appeal_id = await _setup(pg_pool, tenant_id, determiner="clinician-7")
 
-    # Uphold L1 by rev-1 (with sign-off).
+    # Assign + uphold L1 by rev-1 (with sign-off).
+    await svc.assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(l1_appeal_id), reviewer_id="rev-1", assigned_by="coord",
+    )
     await svc.decide_appeal(
         case_id=created.case_id,
         tenant_id=tenant_id,
@@ -158,6 +182,10 @@ async def test_coi_level2_prior_reviewer_blocks(pg_pool: asyncpg.Pool):
     assert l2["level"] == 2
     l2_appeal_id = l2["appeal_id"]
 
+    # Force-assign the conflicted prior-level reviewer rev-1 directly (assign_reviewer
+    # would reject this on COI) so the decide reaches the COI backstop.
+    await _force_assign(pg_pool, tenant_id, l2_appeal_id, "rev-1")
+
     # COI: the L2 reviewer cannot be the L1 (prior-level) reviewer rev-1.
     with pytest.raises(COIError):
         await svc.decide_appeal(
@@ -177,7 +205,11 @@ async def test_coi_level2_prior_reviewer_blocks(pg_pool: asyncpg.Pool):
         )
         assert l2_status == "under_review"
 
-    # A fresh independent L2 reviewer succeeds.
+    # A fresh independent L2 reviewer succeeds (assign rev-2, then decide).
+    await svc.assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(l2_appeal_id), reviewer_id="rev-2", assigned_by="coord",
+    )
     result = await svc.decide_appeal(
         case_id=created.case_id,
         tenant_id=tenant_id,

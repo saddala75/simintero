@@ -332,6 +332,11 @@ async def test_re_appeal_after_uphold_succeeds(pg_pool: asyncpg.Pool):
     # Uphold L1 (L1 status becomes 'upheld', not 'under_review').
     # reviewer_actor must differ from the adverse determiner ("reviewer-001").
     from enstellar_workflow.appeals.service import AppealService as _AS  # noqa: F401
+    await svc.assign_reviewer(
+        case_id=created.case_id, tenant_id=tenant_id,
+        appeal_id=uuid.UUID(l1["appeal_id"]),
+        reviewer_id="rev-independent", assigned_by="coord",
+    )
     await svc.decide_appeal(
         case_id=created.case_id,
         tenant_id=tenant_id,
