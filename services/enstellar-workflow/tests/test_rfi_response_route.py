@@ -207,6 +207,38 @@ async def test_rfi_response_non_pend_rfi_is_conflict(
 
 
 @pytest.mark.asyncio
+async def test_rfi_response_unset_fabric_pool_is_unavailable(
+    ac: AsyncClient, pg_pool: asyncpg.Pool
+):
+    """An unset fabric pool must fail loudly (503) — this endpoint's purpose IS
+    the evidence write, so it must NOT silently re-gate having ingested nothing."""
+    tenant_id = "tenant-rfi-503"
+    case = _make_pend_rfi_case(tenant_id, "pat-503")
+    await _seed_case(pg_pool, case)
+    app.state.fabric_pool = None  # simulate SIMINTERO_DB_URL unset
+
+    resp = await ac.post(
+        "/internal/rfi-response",
+        json={
+            "bundle": _bundle("pat-503", "11111-1"),
+            "tenant_id": tenant_id,
+            "case_id": str(case.case_id),
+        },
+    )
+    assert resp.status_code == 503, resp.text
+
+    # No RFIResponseReceived was published (we never got past the guard).
+    async with pg_pool.acquire() as conn:
+        published = await conn.fetchval(
+            "SELECT COUNT(*) FROM shared.outbox WHERE envelope->>'schema_ref' = $1"
+            " AND envelope->'payload'->>'case_id' = $2",
+            _RFI_SCHEMA_REF,
+            str(case.case_id),
+        )
+    assert published == 0
+
+
+@pytest.mark.asyncio
 async def test_rfi_response_missing_case_is_not_found(ac: AsyncClient):
     resp = await ac.post(
         "/internal/rfi-response",

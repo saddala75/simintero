@@ -171,6 +171,12 @@ async def rfi_response(
     if not member_ref:
         raise HTTPException(status_code=422, detail="case has no stable member_ref")
 
+    # Unlike the best-effort intake bridge, this endpoint's whole purpose IS the
+    # fabric write — an unset fabric pool must fail loudly (503), not silently
+    # re-gate the case having ingested zero evidence.
+    if request.app.state.fabric_pool is None:
+        raise HTTPException(status_code=503, detail="fabric store unavailable")
+
     # 2. Write the response evidence to fabric as SUBMITTED (fabric pool) — EVIDENCE FIRST.
     n = await write_case_evidence(
         request.app.state.fabric_pool,
