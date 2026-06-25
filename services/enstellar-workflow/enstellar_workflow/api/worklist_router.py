@@ -41,6 +41,7 @@ async def get_worklist(
             FROM workflow_instances wi
             WHERE wi.tenant_id = $1
               AND ($2 = 'default' OR wi.assignee_queue = $2)
+              AND wi.status <> 'closed'
             """,
             tenant_id,
             queue_id,
@@ -67,6 +68,7 @@ async def get_worklist(
                 AND c.state IN ('running', 'paused', 'breached')
             WHERE wi.tenant_id = $1
               AND ($2 = 'default' OR wi.assignee_queue = $2)
+              AND wi.status <> 'closed'
             ORDER BY c.deadline ASC NULLS LAST, wi.created_at DESC
             LIMIT $3 OFFSET $4
             """,

@@ -98,6 +98,12 @@ class AppealDecisionBody(BaseModel):
     human_signoff_recorded: bool = False
 
 
+class CloseBody(BaseModel):
+    """Request body for POST /cases/{case_id}/close."""
+
+    reason: str | None = None
+
+
 class AssignReviewerBody(BaseModel):
     """Request body for POST /cases/{case_id}/appeals/{appeal_id}/assignment."""
 
@@ -335,6 +341,29 @@ async def assign_appeal_reviewer(
     except COIError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AppealConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{case_id}/close", status_code=200, response_model=None)
+async def close_case(case_id: uuid.UUID, body: CloseBody, auth: ReviewerRequest) -> Any:
+    """Explicitly close a settled case (records disposition + closed_by=sub).
+
+    NOTE: closing a denied/adverse case ends its appeal window — close only after
+    the appeal window has lapsed. 409 from an in-flight state or if already closed.
+    """
+    from ..closure.service import AlreadyClosedError, ClosureService, NotCloseableError
+
+    pool = await get_pool()
+    try:
+        return await ClosureService(pool).close_case(
+            case_id=case_id,
+            tenant_id=auth.tenant_id,
+            closed_by=auth.sub,
+            reason=body.reason,
+        )
+    except AlreadyClosedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except NotCloseableError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
