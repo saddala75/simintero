@@ -17,6 +17,7 @@ from enstellar_workflow.auth import (
     ReviewerContext,
     require_appeals_assigner,
     require_auth,
+    require_grievance_coordinator,
     require_reviewer,
 )
 
@@ -77,6 +78,20 @@ async def _fake_require_assigner(request: Request):
     return ctx
 
 
+async def _fake_require_grievance_coordinator(request: Request):
+    """Test replacement for require_grievance_coordinator — authenticates as a coordinator."""
+    token = request.headers.get("Authorization", "")[len("Bearer "):]
+    sub = request.headers.get("X-Test-Sub", "test-coordinator")
+    ctx = ReviewerContext(
+        tenant_id=token,
+        sub=sub,
+        roles=["grievance_coordinator"],
+        principal_type="human",
+    )
+    set_context(ctx)
+    return ctx
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _install_fake_auth() -> None:
     """Register the fake auth deps for all workflow-engine API tests."""
@@ -84,10 +99,14 @@ def _install_fake_auth() -> None:
     app.dependency_overrides[require_auth] = _fake_require_auth
     app.dependency_overrides[require_reviewer] = _fake_require_reviewer
     app.dependency_overrides[require_appeals_assigner] = _fake_require_assigner
+    app.dependency_overrides[require_grievance_coordinator] = (
+        _fake_require_grievance_coordinator
+    )
     yield
     app.dependency_overrides.pop(require_auth, None)
     app.dependency_overrides.pop(require_reviewer, None)
     app.dependency_overrides.pop(require_appeals_assigner, None)
+    app.dependency_overrides.pop(require_grievance_coordinator, None)
 
 
 # OPA URL the workflow engine calls by default (config opa_url default).

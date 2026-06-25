@@ -20,6 +20,7 @@ import enstellar_workflow.auth as auth_module
 from enstellar_workflow.auth import (
     ReviewerContext,
     require_appeals_assigner,
+    require_grievance_coordinator,
     require_reviewer,
 )
 
@@ -91,6 +92,23 @@ async def test_require_appeals_assigner_without_role_raises_forbidden(patch_vali
     patch_validate(_claims(["reviewer"]))
     with pytest.raises(ForbiddenError):
         await require_appeals_assigner(_creds()).__anext__()
+
+
+@pytest.mark.asyncio
+async def test_require_grievance_coordinator_yields_context_with_sub(patch_validate) -> None:
+    patch_validate(_claims(["grievance_coordinator"], sub="grv-9"))
+    ctx = await _drive(require_grievance_coordinator(_creds()))
+    assert isinstance(ctx, ReviewerContext)
+    assert ctx.sub == "grv-9"
+    assert ctx.tenant_id == "t1"
+    assert "grievance_coordinator" in ctx.roles
+
+
+@pytest.mark.asyncio
+async def test_require_grievance_coordinator_without_role_raises_forbidden(patch_validate) -> None:
+    patch_validate(_claims(["reviewer"]))
+    with pytest.raises(ForbiddenError):
+        await require_grievance_coordinator(_creds()).__anext__()
 
 
 @pytest.mark.asyncio

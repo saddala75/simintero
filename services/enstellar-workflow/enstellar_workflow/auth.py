@@ -63,6 +63,9 @@ REVIEWER_ROLE = "reviewer"
 # Configurable; matches the Keycloak ``simintero`` realm role for the people who
 # assign appeal cases to reviewers.
 APPEALS_ASSIGNER_ROLE = "appeals_coordinator"
+# Matches the Keycloak ``simintero`` realm role for the people who acknowledge
+# grievances and assign investigators (P5).
+GRIEVANCE_COORDINATOR_ROLE = "grievance_coordinator"
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -122,5 +125,17 @@ async def require_appeals_assigner(
         yield ctx
 
 
+async def require_grievance_coordinator(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> AsyncIterator[ReviewerContext]:
+    """Enforce the ``grievance_coordinator`` role; yield a scoped ``ReviewerContext``."""
+    ctx = await _authed_with_role(creds, GRIEVANCE_COORDINATOR_ROLE)
+    with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
+        yield ctx
+
+
 ReviewerRequest = Annotated[ReviewerContext, Depends(require_reviewer)]
 AssignerRequest = Annotated[ReviewerContext, Depends(require_appeals_assigner)]
+GrievanceCoordinatorRequest = Annotated[
+    ReviewerContext, Depends(require_grievance_coordinator)
+]
