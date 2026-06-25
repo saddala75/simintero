@@ -127,3 +127,64 @@ async def test_lob_none_uses_generic_default(pg_pool):
 
     assert "Denied. Appeal within 60 days" in body
     assert log_lob is None
+
+
+@pytest.mark.asyncio
+async def test_notification_sent_payload_carries_lob(pg_pool):
+    """The NOTIFICATION_SENT event payload carries lob (for downstream reporting)."""
+    from enstellar_workflow.comms.service import NotificationService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+
+    service = NotificationService(OutboxPublisher())
+    tenant_id = f"lob-test-{uuid.uuid4()}"
+    case_id = str(uuid.uuid4())
+
+    async with pg_pool.acquire() as conn:
+        await _seed(conn, tenant_id)
+        async with conn.transaction():
+            await service.render_and_dispatch(
+                conn, tenant_id, case_id, "denied",
+                {"case_id": case_id, "outcome": "denied"},
+                "system", "system", lob="ma",
+            )
+        env = await conn.fetchval(
+            "SELECT envelope FROM shared.outbox "
+            "WHERE envelope->>'schema_ref'=$1 AND envelope->'payload'->>'case_id'=$2",
+            SchemaRef.NOTIFICATION_SENT, case_id,
+        )
+    if isinstance(env, str):
+        env = json.loads(env)
+    assert env["payload"]["lob"] == "ma"
+
+
+@pytest.mark.asyncio
+async def test_no_matching_template_sends_nothing_and_warns(pg_pool, caplog):
+    """An LOB with NO specific template AND no generic fallback → zero notices,
+    and a loud warning (a compliance-critical notice must not be dropped silently)."""
+    import logging
+
+    from enstellar_workflow.comms.service import NotificationService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+
+    service = NotificationService(OutboxPublisher())
+    tenant_id = f"lob-test-{uuid.uuid4()}"
+    case_id = str(uuid.uuid4())
+
+    async with pg_pool.acquire() as conn:
+        # Only an MA-specific template; NO generic (lob NULL) row.
+        await conn.execute(
+            "INSERT INTO notification_templates (tenant_id, event_type, channel, lob, "
+            "subject_template, body_template) "
+            "VALUES ($1, 'denied', 'portal', 'ma', 'MA Denied', 'MA body.')",
+            tenant_id,
+        )
+        with caplog.at_level(logging.WARNING):
+            async with conn.transaction():
+                ids = await service.render_and_dispatch(
+                    conn, tenant_id, case_id, "denied",
+                    {"case_id": case_id, "outcome": "denied"},
+                    "system", "system", lob="commercial",  # no commercial + no generic
+                )
+
+    assert ids == []
+    assert any("no notification template matched" in r.message for r in caplog.records)

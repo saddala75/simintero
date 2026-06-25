@@ -69,6 +69,16 @@ class NotificationService:
             "ORDER BY channel, (lob IS NULL) ASC, version DESC",
             tenant_id, event_type, lob,
         )
+        if not templates:
+            # Compliance-critical: an adverse determination/appeal notice that
+            # matches NO template (no LOB-specific row AND no generic lob=NULL
+            # fallback) is silently never sent. Surface it loudly so a missing
+            # per-LOB template is caught, not dropped.
+            logger.warning(
+                "no notification template matched — notice NOT sent "
+                "(tenant=%s case=%s event_type=%s lob=%s)",
+                tenant_id, case_id, event_type, lob,
+            )
         notification_ids: list[str] = []
         for tmpl in templates:
             try:
@@ -114,6 +124,7 @@ class NotificationService:
                         "notification_id": str(nid),
                         "subject": subject,
                         "body": body,
+                        "lob": lob,
                     },
                 ),
             )
