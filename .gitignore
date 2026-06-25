@@ -15,3 +15,8 @@ coverage/
 .venv/
 __pycache__/
 *.py[cod]
+
+# generated artifacts (regenerable — graphify knowledge graph, e2e reports)
+graphify-out/
+modules/graphify-out/
+integration/e2e/reports/
