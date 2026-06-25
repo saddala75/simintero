@@ -21,6 +21,9 @@ class SchemaRef:
     RFI_RESPONSE_RECEIVED = "sim.case.lifecycle/RFIResponseReceived/v1"
     APPEAL_FILED = "sim.case.lifecycle/AppealFiled/v1"
     APPEAL_DECIDED = "sim.case.lifecycle/AppealDecided/v1"
+    GRIEVANCE_FILED = "sim.case.lifecycle/GrievanceFiled/v1"
+    GRIEVANCE_ACKNOWLEDGED = "sim.case.lifecycle/GrievanceAcknowledged/v1"
+    GRIEVANCE_RESOLVED = "sim.case.lifecycle/GrievanceResolved/v1"
 
     CLOCK_STARTED = "sim.clock/ClockStarted/v1"
     CLOCK_PAUSED = "sim.clock/ClockPaused/v1"

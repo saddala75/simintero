@@ -12,6 +12,11 @@ _DEFAULT_SLA_QUEUE = "md_review"
 
 NOTICE_PARAM_DEFAULTS = {"appeal_deadline_days": 60}
 
+GRIEVANCE_SLA_DEFAULTS = {
+    "standard": {"acknowledgement_days": 2, "resolution_days": 30},
+    "expedited": {"acknowledgement_days": 1, "resolution_days": 7},
+}
+
 
 @dataclass
 class SlaConfig:
@@ -112,3 +117,33 @@ class ConfigService:
             if isinstance(cfg, dict):
                 params.update(cfg)
         return params
+
+    async def resolve_grievance_sla(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        tenant_id: str,
+        lob: str | None,
+        urgency: str,
+    ) -> dict:
+        """Per-(tenant, lob, urgency) grievance timeframes (table→default fallback).
+        ALWAYS returns a full dict (acknowledgement_days + resolution_days present)."""
+        result = dict(
+            GRIEVANCE_SLA_DEFAULTS.get(urgency, GRIEVANCE_SLA_DEFAULTS["standard"])
+        )
+        if lob is None:
+            return result
+        row = await conn.fetchrow(
+            "SELECT config FROM workflow_config "
+            "WHERE tenant_id=$1 AND lob=$2 AND domain='grievance' AND active",
+            tenant_id,
+            lob,
+        )
+        if row is not None:
+            cfg = row["config"]
+            if isinstance(cfg, str):  # asyncpg returns jsonb as str (no codec set)
+                cfg = json.loads(cfg)
+            section = cfg.get(urgency) if isinstance(cfg, dict) else None
+            if isinstance(section, dict):
+                result.update(section)
+        return result
