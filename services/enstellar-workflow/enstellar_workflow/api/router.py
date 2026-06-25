@@ -252,7 +252,7 @@ async def decide_appeal(
     Returns 422 if an uphold is attempted without a recorded human sign-off.
     Returns 409 if the appeal is no longer under_review.
     """
-    from ..appeals.service import AppealConflictError, AppealService
+    from ..appeals.service import AppealConflictError, AppealService, COIError
 
     pool = await get_pool()
     try:
@@ -267,6 +267,8 @@ async def decide_appeal(
         )
     except GuardError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except COIError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AppealConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

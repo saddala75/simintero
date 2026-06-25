@@ -37,6 +37,16 @@ class AppealConflictError(Exception):
     """Raised when an appeal is no longer under_review (mapped to HTTP 409)."""
 
 
+class COIError(Exception):
+    """Raised when an appeal reviewer is not independent — i.e. the reviewer is
+    the original adverse determiner, or (level >= 2) the prior-level reviewer.
+    Mapped to HTTP 409."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 class AppealService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         # Lazy import breaks the engine ↔ cases circular dependency at init time.
@@ -220,6 +230,33 @@ class AppealService:
         to_state = "appeal_overturned" if outcome == "overturned" else "appeal_upheld"
 
         async with tenant_transaction(self._pool, tenant_id) as conn:
+            # COI guard — runs BEFORE any write, so a violation aborts the tx
+            # (nothing committed: the appeal stays under_review, case appeal_review).
+            appeal = await self._appeals.fetch(conn, appeal_id, tenant_id)
+            if appeal is None or appeal["status"] != "under_review":
+                raise AppealConflictError(
+                    f"Appeal {appeal_id} is not under_review (already decided or not found)"
+                )
+            determiner = await self._appeals.adverse_determiner(
+                conn, case_id, tenant_id
+            )
+            if determiner is not None and reviewer_actor == determiner:
+                raise COIError(
+                    "appeal reviewer must differ from the original determiner"
+                )
+            if appeal["level"] >= 2:
+                prior = await self._appeals.appeal_at_level(
+                    conn, case_id, tenant_id, appeal["level"] - 1
+                )
+                if (
+                    prior
+                    and prior.get("reviewer_actor")
+                    and reviewer_actor == prior["reviewer_actor"]
+                ):
+                    raise COIError(
+                        "appeal reviewer must differ from the prior-level reviewer"
+                    )
+
             row = await self._appeals.record_outcome(
                 conn,
                 appeal_id=appeal_id,
