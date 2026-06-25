@@ -79,4 +79,37 @@ async def require_reviewer(
         yield ctx, creds.credentials
 
 
-__all__ = ["require_reviewer", "require_auth", "validator", "BffContext"]
+async def require_user(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> AsyncIterator[tuple[BffContext, str]]:
+    """Validate the JWT + carry the ``sub`` (NO role gate). For routes where any
+    authenticated user acts but we must record WHO (e.g. filing).
+
+    Mirrors ``require_reviewer`` minus the reviewer-role gate: it additionally
+    requires a non-empty ``sub`` so the BFF can stamp ``filed_by`` from the
+    authenticated identity (never from the request body).
+
+    Raises:
+        ``AuthError`` → 401 (token absent, malformed, expired, no tenant_id, no sub)
+    """
+    if creds is None:
+        raise AuthError("Missing Authorization header")
+    claims = await validator.validate(creds.credentials)
+    tid = (claims.tenant_id or "").strip()
+    if not tid:
+        raise AuthError("Token missing tenant_id")
+    if not (claims.sub or "").strip():
+        raise AuthError("Token missing sub")
+    base = tenant_context_from_claims(claims)
+    ctx = BffContext(**base.model_dump(), sub=claims.sub)
+    with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
+        yield ctx, creds.credentials
+
+
+__all__ = [
+    "require_reviewer",
+    "require_auth",
+    "require_user",
+    "validator",
+    "BffContext",
+]

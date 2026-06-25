@@ -13,7 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from enstellar_bff.auth import require_auth
+from enstellar_bff.auth import require_auth, require_user
 from enstellar_bff.clients.workflow import workflow_client
 
 router = APIRouter(tags=["grievances"])
@@ -21,7 +21,6 @@ router = APIRouter(tags=["grievances"])
 
 class FileGrievanceBody(BaseModel):
     member_ref: str
-    filed_by: str
     case_id: uuid.UUID | None = None
     category: str | None = None
     description: str | None = None
@@ -40,13 +39,17 @@ class ResolveGrievanceBody(BaseModel):
 @router.post("/grievances", status_code=201)
 async def file_grievance(
     body: FileGrievanceBody,
-    auth: tuple = Depends(require_auth),
+    auth: tuple = Depends(require_user),
 ) -> Any:
-    _ctx, bearer = auth
+    # filed_by is stamped from the authenticated sub — NEVER from the request body
+    # (closes the B1 spoofable-filed_by gap). member_ref stays body-supplied (the
+    # member the grievance is ABOUT, distinct from WHO filed it). Any authenticated
+    # user may file.
+    ctx, bearer = auth
     return await workflow_client.file_grievance(
         bearer,
         member_ref=body.member_ref,
-        filed_by=body.filed_by,
+        filed_by=ctx.sub,
         case_id=str(body.case_id) if body.case_id else None,
         category=body.category,
         description=body.description,

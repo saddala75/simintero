@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from simintero_authz import AuthError, ForbiddenError
 
-from enstellar_bff.routers import appeals, cases, grievances, worklist
+from enstellar_bff.routers import appeals, cases, directory, grievances, worklist
 from enstellar_bff.routers.crd import router as crd_router
 from enstellar_bff.routers.dtr import router as dtr_router
 from enstellar_bff.routers.queues import router as queues_router
@@ -13,6 +13,7 @@ app.include_router(worklist.router, prefix="/bff")
 app.include_router(cases.router, prefix="/bff")
 app.include_router(appeals.router, prefix="/bff")
 app.include_router(grievances.router, prefix="/bff")
+app.include_router(directory.router, prefix="/bff")
 app.include_router(queues_router)
 app.include_router(crd_router)
 app.include_router(dtr_router)

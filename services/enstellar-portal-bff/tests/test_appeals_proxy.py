@@ -25,12 +25,16 @@ ENGINE = "http://workflow-engine:8000"
 
 def _override(roles: list[str]) -> None:
     # The thin routes gate on require_auth; the decision route gates on
-    # require_reviewer (it records the uphold sign-off from the reviewer's sub).
+    # require_reviewer (it records the uphold sign-off from the reviewer's sub);
+    # the file route gates on require_user (any authenticated user, sub stamped).
     app.dependency_overrides[auth_module.require_auth] = lambda: make_principal(
         roles=roles
     )
     app.dependency_overrides[auth_module.require_reviewer] = lambda: make_principal(
         roles=roles
+    )
+    app.dependency_overrides[auth_module.require_user] = lambda: make_principal(
+        roles=roles, sub="user-001"
     )
 
 
@@ -115,7 +119,10 @@ async def test_uphold_without_signoff_confirmed_returns_400() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_file_appeal_forwards_bearer_and_body() -> None:
+async def test_file_appeal_stamps_filed_by_from_sub() -> None:
+    """filed_by is stamped from the authenticated sub, NOT the request body.
+
+    The body no longer carries filed_by (B2 closes the spoofable-filed_by gap)."""
     route = respx.post(f"{ENGINE}/cases/{CASE_ID}/appeals").mock(
         return_value=Response(201, json={"appeal_id": APPEAL_ID})
     )
@@ -125,7 +132,7 @@ async def test_file_appeal_forwards_bearer_and_body() -> None:
     ) as client:
         r = await client.post(
             f"/bff/cases/{CASE_ID}/appeals",
-            json={"filed_by": "member-001", "reason": "disagree"},
+            json={"reason": "disagree"},  # NO filed_by in the body
         )
 
     assert r.status_code == 201
@@ -133,7 +140,32 @@ async def test_file_appeal_forwards_bearer_and_body() -> None:
     sent = route.calls[0].request
     assert sent.headers["Authorization"] == f"Bearer {TEST_BEARER}"
     body = json.loads(sent.content)
-    assert body == {"filed_by": "member-001", "reason": "disagree"}
+    # filed_by == the principal's sub (user-001), not any body value.
+    assert body == {"filed_by": "user-001", "reason": "disagree"}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_roleless_user_can_file_appeal() -> None:
+    """Filing requires only authentication — no role. A user with NO reviewer role
+    still reaches the engine, and filed_by is stamped from their sub."""
+    _override([])  # no roles at all
+    route = respx.post(f"{ENGINE}/cases/{CASE_ID}/appeals").mock(
+        return_value=Response(201, json={"appeal_id": APPEAL_ID})
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            f"/bff/cases/{CASE_ID}/appeals",
+            json={"reason": "disagree"},
+        )
+
+    assert r.status_code == 201
+    assert route.called
+    body = json.loads(route.calls[0].request.content)
+    assert body["filed_by"] == "user-001"
 
 
 @pytest.mark.asyncio

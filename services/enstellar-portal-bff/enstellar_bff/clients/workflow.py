@@ -287,5 +287,14 @@ class WorkflowClient:
         r.raise_for_status()
         return r.json()
 
+    # --- Directory ---
+    async def directory(self, bearer_token, *, role=None):
+        params = {"role": role} if role else None
+        r = await self._http.get(
+            "/directory", params=params, headers=self._auth(bearer_token)
+        )
+        r.raise_for_status()
+        return r.json()
+
 
 workflow_client = WorkflowClient()

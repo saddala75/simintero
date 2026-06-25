@@ -13,14 +13,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from enstellar_bff.auth import require_auth, require_reviewer
+from enstellar_bff.auth import require_auth, require_reviewer, require_user
 from enstellar_bff.clients.workflow import workflow_client
 
 router = APIRouter(tags=["appeals"])
 
 
 class AppealBody(BaseModel):
-    filed_by: str
     reason: str | None = None
 
 
@@ -42,11 +41,13 @@ class AssignReviewerBody(BaseModel):
 async def file_appeal(
     case_id: uuid.UUID,
     body: AppealBody,
-    auth: tuple = Depends(require_auth),
+    auth: tuple = Depends(require_user),
 ) -> Any:
-    _ctx, bearer = auth
+    # filed_by is stamped from the authenticated sub — NEVER from the request body
+    # (closes the B1 spoofable-filed_by gap). Any authenticated user may file.
+    ctx, bearer = auth
     return await workflow_client.file_appeal(
-        str(case_id), bearer, filed_by=body.filed_by, reason=body.reason
+        str(case_id), bearer, filed_by=ctx.sub, reason=body.reason
     )
 
 

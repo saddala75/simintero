@@ -27,6 +27,10 @@ def _override(roles: list[str]) -> None:
     app.dependency_overrides[auth_module.require_auth] = lambda: make_principal(
         roles=roles
     )
+    # The file route gates on require_user (any authenticated user; sub stamped).
+    app.dependency_overrides[auth_module.require_user] = lambda: make_principal(
+        roles=roles, sub="user-001"
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -39,6 +43,8 @@ def bypass_auth():
 @pytest.mark.asyncio
 @respx.mock
 async def test_file_grievance_caseless_forwards_null_case_id() -> None:
+    """filed_by is stamped from the authenticated sub; member_ref stays body-supplied
+    (the member the grievance is ABOUT, distinct from WHO filed it)."""
     route = respx.post(f"{ENGINE}/grievances").mock(
         return_value=Response(201, json={"grievance_id": GRIEVANCE_ID})
     )
@@ -49,8 +55,7 @@ async def test_file_grievance_caseless_forwards_null_case_id() -> None:
         r = await client.post(
             "/bff/grievances",
             json={
-                "member_ref": "member-001",
-                "filed_by": "agent-007",
+                "member_ref": "member-001",  # NO filed_by — stamped from sub
                 "category": "access",
                 "description": "long wait times",
                 "urgency": "standard",
@@ -65,7 +70,7 @@ async def test_file_grievance_caseless_forwards_null_case_id() -> None:
     body = json.loads(sent.content)
     assert body == {
         "member_ref": "member-001",
-        "filed_by": "agent-007",
+        "filed_by": "user-001",  # the principal's sub, not a body value
         "case_id": None,
         "category": "access",
         "description": "long wait times",
@@ -87,8 +92,7 @@ async def test_file_grievance_with_case_id_forwards_it() -> None:
         r = await client.post(
             "/bff/grievances",
             json={
-                "member_ref": "member-001",
-                "filed_by": "agent-007",
+                "member_ref": "member-001",  # NO filed_by — stamped from sub
                 "case_id": CASE_ID,
             },
         )
@@ -99,13 +103,38 @@ async def test_file_grievance_with_case_id_forwards_it() -> None:
     body = json.loads(sent.content)
     assert body == {
         "member_ref": "member-001",
-        "filed_by": "agent-007",
+        "filed_by": "user-001",
         "case_id": CASE_ID,
         "category": None,
         "description": None,
         "urgency": "standard",
         "lob": None,
     }
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_roleless_user_can_file_grievance() -> None:
+    """Filing requires only authentication — no role. A user with NO reviewer role
+    still reaches the engine, and filed_by is stamped from their sub."""
+    _override([])  # no roles at all
+    route = respx.post(f"{ENGINE}/grievances").mock(
+        return_value=Response(201, json={"grievance_id": GRIEVANCE_ID})
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            "/bff/grievances",
+            json={"member_ref": "member-001"},
+        )
+
+    assert r.status_code == 201
+    assert route.called
+    body = json.loads(route.calls[0].request.content)
+    assert body["filed_by"] == "user-001"
+    assert body["member_ref"] == "member-001"
 
 
 @pytest.mark.asyncio

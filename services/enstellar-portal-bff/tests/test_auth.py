@@ -18,7 +18,7 @@ from httpx import ASGITransport, AsyncClient
 from simintero_authz import AuthError, ForbiddenError
 
 import enstellar_bff.auth as auth_module
-from enstellar_bff.auth import BffContext, require_reviewer
+from enstellar_bff.auth import BffContext, require_reviewer, require_user
 
 # Minimal app protected by the real require_reviewer dependency, wired with the
 # same AuthError/ForbiddenError → 401/403 handlers the BFF registers in main.py.
@@ -39,6 +39,14 @@ async def _forbidden_error_handler(_, exc: ForbiddenError) -> JSONResponse:
 
 @_test_app.get("/protected")
 async def protected(auth: tuple = Depends(require_reviewer)) -> dict:
+    ctx, _bearer = auth
+    assert isinstance(ctx, BffContext)
+    return {"tenant_id": ctx.tenant_id, "roles": ctx.roles, "sub": ctx.sub}
+
+
+@_test_app.get("/protected-user")
+async def protected_user(auth: tuple = Depends(require_user)) -> dict:
+    """Gated by require_user: authenticated + carries sub, NO role gate."""
     ctx, _bearer = auth
     assert isinstance(ctx, BffContext)
     return {"tenant_id": ctx.tenant_id, "roles": ctx.roles, "sub": ctx.sub}
@@ -104,3 +112,26 @@ async def test_valid_reviewer_token_returns_principal(client, make_token) -> Non
     assert body["tenant_id"] == "tenant-abc"
     assert "reviewer" in body["roles"]
     assert body["sub"] == "user-001"
+
+
+@pytest.mark.asyncio
+async def test_require_user_roleless_token_passes(client, make_token) -> None:
+    """require_user has NO role gate: a valid token with NO roles still passes
+    and carries the sub (the filing identity)."""
+    token = make_token(tenant_id="tenant-abc", roles=[], sub="user-009")
+    async with client as c:
+        r = await c.get("/protected-user", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["roles"] == []
+    assert body["sub"] == "user-009"
+
+
+@pytest.mark.asyncio
+async def test_require_user_blank_sub_returns_401(client, make_token) -> None:
+    """A blank sub is rejected — filed_by would otherwise be empty/unattributable."""
+    token = make_token(tenant_id="tenant-abc", roles=["reviewer"], sub="")
+    async with client as c:
+        r = await c.get("/protected-user", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 401
+    assert "sub" in r.json()["detail"]
