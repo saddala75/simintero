@@ -4,6 +4,8 @@ import uuid
 
 import asyncpg
 
+from ..engine.guards import ADVERSE_STATES
+
 
 class AppealsRepository:
     """Reads/writes the appeals table. Every method takes a `conn` already
@@ -42,6 +44,40 @@ class AppealsRepository:
             LIMIT 1
             """,
             case_id, tenant_id,
+        )
+        return dict(row) if row is not None else None
+
+    async def adverse_determiner(
+        self, conn: asyncpg.Connection, case_id: uuid.UUID, tenant_id: str
+    ) -> str | None:
+        """The actor_id of the most-recent human adverse determination for this
+        case, sourced from workflow_events (the COI baseline). System/service
+        actors are excluded; returns None if no human adverse row exists."""
+        row = await conn.fetchrow(
+            """
+            SELECT actor_id FROM workflow_events
+            WHERE case_id = $1 AND tenant_id = $2
+              AND to_state = ANY($3::text[])
+              AND actor_type NOT IN ('system', 'service')
+            ORDER BY occurred_at DESC
+            LIMIT 1
+            """,
+            case_id, tenant_id, list(ADVERSE_STATES),
+        )
+        return row["actor_id"] if row is not None else None
+
+    async def appeal_at_level(
+        self, conn: asyncpg.Connection, case_id: uuid.UUID, tenant_id: str, level: int
+    ) -> dict | None:
+        """The most-recent appeal row at a given level for this case, or None."""
+        row = await conn.fetchrow(
+            """
+            SELECT * FROM appeals
+            WHERE case_id = $1 AND tenant_id = $2 AND level = $3
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            case_id, tenant_id, level,
         )
         return dict(row) if row is not None else None
 

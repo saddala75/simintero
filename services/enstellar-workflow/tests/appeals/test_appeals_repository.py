@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import asyncpg
 import pytest
@@ -8,6 +9,40 @@ from simintero_tenant_context import tenant_transaction
 
 TENANT = "appeals-test-tenant"
 OTHER_TENANT = "appeals-other-tenant"
+
+
+async def _seed_case(conn: asyncpg.Connection, case_id: uuid.UUID, tenant_id: str) -> None:
+    """Insert a minimal workflow_instances row so workflow_events FK is satisfied."""
+    await conn.execute(
+        """
+        INSERT INTO workflow_instances (case_id, tenant_id, correlation_id, lob, case_json)
+        VALUES ($1, $2, $3, 'commercial', '{}'::jsonb)
+        """,
+        case_id, tenant_id, f"corr-{case_id}",
+    )
+
+
+async def _seed_event(
+    conn: asyncpg.Connection,
+    case_id: uuid.UUID,
+    tenant_id: str,
+    *,
+    to_state: str,
+    actor_id: str,
+    actor_type: str,
+    occurred_at: datetime,
+) -> None:
+    await conn.execute(
+        """
+        INSERT INTO workflow_events
+          (case_id, tenant_id, event_type, from_state, to_state,
+           actor_id, actor_type, correlation_id, occurred_at)
+        VALUES ($1, $2, 'sim.case.lifecycle/CaseStateChanged/v1', NULL, $3,
+                $4, $5, $6, $7)
+        """,
+        case_id, tenant_id, to_state, actor_id, actor_type,
+        f"corr-{case_id}", occurred_at,
+    )
 
 
 @pytest.mark.asyncio
@@ -89,6 +124,85 @@ async def test_latest_appeal_returns_highest_level(pg_pool):
     assert latest is not None
     assert latest["level"] == 2
     assert latest["appeal_id"] == l2["appeal_id"]
+
+
+@pytest.mark.asyncio
+async def test_adverse_determiner_returns_human_actor_ignoring_system(pg_pool):
+    repo = AppealsRepository()
+    case_id = uuid.uuid4()
+    base = datetime.now(timezone.utc)
+
+    async with tenant_transaction(pg_pool, TENANT) as conn:
+        await _seed_case(conn, case_id, TENANT)
+        # The human adverse determination (earlier).
+        await _seed_event(
+            conn, case_id, TENANT,
+            to_state="denied", actor_id="clinician-7", actor_type="user",
+            occurred_at=base,
+        )
+        # A later SYSTEM row — must be ignored even though it is adverse.
+        await _seed_event(
+            conn, case_id, TENANT,
+            to_state="denied", actor_id="system-bot", actor_type="system",
+            occurred_at=base + timedelta(minutes=5),
+        )
+        # A non-adverse system row — must be ignored (not an adverse state).
+        await _seed_event(
+            conn, case_id, TENANT,
+            to_state="intake", actor_id="orchestrator", actor_type="service",
+            occurred_at=base + timedelta(minutes=10),
+        )
+        determiner = await repo.adverse_determiner(conn, case_id, TENANT)
+
+    assert determiner == "clinician-7"
+
+
+@pytest.mark.asyncio
+async def test_adverse_determiner_none_when_no_adverse_row(pg_pool):
+    repo = AppealsRepository()
+    case_id = uuid.uuid4()
+    base = datetime.now(timezone.utc)
+
+    async with tenant_transaction(pg_pool, TENANT) as conn:
+        await _seed_case(conn, case_id, TENANT)
+        # Only a non-adverse human row exists.
+        await _seed_event(
+            conn, case_id, TENANT,
+            to_state="approved", actor_id="clinician-7", actor_type="user",
+            occurred_at=base,
+        )
+        determiner = await repo.adverse_determiner(conn, case_id, TENANT)
+
+    assert determiner is None
+
+
+@pytest.mark.asyncio
+async def test_appeal_at_level_returns_prior_level_row(pg_pool):
+    repo = AppealsRepository()
+    case_id = uuid.uuid4()
+
+    async with tenant_transaction(pg_pool, TENANT) as conn:
+        l1 = await repo.insert_appeal(
+            conn, case_id=case_id, tenant_id=TENANT, level=1,
+            appealed_ref="dec-1", filed_by="m1", reason=None,
+        )
+        await repo.record_outcome(
+            conn, appeal_id=l1["appeal_id"], tenant_id=TENANT,
+            status="upheld", outcome_reason="held", reviewer_actor="rev-1",
+        )
+        await repo.insert_appeal(
+            conn, case_id=case_id, tenant_id=TENANT, level=2,
+            appealed_ref="appeal-1", filed_by="m1", reason=None,
+        )
+
+    async with tenant_transaction(pg_pool, TENANT) as conn:
+        prior = await repo.appeal_at_level(conn, case_id, TENANT, 1)
+        missing = await repo.appeal_at_level(conn, case_id, TENANT, 3)
+
+    assert prior is not None
+    assert prior["level"] == 1
+    assert prior["reviewer_actor"] == "rev-1"
+    assert missing is None
 
 
 # ---------------------------------------------------------------------------
