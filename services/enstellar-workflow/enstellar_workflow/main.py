@@ -20,6 +20,7 @@ from enstellar_workflow.api.router import router as cases_router
 from enstellar_workflow.api.worklist_router import router as worklist_router
 from enstellar_workflow.appeals.api import router as appeals_router
 from enstellar_workflow.grievances.api import router as grievances_router
+from enstellar_workflow.directory.api import router as directory_router
 from enstellar_workflow.auth import jwt_validator
 from enstellar_workflow.config import get_settings
 from enstellar_workflow.consumers import (
@@ -184,6 +185,7 @@ app.include_router(worklist_router)
 app.include_router(queues_router)
 app.include_router(appeals_router)
 app.include_router(grievances_router)
+app.include_router(directory_router)
 
 
 # --- simintero-authz exception → HTTP status mapping -------------------------
