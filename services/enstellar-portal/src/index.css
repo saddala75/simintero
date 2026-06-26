@@ -871,3 +871,20 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, select:focus-visi
   gap: 8px;
 }
 .en-mini-rfi:hover { background: rgba(15,86,76,.14); }
+
+/* ===== MD criteria review row (MdWorkColumn Section 2) ===== */
+.en-crit-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.en-crit-row:last-child { border-bottom: 0; }
+.en-crit-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.en-crit-row.met .en-crit-icon { color: var(--pine); }
+.en-crit-row.gap .en-crit-icon { color: var(--amber); }
+.en-crit-row.unknown .en-crit-icon { color: var(--ink-mut); }
+.en-crit-text { font-weight: 500; }
+.en-crit-gap-note { font-size: 11.5px; color: var(--amber); margin-top: 3px; }

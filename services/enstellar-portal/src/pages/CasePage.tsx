@@ -1165,6 +1165,7 @@ function MdWorkColumn({
   onDecisionComplete,
   onReadinessChange,
   submitRef,
+  criteria,
 }: {
   caseData: CaseDetail
   caseId: string
@@ -1174,6 +1175,7 @@ function MdWorkColumn({
   onDecisionComplete: () => void
   onReadinessChange: (state: MdFormReadiness) => void
   submitRef: RefObject<{ submit: () => void } | null>
+  criteria: CriterionItem[]
 }) {
 
   return (
@@ -1220,89 +1222,31 @@ function MdWorkColumn({
         <div className="en-sec-h">
           <span className="sn">2</span>
           <span className="st">Criteria review</span>
-          <span className="req" style={{ color: 'var(--amber)', background: 'var(--amber-tint)' }}>
-            1 gap
-          </span>
+          {criteria.filter(c => c.status === 'gap').length > 0 && (
+            <span className="req" style={{ color: 'var(--amber)', background: 'var(--amber-tint)' }}>
+              {criteria.filter(c => c.status === 'gap').length} gap
+            </span>
+          )}
         </div>
         <div className="en-sec-b">
-          {/* Gap finding */}
-          <div className="en-finding">
-            <div className="en-finding-h">
-              <div className="fic">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M8 5v4M8 11v.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-              <div className="ft">C-02: Medical necessity attestation</div>
-              <div className="fc">Gap</div>
-            </div>
-            <div className="en-finding-b">
-              <div className="fl">
-                Ordering physician attestation missing per plan policy §4.2.1
-                and InterQual 2025 §3.4.1.
-              </div>
-              <div className="en-chips">
-                <span className="en-chip-on">Policy §4.2.1</span>
-                <span className="en-chip-on">InterQual 2025 §3.4.1</span>
+          {criteria.length === 0 && (
+            <p style={{ color: 'var(--ink-mut)', fontSize: 13 }}>Loading criteria…</p>
+          )}
+          {criteria.map(c => (
+            <div key={c.id} className={`en-crit-row ${c.status}`}>
+              <span className="en-crit-icon">
+                {c.status === 'met' ? '✓' : c.status === 'gap' ? '⚠' : '?'}
+              </span>
+              <div>
+                <div className="en-crit-text">
+                  {c.criterion_id}: {c.text}
+                </div>
+                {c.status === 'gap' && (
+                  <div className="en-crit-gap-note">Being addressed in determination</div>
+                )}
               </div>
             </div>
-          </div>
-          {/* Met criteria */}
-          <div className="en-met-row">
-            <svg
-              className="mi"
-              width="15"
-              height="15"
-              viewBox="0 0 16 16"
-              fill="none"
-            >
-              <circle
-                cx="8"
-                cy="8"
-                r="6.4"
-                stroke="currentColor"
-                strokeWidth="1.4"
-              />
-              <path
-                d="M5 8.5l2 2 4-4"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            C-01: Imaging modality appropriate — Met
-          </div>
-          <div className="en-met-row">
-            <svg
-              className="mi"
-              width="15"
-              height="15"
-              viewBox="0 0 16 16"
-              fill="none"
-            >
-              <circle
-                cx="8"
-                cy="8"
-                r="6.4"
-                stroke="currentColor"
-                strokeWidth="1.4"
-              />
-              <path
-                d="M5 8.5l2 2 4-4"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            C-03: Conservative treatment documented — Met
-          </div>
+          ))}
         </div>
       </div>
 
@@ -1663,6 +1607,13 @@ export function CasePage() {
     enabled: !!caseId,
   })
 
+  const { data: mdCriteria = [] } = useQuery({
+    queryKey: ['criteria', caseId],
+    queryFn: () => getCriteria(caseId!),
+    staleTime: 60_000,
+    enabled: !!caseId,
+  })
+
   const secsRemaining = useSlaCountdown(data?.sla ?? null)
 
   if (!caseId) return <p>No case ID.</p>
@@ -1912,6 +1863,7 @@ export function CasePage() {
                 onDecisionComplete={() => setDecisionDone(true)}
                 onReadinessChange={handleMdReadinessChange}
                 submitRef={mdSubmitRef}
+                criteria={mdCriteria}
               />
               <GateColumn
                 decisionDone={decisionDone}
