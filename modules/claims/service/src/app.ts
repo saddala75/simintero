@@ -5,6 +5,9 @@ import type { Pool } from 'pg';
 import { buildClaimsRouter } from './routes/claims.js';
 import { buildAppealsRouter } from './routes/appeals.js';
 import { buildIRORouter } from './routes/iro.js';
+import { buildDocumentationRequestRouter } from './routes/documentationRequest.js';
+import { buildInternalRouter } from './routes/internal.js';
+import { buildEvidenceRouter } from './routes/evidence.js';
 
 /** Build the claims-service Express app (no listen — testable). */
 export function buildApp(pool: Pool): Express {
@@ -19,7 +22,10 @@ export function buildApp(pool: Pool): Express {
   })
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
   app.use('/v1/claims', buildClaimsRouter(pool));
+  app.use('/v1/claims', buildDocumentationRequestRouter(pool));
+  app.use('/v1/claims', buildEvidenceRouter(pool));
   app.use('/v1/appeals', buildAppealsRouter(pool));
   app.use('/v1/iro', buildIRORouter(pool));
+  app.use('/v1/internal', buildInternalRouter(pool));
   return app;
 }
