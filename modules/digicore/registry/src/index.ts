@@ -1,3 +1,5 @@
+import '@sim/otel'
+import { enrichSpan } from '@sim/otel'
 import express, { type Express } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { createArtifactsRouter } from './routes/artifacts.js';
@@ -36,6 +38,14 @@ export function setDb(db: TenantDb): void {
 export function setOsClient(client: OSClient): void {
   osClient = client;
 }
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const tenantId = (req as any).tenantId ?? (req.headers['x-tenant-id'] as string | undefined)
+  const sub = (req as any).sub as string | undefined
+  if (tenantId) enrichSpan({ tenant_id: tenantId })
+  if (sub) enrichSpan({ 'user.sub': sub })
+  next()
+})
 
 function requireDeps(
   _req: Request,

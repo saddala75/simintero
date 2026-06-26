@@ -1,4 +1,6 @@
-import express, { type Express } from 'express';
+import '@sim/otel'
+import { enrichSpan } from '@sim/otel'
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import pg from 'pg';
 import { KafkaJsProducer } from './KafkaJsProducer.js';
 import { relayDb } from './RelayDbPool.js';
@@ -15,6 +17,13 @@ const producer = new KafkaJsProducer(BROKERS);
 let stop = false;
 
 const app: Express = express();
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const tenantId = (req as any).tenantId ?? (req.headers['x-tenant-id'] as string | undefined)
+  const sub = (req as any).sub as string | undefined
+  if (tenantId) enrichSpan({ tenant_id: tenantId })
+  if (sub) enrichSpan({ 'user.sub': sub })
+  next()
+})
 app.get('/healthz', async (_req, res) => {
   try { await pool.query('SELECT 1'); res.json({ ok: true }); }
   catch { res.status(503).json({ ok: false }); }

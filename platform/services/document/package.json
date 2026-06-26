@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@sim/outbox-ts": "workspace:*",
+    "@sim/otel": "workspace:*",
     "express": "^4.19.0",
     "fast-xml-parser": "^4.4.0",
     "pdfjs-dist": "^4.7.76",

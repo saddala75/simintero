@@ -15,6 +15,7 @@
     "@sim/tenant-context-ts": "workspace:*",
     "@sim/outbox-ts": "workspace:*",
     "@sim/authz-client-ts": "workspace:*",
+    "@sim/otel": "workspace:*",
     "express": "^4.21.0"
   },
   "devDependencies": {

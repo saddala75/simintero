@@ -1,5 +1,6 @@
-import express, { type Express } from 'express';
-import type { Request, Response } from 'express';
+import '@sim/otel'
+import { enrichSpan } from '@sim/otel'
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 
@@ -12,6 +13,14 @@ const pool = new Pool({
 
 const app: Express = express();
 app.use(express.json());
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const tenantId = (req as any).tenantId ?? (req.headers['x-sim-tenant-id'] as string | undefined)
+  const sub = (req as any).sub as string | undefined
+  if (tenantId) enrichSpan({ tenant_id: tenantId })
+  if (sub) enrichSpan({ 'user.sub': sub })
+  next()
+})
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'automation' });

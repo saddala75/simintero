@@ -1,5 +1,7 @@
+import '@sim/otel'
+import { enrichSpan } from '@sim/otel'
 import express from 'express';
-import type { Express, Request, Response } from 'express';
+import type { Express, Request, Response, NextFunction } from 'express';
 import pg from 'pg';
 import { GateEnforcer } from './gates/GateEnforcer.js';
 import { createQueueRouter } from './routes/queue.js';
@@ -53,6 +55,14 @@ const enforcer = new GateEnforcer();
 
 const app: Express = express();
 app.use(express.json());
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const tenantId = (req as any).tenantId ?? (req.headers['x-tenant-id'] as string | undefined)
+  const sub = (req as any).sub as string | undefined
+  if (tenantId) enrichSpan({ tenant_id: tenantId })
+  if (sub) enrichSpan({ 'user.sub': sub })
+  next()
+})
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'digicore-governance' });

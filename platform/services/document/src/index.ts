@@ -1,4 +1,6 @@
-import express, { type Express } from 'express';
+import '@sim/otel'
+import { enrichSpan } from '@sim/otel'
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import pg from 'pg';
 import { Connection, Client } from '@temporalio/client';
 import { FileObjectStore } from './store/FileObjectStore.js';
@@ -40,6 +42,13 @@ async function main(): Promise<void> {
 
   const app: Express = express();
   app.use(express.json({ limit: '50mb' }));
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    const tenantId = (req as any).tenantId ?? (req.headers['x-tenant-id'] as string | undefined)
+    const sub = (req as any).sub as string | undefined
+    if (tenantId) enrichSpan({ tenant_id: tenantId })
+    if (sub) enrichSpan({ 'user.sub': sub })
+    next()
+  })
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
   app.use(createIngestRouter(pool, store, temporalClient.workflow));
   app.use(createSpanRouter(pool, store));

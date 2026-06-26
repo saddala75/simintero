@@ -1,5 +1,7 @@
+import '@sim/otel'
+import { enrichSpan } from '@sim/otel'
 import express from 'express';
-import type { Application, Request, Response } from 'express';
+import type { Application, Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
 
 const pool = new Pool({
@@ -13,6 +15,14 @@ function resolveTenant(req: Request): string {
   const h = req.headers['x-sim-tenant-id'];
   return (typeof h === 'string' && h.length > 0) ? h : 'system';
 }
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const tenantId = (req as any).tenantId ?? (req.headers['x-sim-tenant-id'] as string | undefined)
+  const sub = (req as any).sub as string | undefined
+  if (tenantId) enrichSpan({ tenant_id: tenantId })
+  if (sub) enrichSpan({ 'user.sub': sub })
+  next()
+})
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'market-bundles' });

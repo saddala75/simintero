@@ -1,3 +1,5 @@
+import '@sim/otel'
+import { enrichSpan } from '@sim/otel'
 import express from 'express';
 import type { Express, Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'node:crypto';
@@ -51,6 +53,14 @@ let tenantDb: TenantDb | null = null;
 export function setDb(db: TenantDb): void {
   tenantDb = db;
 }
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const tenantId = (req as any).tenantId ?? (req.headers['x-tenant-id'] as string | undefined)
+  const sub = (req as any).sub as string | undefined
+  if (tenantId) enrichSpan({ tenant_id: tenantId })
+  if (sub) enrichSpan({ 'user.sub': sub })
+  next()
+})
 
 const runtimeBaseUrl = process.env['RUNTIME_BASE_URL'] ?? 'http://localhost:3020';
 

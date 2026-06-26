@@ -1,4 +1,6 @@
-import express, { type Application } from "express";
+import '@sim/otel'
+import { enrichSpan } from '@sim/otel'
+import express, { type Application, type Request, type Response, type NextFunction } from "express";
 import { Pool } from "pg";
 import { createCtrlDb } from "./db/index.js";
 import { CellAssigner } from "./provisioning/CellAssigner.js";
@@ -24,6 +26,14 @@ const publisher = new TenantEventPublisher();
 
 const app: Application = express();
 app.use(express.json());
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const tenantId = (req as any).tenantId ?? (req.headers['x-tenant-id'] as string | undefined)
+  const sub = (req as any).sub as string | undefined
+  if (tenantId) enrichSpan({ tenant_id: tenantId })
+  if (sub) enrichSpan({ 'user.sub': sub })
+  next()
+})
 
 // Health
 app.get("/healthz", (_req, res) => res.json({ ok: true }));

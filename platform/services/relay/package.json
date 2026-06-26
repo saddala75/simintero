@@ -9,6 +9,6 @@
     "@types/express": "^5.0.0", "@types/pg": "^8.0.0"
   },
   "dependencies": {
-    "express": "^5.0.0", "pg": "^8.12.0", "kafkajs": "^2.2.4", "@sim/outbox-ts": "workspace:*"
+    "express": "^5.0.0", "pg": "^8.12.0", "kafkajs": "^2.2.4", "@sim/outbox-ts": "workspace:*", "@sim/otel": "workspace:*"
   }
 }

@@ -21,6 +21,7 @@
     "@types/supertest": "^6.0.0"
   },
   "dependencies": {
+    "@sim/otel": "workspace:*",
     "express": "^5.0.0"
   }
 }
