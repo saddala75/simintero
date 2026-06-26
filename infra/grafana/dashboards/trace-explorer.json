@@ -1,0 +1,43 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": {"list": []},
+  "description": "Jump from a slow request to its distributed trace in Tempo",
+  "editable": true,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "tempo", "uid": "tempo"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 20, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "query": {
+          "queryType": "traceql",
+          "query": "{resource.service.name =~ \".*\"}"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "queryType": "traceql",
+          "query": "{resource.service.name =~ \".*\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Trace Explorer",
+      "type": "traces"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 39,
+  "tags": ["simintero", "traces"],
+  "time": {"from": "now-30m", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Trace Explorer",
+  "uid": "trace-explorer",
+  "version": 1
+}
