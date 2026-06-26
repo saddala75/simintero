@@ -9,6 +9,10 @@ volumes:
   minio-data:
   opensearch-data:
   ollama-data:
+  prometheus-data:
+  tempo-data:
+  loki-data:
+  grafana-data:
 
 services:
   # ── Infrastructure ─────────────────────────────────────────────────────────
@@ -160,9 +164,14 @@ services:
       MINIO_BUCKET: simintero-docs
       NODE_ENV: development
       PORT: "3010"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: document-service
     ports:
       - "3010:3010"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
       minio:
@@ -193,7 +202,12 @@ services:
       MINIO_SECURE: "false"
       MINIO_BUCKET: simintero-docs
       NODE_ENV: development
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: document-worker
     depends_on:
+      otel-collector:
+        condition: service_healthy
       temporal-admin:
         condition: service_completed_successfully
       postgres:
@@ -218,9 +232,14 @@ services:
       NODE_ENV: development
       PORT: "3011"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: model-gateway
     ports:
       - "3011:3011"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
       opa:
@@ -245,9 +264,14 @@ services:
     environment:
       DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       PORT: "3040"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: vkas
     ports:
       - "3040:3040"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
     healthcheck:
@@ -266,9 +290,14 @@ services:
     environment:
       DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
       PORT: "3021"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: task-service
     ports:
       - "3021:3021"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
     healthcheck:
@@ -287,9 +316,14 @@ services:
     environment:
       VKAS_URL: http://vkas:3040
       PORT: "3030"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: terminology-service
     ports:
       - "3030:3030"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       vkas:
         condition: service_healthy
       flyway:
@@ -311,9 +345,14 @@ services:
       DATABASE_URL: postgres://sim_relay:devpassword@postgres:5432/simintero
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       PORT: "3070"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: relay
     ports:
       - "3070:3070"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       redpanda:
         condition: service_healthy
       flyway:
@@ -358,10 +397,16 @@ services:
       KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:-control-plane-secret}"
       NODE_ENV: development
       PORT: "3012"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: control-plane
     ports:
       - "3012:3012"
     depends_on:
-      - flyway
+      otel-collector:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3012/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
@@ -386,9 +431,14 @@ services:
       NODE_ENV: development
       PORT: "3014"
       DEFAULT_MODEL_BINDING_VERSION: "${DEFAULT_MODEL_BINDING_VERSION:-1.0.0}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: revital-pipeline
     ports:
       - "3014:3014"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       temporal:
         condition: service_healthy
       temporal-admin:
@@ -416,7 +466,12 @@ services:
       DIGICORE_URL: http://digicore-runtime:8083
       DOCUMENT_SERVICE_URL: http://document-service:3010
       NODE_ENV: development
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: revital-worker
     depends_on:
+      otel-collector:
+        condition: service_healthy
       temporal-admin:
         condition: service_completed_successfully
       postgres:
@@ -436,9 +491,14 @@ services:
       TASK_SERVICE_URL: http://task-service:3021
       NODE_ENV: development
       PORT: "3015"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: qualitron-execution
     ports:
       - "3015:3015"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
     healthcheck:
@@ -463,9 +523,14 @@ services:
       CLEARINGHOUSE_SUBMITTER_ID: "${CLEARINGHOUSE_SUBMITTER_ID:-SIMINTERO}"
       NODE_ENV: development
       PORT: "3016"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: claims-service
     ports:
       - "3016:3016"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
     healthcheck:
@@ -488,9 +553,14 @@ services:
       OPA_URL: http://opa:8181
       NODE_ENV: development
       PORT: "3017"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: automation-service
     ports:
       - "3017:3017"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
     healthcheck:
@@ -512,9 +582,14 @@ services:
       TEMPORAL_NAMESPACE: simintero
       NODE_ENV: development
       PORT: "3018"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: market-bundles
     ports:
       - "3018:3018"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
     healthcheck:
@@ -537,9 +612,14 @@ services:
       SEARCH_INDEX_SIZE: "10000"
       NODE_ENV: development
       PORT: "3019"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: search-api
     ports:
       - "3019:3019"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
     healthcheck:
@@ -561,11 +641,16 @@ services:
       TEMPORAL_NAMESPACE: simintero
       NODE_ENV: development
       PORT: "3020"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: analytics-api
     ports:
       - "3020:3020"
     networks:
       - sim-net
     depends_on:
+      otel-collector:
+        condition: service_healthy
       flyway:
         condition: service_completed_successfully
     healthcheck:
@@ -685,9 +770,14 @@ services:
       SPRING_DATASOURCE_USERNAME: sim_app
       SPRING_DATASOURCE_PASSWORD: devpassword
       VKAS_URL: http://vkas:3040
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: digicore-runtime
     ports:
       - "8083:8083"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       vkas:
@@ -842,6 +932,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       hapi:
@@ -874,6 +966,9 @@ services:
       KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/simintero
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
       EXPECTED_AUDIENCE: enstellar-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: interop
     volumes:
       - ./services/enstellar-compose/healthcheck/healthcheck.jar:/healthcheck.jar:ro
     networks: [sim-net]
@@ -890,6 +985,8 @@ services:
       dockerfile: services/enstellar-workflow/Dockerfile
     expose: ["8000"]
     depends_on:
+      otel-collector:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redpanda:
@@ -926,6 +1023,9 @@ services:
       # Slice S3: short SLA poll interval so the unified smoke observes a breach+escalate
       # within seconds (the in-process SlaPoller scans running clocks every N seconds).
       WORKFLOW_SLA_POLL_INTERVAL_SECONDS: "5"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: enstellar-workflow
     networks: [sim-net]
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -942,6 +1042,8 @@ services:
     ports:
       - "8001:8001"
     depends_on:
+      otel-collector:
+        condition: service_healthy
       workflow-engine:
         condition: service_healthy
       interop:
@@ -954,6 +1056,9 @@ services:
       BFF_CRD_API_URL: http://interop:8080/cds-services
       BFF_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
       BFF_OIDC_ISSUER: http://localhost:8081/realms/simintero
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: enstellar-portal-bff
     networks: [sim-net]
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
@@ -978,3 +1083,108 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # ── Observability ──────────────────────────────────────────────────────────
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.103.0
+    command: ["--config=/etc/otel/collector-config.yaml"]
+    volumes:
+      - ./infra/otel/collector-config.yaml:/etc/otel/collector-config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - sim-net
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:13133/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+      - --log.level=warn
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./infra/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/tmp/tempo
+    ports:
+      - "3200:3200"
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3200/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  loki:
+    image: grafana/loki:3.1.0
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./infra/loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_LOG_LEVEL: warn
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - sim-net
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
