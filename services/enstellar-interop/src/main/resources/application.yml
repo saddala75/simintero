@@ -82,6 +82,8 @@ enstellar:
     base-url: ${DIGICORE_BASE_URL:http://digicore-runtime:8083}
   document-service:
     base-url: ${DOCUMENT_SERVICE_URL:http://document-service:3010}
+  clearinghouse:
+    base-url: ${CLEARINGHOUSE_URL:http://localhost:3060}
 
 interop:
   hapi:
