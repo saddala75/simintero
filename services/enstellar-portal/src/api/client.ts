@@ -1,12 +1,21 @@
 import type { AdverseOutcome, AdverseStructuredPayload, CaseDetail, CrdCard, CriterionItem, DocumentItem, QueueStats, SuggestionItem, WorklistPage } from '../types'
+import { currentBearer, keycloak, IS_MOCK } from '../auth/keycloak'
 
 const BASE = '/bff'
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  // Real mode: refresh the token if it expires within 30s, so we never send a
+  // stale bearer. Swallow refresh failures (the existing token may still be valid;
+  // a hard 401 surfaces below). Mock mode skips this (no real keycloak).
+  if (!IS_MOCK && keycloak.authenticated) {
+    try { await keycloak.updateToken(30) } catch { /* fall through with current token */ }
+  }
+  const bearer = currentBearer()
   const r = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       ...init?.headers,
     },
   })
