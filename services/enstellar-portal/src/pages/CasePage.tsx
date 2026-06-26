@@ -86,6 +86,95 @@ function useSlaCountdown(sla: SlaInfo | null): number {
   return secs
 }
 
+// ── Timeline SlideOver ────────────────────────────────────────────────────────
+
+function TimelineDrawer({
+  events,
+  open,
+  onClose,
+}: {
+  events: Record<string, unknown>[]
+  open: boolean
+  onClose: () => void
+}) {
+  return (
+    <>
+      <div
+        className={`en-tl-scrim${open ? ' on' : ''}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <aside
+        className={`en-tl-drawer${open ? ' on' : ''}`}
+        aria-label="Case timeline"
+        data-testid="events-timeline"
+      >
+        <div className="en-tl-drawer-h">
+          <div>
+            <div className="en-tl-drawer-title">Case timeline</div>
+            <div className="en-tl-drawer-sub">
+              Immutable · every action recorded
+            </div>
+          </div>
+          <button
+            className="en-iconbtn"
+            onClick={onClose}
+            aria-label="Close timeline"
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="en-tl-drawer-list">
+          {events.length === 0 && (
+            <p style={{ color: 'var(--ink-mut)', fontSize: 13 }}>
+              No events yet.
+            </p>
+          )}
+          {events.map((ev, i) => {
+            const evType =
+              typeof ev.event_type === 'string' ? ev.event_type : 'unknown'
+            const label =
+              EVENT_TYPE_LABELS[evType] ?? evType.replace(/_/g, ' ')
+            const toState =
+              typeof ev.to_state === 'string'
+                ? ev.to_state.replace(/_/g, ' ')
+                : null
+            const ts =
+              typeof ev.occurred_at === 'string'
+                ? new Date(ev.occurred_at).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : ''
+            const nt = nodeType(evType)
+            return (
+              <div key={i} className="en-tl-ev">
+                <span className={`en-tl-node${nt ? ` ${nt}` : ''}`} />
+                <div>
+                  <div className="te">
+                    {label}
+                    {toState ? ` → ${toState}` : ''}
+                  </div>
+                  {ts && <div className="tts">{ts}</div>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </aside>
+    </>
+  )
+}
+
 // ── Worklist rail ─────────────────────────────────────────────────────────────
 
 function WorklistRail({
@@ -403,7 +492,6 @@ function WorkColumn({
   onDecisionComplete: () => void
 }) {
   const [openCrit, setOpenCrit] = useState<Set<number>>(new Set())
-  const events = caseData.events as Record<string, unknown>[]
   const isClinicReview = caseData.status === 'clinical_review'
 
   const { data: criteria, isLoading: criteriaLoading } = useQuery({
@@ -597,60 +685,6 @@ function WorkColumn({
           </div>
         )
       })}
-
-      {/* Events timeline */}
-      <div
-        className="en-panel"
-        data-testid="events-timeline"
-        style={{ marginTop: 22 }}
-      >
-        <div className="en-panel-h">
-          <span className="pt">Case timeline</span>
-          <span className="lbl">
-            {events.length} event{events.length !== 1 ? 's' : ''} · immutable
-          </span>
-        </div>
-        <div className="en-panel-b" style={{ paddingBottom: 8 }}>
-          {events.length === 0 ? (
-            <p style={{ color: 'var(--ink-mut)', fontSize: 13 }}>
-              No events yet.
-            </p>
-          ) : (
-            events.map((ev, i) => {
-              const evType =
-                typeof ev.event_type === 'string' ? ev.event_type : 'unknown'
-              const label =
-                EVENT_TYPE_LABELS[evType] ?? evType.replace(/_/g, ' ')
-              const toState =
-                typeof ev.to_state === 'string'
-                  ? ev.to_state.replace(/_/g, ' ')
-                  : null
-              const ts =
-                typeof ev.occurred_at === 'string'
-                  ? new Date(ev.occurred_at).toLocaleString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : ''
-              const nt = nodeType(evType)
-              return (
-                <div key={i} className="en-tl-ev">
-                  <span className={`en-tl-node${nt ? ` ${nt}` : ''}`} />
-                  <div>
-                    <div className="te">
-                      {label}
-                      {toState ? ` → ${toState}` : ''}
-                    </div>
-                    {ts && <div className="tts">{ts}</div>}
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
-      </div>
 
       {/* Decision form */}
       <DecisionForm caseId={caseId} onComplete={onDecisionComplete} />
@@ -1043,8 +1077,6 @@ function MdWorkColumn({
   decisionDone: boolean
   onDecisionComplete: () => void
 }) {
-  const events = caseData.events as Record<string, unknown>[]
-
   return (
     <section className="en-col work">
       <div className="en-work-head">
@@ -1201,63 +1233,6 @@ function MdWorkColumn({
             </div>
           </div>
 
-          {/* Events timeline in MD view */}
-          <div
-            className="en-panel"
-            data-testid="events-timeline"
-            style={{ margin: 0 }}
-          >
-            <div className="en-panel-h">
-              <span className="pt">Case timeline</span>
-              <span className="lbl">
-                {events.length} event{events.length !== 1 ? 's' : ''} · immutable
-              </span>
-            </div>
-            <div className="en-panel-b" style={{ paddingBottom: 8 }}>
-              {events.length === 0 ? (
-                <p style={{ color: 'var(--ink-mut)', fontSize: 13 }}>
-                  No events yet.
-                </p>
-              ) : (
-                events.map((ev, i) => {
-                  const evType =
-                    typeof ev.event_type === 'string'
-                      ? ev.event_type
-                      : 'unknown'
-                  const label =
-                    EVENT_TYPE_LABELS[evType] ?? evType.replace(/_/g, ' ')
-                  const toState =
-                    typeof ev.to_state === 'string'
-                      ? ev.to_state.replace(/_/g, ' ')
-                      : null
-                  const ts =
-                    typeof ev.occurred_at === 'string'
-                      ? new Date(ev.occurred_at).toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : ''
-                  const nt = nodeType(evType)
-                  return (
-                    <div key={i} className="en-tl-ev">
-                      <span
-                        className={`en-tl-node${nt ? ` ${nt}` : ''}`}
-                      />
-                      <div>
-                        <div className="te">
-                          {label}
-                          {toState ? ` → ${toState}` : ''}
-                        </div>
-                        {ts && <div className="tts">{ts}</div>}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1516,6 +1491,7 @@ export function CasePage() {
   const [decisionDone, setDecisionDone] = useState(false)
   const [mdType, setMdType] = useState<AdverseOutcome>('denied')
   const [rfiOpen, setRfiOpen] = useState(false)
+  const [timelineOpen, setTimelineOpen] = useState(false)
 
   const auth = useAuth()
 
@@ -1663,6 +1639,7 @@ export function CasePage() {
                 className="en-iconbtn"
                 title="Case timeline"
                 aria-label="Case timeline"
+                onClick={() => setTimelineOpen(true)}
               >
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                   <circle
@@ -1766,6 +1743,11 @@ export function CasePage() {
           )}
         </main>
       </div>
+      <TimelineDrawer
+        events={(data.events ?? []) as Record<string, unknown>[]}
+        open={timelineOpen}
+        onClose={() => setTimelineOpen(false)}
+      />
     </AppShell>
   )
 }
