@@ -1,6 +1,14 @@
+import os
+
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from simintero_authz import AuthError, ForbiddenError
 
 from enstellar_bff.routers import appeals, cases, directory, grievances, worklist
@@ -8,7 +16,32 @@ from enstellar_bff.routers.crd import router as crd_router
 from enstellar_bff.routers.dtr import router as dtr_router
 from enstellar_bff.routers.queues import router as queues_router
 
+# ── OpenTelemetry bootstrap ────────────────────────────────────────────────
+if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    _otel_provider = TracerProvider()
+    _otel_provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter())
+    )
+    trace.set_tracer_provider(_otel_provider)
+    FastAPIInstrumentor().instrument()
+    HTTPXClientInstrumentor().instrument()
+
 app = FastAPI(title="Enstellar BFF", version="0.1.0")
+
+
+async def otel_enrich(request: Request, call_next):
+    """Stamp tenant_id and user.sub from BFF auth context onto the active OTel span."""
+    response = await call_next(request)
+    span = trace.get_current_span()
+    ctx = getattr(request.state, "bff_context", None)
+    if ctx is not None:
+        span.set_attribute("tenant_id", ctx.tenant_id)
+        span.set_attribute("user.sub", getattr(ctx, "sub", ""))
+    return response
+
+
+app.middleware("http")(otel_enrich)
+
 app.include_router(worklist.router, prefix="/bff")
 app.include_router(cases.router, prefix="/bff")
 app.include_router(appeals.router, prefix="/bff")

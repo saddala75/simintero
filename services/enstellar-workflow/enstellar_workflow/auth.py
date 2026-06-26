@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from simintero_authz import AuthError, ForbiddenError, JWTValidator
 from simintero_authz.context import tenant_context_from_claims
@@ -108,28 +108,34 @@ async def _authed_with_role(
 
 
 async def require_reviewer(
+    request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AsyncIterator[ReviewerContext]:
     """Enforce the ``reviewer`` role; yield a scoped ``ReviewerContext``."""
     ctx = await _authed_with_role(creds, REVIEWER_ROLE)
+    request.state.tenant_context = ctx  # for OTel middleware
     with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
         yield ctx
 
 
 async def require_appeals_assigner(
+    request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AsyncIterator[ReviewerContext]:
     """Enforce the ``appeals_coordinator`` role; yield a scoped ``ReviewerContext``."""
     ctx = await _authed_with_role(creds, APPEALS_ASSIGNER_ROLE)
+    request.state.tenant_context = ctx  # for OTel middleware
     with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
         yield ctx
 
 
 async def require_grievance_coordinator(
+    request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AsyncIterator[ReviewerContext]:
     """Enforce the ``grievance_coordinator`` role; yield a scoped ``ReviewerContext``."""
     ctx = await _authed_with_role(creds, GRIEVANCE_COORDINATOR_ROLE)
+    request.state.tenant_context = ctx  # for OTel middleware
     with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
         yield ctx
 

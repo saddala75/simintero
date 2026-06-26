@@ -7,12 +7,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 
 import asyncpg
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 from simintero_authz import AuthError, ForbiddenError
 from enstellar_connectors.digicore.client import DigiCoreClient
@@ -40,6 +49,17 @@ from enstellar_workflow.clocks.sla_poller import SlaPoller
 from enstellar_workflow.grievances.sla_poller import GrievanceSlaPoller
 from enstellar_workflow.revital.poller import RevitalPoller
 from enstellar_workflow.suggestions.router import router as suggestions_router
+
+# ── OpenTelemetry bootstrap ────────────────────────────────────────────────
+if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    _otel_provider = TracerProvider()
+    _otel_provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter())
+    )
+    trace.set_tracer_provider(_otel_provider)
+    FastAPIInstrumentor().instrument()
+    AsyncPGInstrumentor().instrument()
+    HTTPXClientInstrumentor().instrument()
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -182,6 +202,20 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+
+
+async def otel_enrich(request: Request, call_next):
+    """Stamp tenant_id and user.sub from auth context onto the active OTel span."""
+    response = await call_next(request)
+    span = trace.get_current_span()
+    ctx = getattr(request.state, "tenant_context", None)
+    if ctx is not None:
+        span.set_attribute("tenant_id", ctx.tenant_id)
+        span.set_attribute("user.sub", getattr(ctx, "sub", ""))
+    return response
+
+
+app.middleware("http")(otel_enrich)
 
 app.include_router(normalization_router)
 app.include_router(cases_router)

@@ -22,6 +22,13 @@ dependencies = [
     # Sync DBAPI for Alembic migrations (run at container start via docker-entrypoint.sh);
     # the app itself uses asyncpg. Must be a runtime dep so the --no-dev image includes it.
     "psycopg2-binary>=2.9",
+    # OpenTelemetry instrumentation
+    "opentelemetry-sdk>=1.25.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.25.0",
+    "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "opentelemetry-instrumentation-asyncpg>=0.46b0",
+    "opentelemetry-instrumentation-httpx>=0.46b0",
+    "opentelemetry-instrumentation-logging>=0.46b0",
 ]
 
 [dependency-groups]

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from simintero_authz import AuthError, ForbiddenError, JWTValidator
 from simintero_authz.context import tenant_context_from_claims
@@ -53,6 +53,7 @@ require_auth = make_require_auth(validator)
 
 
 async def require_reviewer(
+    request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AsyncIterator[tuple[BffContext, str]]:
     """Validate the bearer JWT, scope the tenant context, enforce the reviewer
@@ -75,11 +76,13 @@ async def require_reviewer(
         raise ForbiddenError("reviewer role required")
     base = tenant_context_from_claims(claims)
     ctx = BffContext(**base.model_dump(), sub=claims.sub)
+    request.state.bff_context = ctx  # for OTel middleware
     with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
         yield ctx, creds.credentials
 
 
 async def require_user(
+    request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AsyncIterator[tuple[BffContext, str]]:
     """Validate the JWT + carry the ``sub`` (NO role gate). For routes where any
@@ -102,6 +105,7 @@ async def require_user(
         raise AuthError("Token missing sub")
     base = tenant_context_from_claims(claims)
     ctx = BffContext(**base.model_dump(), sub=claims.sub)
+    request.state.bff_context = ctx  # for OTel middleware
     with tenant_context(ctx):  # sets on enter, ALWAYS resets on exit
         yield ctx, creds.credentials
 
