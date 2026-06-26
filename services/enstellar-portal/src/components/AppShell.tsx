@@ -4,9 +4,16 @@ import { useAuth } from '../auth/AuthContext'
 const initials = (name: string) =>
   name.split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '—'
 
-/** App chrome: dark topbar (brand · breadcrumb · search · env/ai/avatar) + scroll area.
- *  `breadcrumb` is the section label node (e.g. <b>Utilization Management</b>). */
-export function AppShell({ breadcrumb, children }: { breadcrumb?: ReactNode; children: ReactNode }) {
+/** App chrome: dark topbar + scroll area (or raw children when noScroll=true). */
+export function AppShell({
+  breadcrumb,
+  children,
+  noScroll,
+}: {
+  breadcrumb?: ReactNode
+  children: ReactNode
+  noScroll?: boolean
+}) {
   const auth = useAuth()
   return (
     <div className="en-app">
@@ -32,7 +39,7 @@ export function AppShell({ breadcrumb, children }: { breadcrumb?: ReactNode; chi
           <span className="en-avatar" title={auth.displayName || 'Reviewer'}>{initials(auth.displayName)}</span>
         </div>
       </div>
-      <div className="en-scroll">{children}</div>
+      {noScroll ? children : <div className="en-scroll">{children}</div>}
     </div>
   )
 }

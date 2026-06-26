@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCase, getCaseDocuments, getCriteria, getSuggestions, getWorklist, postRfi, postSuggestionAction } from '../api/client'
 import type { AdverseOutcome, CaseDetail, CriterionItem, SlaInfo, SuggestionItem, WorklistItem } from '../types'
+import { AppShell } from '../components/AppShell'
 import { DecisionForm } from '../components/DecisionForm'
 import { MdAdverseForm } from '../components/MdAdverseForm'
 
@@ -66,62 +67,6 @@ function memberName(member: Record<string, unknown>): string {
 
 function shortId(caseId: string): string {
   return `PA-${caseId.replace(/-/g, '').slice(0, 8).toUpperCase()}`
-}
-
-// ── Topbar ────────────────────────────────────────────────────────────────────
-
-function Topbar({ status }: { status: string }) {
-  const isMd = status === 'md_review'
-  return (
-    <div className="en-topbar">
-      <span className="en-brand">
-        <svg
-          className="mark"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden="true"
-        >
-          <rect
-            x="2"
-            y="2"
-            width="20"
-            height="20"
-            rx="6"
-            stroke="#74DBC8"
-            strokeWidth="1.6"
-          />
-          <circle cx="12" cy="12" r="3.4" fill="#74DBC8" />
-        </svg>
-        Enstellar
-      </span>
-      <span className="en-breadcrumb">
-        Utilization Mgmt &nbsp;/&nbsp; Clinical Review &nbsp;/&nbsp;{' '}
-        <b>{isMd ? 'Determination' : 'Review'}</b>
-      </span>
-      <div className="en-search">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
-          <path
-            d="M11 11l3 3"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-          />
-        </svg>
-        Search cases, members, providers…
-      </div>
-      <div className="en-topright">
-        <span className="en-env">TENANT · DEV</span>
-        <span className="en-ai-global">
-          <span className="dot" />
-          Governed AI · on
-        </span>
-        <span className="en-avatar" title={isMd ? 'Medical Director' : 'Reviewer'}>
-          {isMd ? 'MD' : 'AP'}
-        </span>
-      </div>
-    </div>
-  )
 }
 
 // ── SLA countdown hook ────────────────────────────────────────────────────────
@@ -1474,19 +1419,18 @@ export function CasePage() {
 
   if (isLoading) {
     return (
-      <div className="en-app">
-        <Topbar status="clinical_review" />
-        <div style={{ padding: 40, color: 'var(--ink-mut)' }}>
-          Loading case…
+      <AppShell noScroll breadcrumb={<b>Clinical Review</b>}>
+        <div className="en-body">
+          <div style={{ padding: 40, color: 'var(--ink-mut)' }}>Loading case…</div>
         </div>
-      </div>
+      </AppShell>
     )
   }
 
   if (isError || !data) {
     return (
-      <div className="en-app">
-        <Topbar status="clinical_review" />
+      <AppShell noScroll breadcrumb={<b>Clinical Review</b>}>
+        <div className="en-body">
         <div style={{ padding: 40 }}>
           <p role="alert" style={{ color: 'var(--red)', marginBottom: 12 }}>
             {(error as Error)?.message ?? 'Failed to load case'}
@@ -1498,7 +1442,8 @@ export function CasePage() {
             ← Back to worklist
           </button>
         </div>
-      </div>
+        </div>
+      </AppShell>
     )
   }
 
@@ -1518,9 +1463,15 @@ export function CasePage() {
     : ''
 
   return (
-    <div className="en-app">
-      <Topbar status={data.status} />
-
+    <AppShell
+      noScroll
+      breadcrumb={
+        <>
+          Utilization Mgmt &nbsp;/&nbsp; Clinical Review &nbsp;/&nbsp;{' '}
+          <b>{isMdReview ? 'Determination' : 'Review'}</b>
+        </>
+      }
+    >
       <div className="en-body">
         <WorklistRail currentCaseId={caseId} collapsed={railCollapsed} />
 
@@ -1681,6 +1632,6 @@ export function CasePage() {
           )}
         </main>
       </div>
-    </div>
+    </AppShell>
   )
 }
