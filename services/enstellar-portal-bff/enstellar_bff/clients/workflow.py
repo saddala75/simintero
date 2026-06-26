@@ -287,6 +287,14 @@ class WorkflowClient:
         r.raise_for_status()
         return r.json()
 
+    async def get_grievance(self, grievance_id: str, bearer_token: str) -> dict:
+        r = await self._http.get(
+            f"/grievances/{grievance_id}",
+            headers=self._auth(bearer_token),
+        )
+        r.raise_for_status()
+        return r.json()
+
     # --- Directory ---
     async def directory(self, bearer_token, *, role=None):
         params = {"role": role} if role else None

@@ -97,3 +97,12 @@ async def list_assigned_grievances(
 ) -> Any:
     _ctx, bearer = auth
     return await workflow_client.list_assigned_grievances(bearer)
+
+
+@router.get("/grievances/{grievance_id}")
+async def get_grievance(
+    grievance_id: uuid.UUID,
+    auth: tuple = Depends(require_auth),
+) -> Any:
+    _ctx, bearer = auth
+    return await workflow_client.get_grievance(str(grievance_id), bearer)

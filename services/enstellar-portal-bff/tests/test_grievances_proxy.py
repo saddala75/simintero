@@ -263,3 +263,44 @@ async def test_engine_403_propagates_to_bff() -> None:
 
     assert r.status_code == 403
     assert r.json()["detail"] == "not the assigned investigator"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_grievance_proxy() -> None:
+    """GET /bff/grievances/{id} forwards bearer to engine and returns detail."""
+    detail = {
+        "grievance_id": GRIEVANCE_ID,
+        "member_ref": "member-001",
+        "case_id": None,
+        "category": "billing",
+        "description": "incorrect charge",
+        "urgency": "standard",
+        "lob": "ma",
+        "status": "filed",
+        "filed_by": "user-001",
+        "filed_at": "2026-06-26T10:00:00+00:00",
+        "acknowledged_at": None,
+        "acknowledged_by": None,
+        "assigned_to": None,
+        "assigned_at": None,
+        "resolution": None,
+        "resolved_at": None,
+        "resolution_due_at": None,
+    }
+    route = respx.get(f"{ENGINE}/grievances/{GRIEVANCE_ID}").mock(
+        return_value=Response(200, json=detail)
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get(
+            f"/bff/grievances/{GRIEVANCE_ID}",
+            headers={"Authorization": f"Bearer {TEST_BEARER}"},
+        )
+
+    assert r.status_code == 200
+    assert r.json()["grievance_id"] == GRIEVANCE_ID
+    assert r.json()["member_ref"] == "member-001"
+    assert route.called

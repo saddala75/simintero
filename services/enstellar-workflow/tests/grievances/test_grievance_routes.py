@@ -179,3 +179,42 @@ async def test_assigned_worklist_is_tenant_isolated(ac: AsyncClient, pg_pool: as
     )
     assert resp.status_code == 200, resp.text
     assert gid_b not in {g["grievance_id"] for g in resp.json()}
+
+
+@pytest.mark.asyncio
+async def test_get_grievance(ac: AsyncClient, pg_pool: asyncpg.Pool):
+    """GET /grievances/{id} returns the full row for any authenticated user."""
+    tenant_id = f"griev-get-{uuid.uuid4()}"
+    member_ref = f"member-{uuid.uuid4()}"
+    await _seed_templates(pg_pool, tenant_id)
+    auth = {"Authorization": f"Bearer {tenant_id}"}
+
+    # File a grievance to get an ID
+    resp = await ac.post(
+        "/grievances",
+        headers=auth,
+        json={"member_ref": member_ref, "filed_by": "user-1",
+              "lob": "ma", "urgency": "standard", "category": "billing",
+              "description": "incorrect charge"},
+    )
+    assert resp.status_code == 201, resp.text
+    gid = resp.json()["grievance_id"]
+
+    # GET returns the full detail
+    resp = await ac.get(f"/grievances/{gid}", headers=auth)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["grievance_id"] == gid
+    assert body["status"] == "filed"
+    assert body["member_ref"] == member_ref
+    assert body["category"] == "billing"
+    assert body["description"] == "incorrect charge"
+    assert body["filed_at"] is not None
+    assert body["acknowledged_at"] is None
+    assert body["assigned_to"] is None
+    assert body["resolution"] is None
+    assert body["resolved_at"] is None
+
+    # 404 for non-existent grievance
+    resp = await ac.get(f"/grievances/{uuid.uuid4()}", headers=auth)
+    assert resp.status_code == 404, resp.text

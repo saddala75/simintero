@@ -120,3 +120,16 @@ async def my_assigned_grievances(auth: ReviewerRequest) -> Any:
     return await GrievanceService(pool).list_assigned(
         tenant_id=auth.tenant_id, investigator_sub=auth.sub
     )
+
+
+@router.get("/{grievance_id}", response_model=None)
+async def get_grievance(grievance_id: uuid.UUID, auth: AuthedRequest) -> Any:
+    from .service import GrievanceNotFoundError, GrievanceService
+
+    pool = await get_pool()
+    try:
+        return await GrievanceService(pool).get_grievance(
+            tenant_id=auth.tenant_id, grievance_id=grievance_id
+        )
+    except GrievanceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

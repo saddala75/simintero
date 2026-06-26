@@ -229,6 +229,31 @@ class GrievanceService:
             )
         return {"grievance_id": gid, "status": "resolved"}
 
+    async def get_grievance(self, *, tenant_id: str, grievance_id) -> dict:
+        async with tenant_transaction(self._pool, tenant_id) as conn:
+            g = await self._repo.fetch(conn, grievance_id, tenant_id)
+        if g is None:
+            raise GrievanceNotFoundError(f"grievance {grievance_id} not found")
+        return {
+            "grievance_id": str(g["grievance_id"]),
+            "member_ref": g.get("member_ref"),
+            "case_id": str(g["case_id"]) if g.get("case_id") else None,
+            "category": g.get("category"),
+            "description": g.get("description"),
+            "urgency": g.get("urgency"),
+            "lob": g.get("lob"),
+            "status": g.get("status"),
+            "filed_by": g.get("filed_by"),
+            "filed_at": _iso(g.get("filed_at")),
+            "acknowledged_at": _iso(g.get("acknowledged_at")),
+            "acknowledged_by": g.get("acknowledged_by"),
+            "assigned_to": g.get("assigned_to"),
+            "assigned_at": _iso(g.get("assigned_at")),
+            "resolution": g.get("resolution"),
+            "resolved_at": _iso(g.get("resolved_at")),
+            "resolution_due_at": _iso(g.get("resolution_due_at")),
+        }
+
     async def list_assigned(
         self, *, tenant_id: str, investigator_sub: str
     ) -> list[dict]:
