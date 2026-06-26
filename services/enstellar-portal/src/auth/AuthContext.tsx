@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { keycloak, IS_MOCK, MOCK_ROLES } from './keycloak'
 
+let initStarted = false
+
 export interface AuthState {
   ready: boolean
   authenticated: boolean
@@ -46,18 +48,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (IS_MOCK) return
-    keycloak
-      .init({
-        onLoad: 'check-sso',
-        pkceMethod: 'S256',
-        silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
-      })
-      .then((authd) => {
-        setState(mkState(authd))
-        if (authd) setInterval(() => keycloak.updateToken(60).catch(() => {}), 30_000)
-      })
-      .catch(() => setState(mkState(false)))
+    let refreshTimer: ReturnType<typeof setInterval> | undefined
     keycloak.onAuthRefreshSuccess = () => setState(mkState(true))
+    if (!initStarted && !keycloak.didInitialize) {
+      initStarted = true
+      keycloak
+        .init({
+          onLoad: 'check-sso',
+          pkceMethod: 'S256',
+          silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+        })
+        .then((authd) => {
+          setState(mkState(authd))
+          if (authd) refreshTimer = setInterval(() => keycloak.updateToken(60).catch(() => {}), 30_000)
+        })
+        .catch(() => setState(mkState(false)))
+    } else {
+      // already initialized (StrictMode remount) — just reflect current state
+      setState(mkState(!!keycloak.authenticated))
+    }
+    return () => { if (refreshTimer) clearInterval(refreshTimer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -67,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 /** Gate app routes: trigger login if unauthenticated. The public landing is NOT wrapped. */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const auth = useAuth()
-  if (!auth.ready) return null
-  if (!auth.authenticated) { auth.login(); return null }
+  useEffect(() => {
+    if (auth.ready && !auth.authenticated) auth.login()
+  }, [auth])
+  if (!auth.ready || !auth.authenticated) return null
   return <>{children}</>
 }
