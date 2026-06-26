@@ -7,6 +7,7 @@ import http from 'node:http'
 
 const CASE_ID = 'aaaaaaaa-bbbb-cccc-dddd-000000000001'
 const MD_CASE_ID = 'aaaaaaaa-bbbb-cccc-dddd-000000000002'
+const APPEAL_ID = 'appeal-aaaa-bbbb-cccc-000000000001'
 const PORT = parseInt(process.env.PORT ?? '8001', 10)
 
 function respond(res: http.ServerResponse, status: number, body: unknown) {
@@ -80,7 +81,7 @@ const server = http.createServer((req, res) => {
   }
 
   // GET /bff/cases/:caseId
-  if (req.method === 'GET' && url.includes('/cases/') && !url.includes('/criteria') && !url.includes('/documents') && !url.includes('/suggestions') && !url.includes('/rfi') && !url.includes('/notice-preview')) {
+  if (req.method === 'GET' && url.includes('/cases/') && !url.includes('/criteria') && !url.includes('/documents') && !url.includes('/suggestions') && !url.includes('/rfi') && !url.includes('/notice-preview') && !url.includes('/appeals')) {
     const isMdCase = url.includes(MD_CASE_ID)
     respond(res, 200, {
       case_id: isMdCase ? MD_CASE_ID : CASE_ID,
@@ -233,6 +234,97 @@ const server = http.createServer((req, res) => {
         'Contact: 1-800-ENSTELLAR | appeals@enstellar.simintero.com',
       ].join('\n'),
     })
+    return
+  }
+
+  // GET /bff/appeals/assigned
+  if (req.method === 'GET' && url === '/bff/appeals/assigned') {
+    respond(res, 200, [
+      {
+        appeal_id: APPEAL_ID,
+        case_id: CASE_ID,
+        member_name: 'Jane E2E',
+        category: 'member_request',
+        requested_outcome: 'full_overturn',
+        status: 'assigned',
+        filed_at: '2026-06-20T10:00:00Z',
+        days_open: 6,
+      },
+    ])
+    return
+  }
+
+  // GET /bff/appeals/open
+  if (req.method === 'GET' && url === '/bff/appeals/open') {
+    respond(res, 200, [
+      {
+        appeal_id: APPEAL_ID,
+        case_id: CASE_ID,
+        member_name: 'Jane E2E',
+        category: 'member_request',
+        requested_outcome: 'full_overturn',
+        status: 'assigned',
+        filed_at: '2026-06-20T10:00:00Z',
+        days_open: 6,
+      },
+      {
+        appeal_id: 'appeal-bbbb-cccc-dddd-000000000002',
+        case_id: MD_CASE_ID,
+        member_name: 'Dr Review Patient',
+        category: 'provider_request',
+        requested_outcome: 'partial_overturn',
+        status: 'filed',
+        filed_at: '2026-06-25T09:00:00Z',
+        days_open: 1,
+      },
+    ])
+    return
+  }
+
+  // GET /bff/cases/:id/appeals/:appealId  (detail — no /decision or /assignment suffix)
+  if (
+    req.method === 'GET' &&
+    url.includes('/appeals/') &&
+    !url.includes('/decision') &&
+    !url.includes('/assignment')
+  ) {
+    respond(res, 200, {
+      appeal_id: APPEAL_ID,
+      case_id: CASE_ID,
+      category: 'member_request',
+      grounds:
+        'The treating physician provided attestation that was not considered in the original review. Supporting documentation attached.',
+      requested_outcome: 'full_overturn',
+      status: 'assigned',
+      filed_at: '2026-06-20T10:00:00Z',
+    })
+    return
+  }
+
+  // POST /bff/cases/:id/appeals  (file new appeal — URL ends with /appeals, no extra segment)
+  if (req.method === 'POST' && /\/bff\/cases\/[^/]+\/appeals$/.test(url)) {
+    respond(res, 201, { appeal_id: APPEAL_ID })
+    return
+  }
+
+  // POST /bff/cases/:id/appeals/:id/decision
+  if (req.method === 'POST' && url.includes('/appeals/') && url.includes('/decision')) {
+    let body = ''
+    req.on('data', (chunk) => { body += chunk })
+    req.on('end', () => {
+      const parsed = JSON.parse(body || '{}')
+      if (!parsed.sign_off_confirmed) {
+        respond(res, 400, { detail: 'sign_off_confirmed must be true' })
+      } else {
+        respond(res, 201, { appeal_id: APPEAL_ID, decision: parsed.decision })
+      }
+    })
+    return
+  }
+
+  // POST /bff/cases/:id/appeals/:id/assignment
+  if (req.method === 'POST' && url.includes('/appeals/') && url.includes('/assignment')) {
+    respond(res, 200, {})
     return
   }
 
