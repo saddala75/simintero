@@ -44,6 +44,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("com.fasterxml.jackson.core:jackson-databind")
 
+    // T4B4: Apache Santuario XMLDSig verification for C-CDA attachments
+    implementation("org.apache.santuario:xmlsec:4.0.3")
+
     // OpenTelemetry API — used by OtelTenantFilter to stamp tenant_id on the active span.
     // The OTel Java agent (v2.6.0) provides the SDK at runtime via the agent classloader;
     // this compile-scope dependency exposes only the stable API surface.

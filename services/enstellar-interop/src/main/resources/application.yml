@@ -84,6 +84,8 @@ enstellar:
     base-url: ${DOCUMENT_SERVICE_URL:http://document-service:3010}
   clearinghouse:
     base-url: ${CLEARINGHOUSE_URL:http://localhost:3060}
+  claims:
+    base-url: ${CLAIMS_SERVICE_URL:http://localhost:3040}
 
 interop:
   hapi:
