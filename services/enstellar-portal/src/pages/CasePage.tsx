@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCase, getCaseDocuments, getCriteria, getDocumentContent, getSuggestions, getWorklist, postRfi, postSuggestionAction } from '../api/client'
+import { getCase, getCaseDocuments, getCriteria, getDocumentContent, getSuggestions, getWorklist, postRfi, postSuggestionAction, submitDecision } from '../api/client'
 import type { AdverseOutcome, CaseDetail, CriterionItem, SlaInfo, SuggestionItem, WorklistItem } from '../types'
 import { AppShell } from '../components/AppShell'
 import { useAuth, hasRole } from '../auth/AuthContext'
@@ -486,10 +486,12 @@ function WorkColumn({
   caseData,
   caseId,
   onDecisionComplete,
+  onOpenRfi,
 }: {
   caseData: CaseDetail
   caseId: string
   onDecisionComplete: () => void
+  onOpenRfi: (initialQuestion?: string) => void
 }) {
   const [openCrit, setOpenCrit] = useState<Set<number>>(new Set())
   const isClinicReview = caseData.status === 'clinical_review'
@@ -680,6 +682,25 @@ function WorkColumn({
                   </svg>
                   {c.citations.join(' · ')}
                 </div>
+              )}
+              {c.status === 'gap' && (
+                <button
+                  className="en-mini-rfi"
+                  data-testid={`rfi-crit-${c.id}`}
+                  onClick={() =>
+                    onOpenRfi(`Please provide documentation for: ${c.text}`)
+                  }
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M3 4h10v7H6l-3 2z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Request this documentation
+                </button>
               )}
             </div>
           </div>
@@ -1402,12 +1423,14 @@ function RfiModal({
   caseId,
   onClose,
   onSuccess,
+  initialQuestion = '',
 }: {
   caseId: string
   onClose: () => void
   onSuccess: () => void
+  initialQuestion?: string
 }) {
-  const [question, setQuestion] = useState('')
+  const [question, setQuestion] = useState(initialQuestion)
   const [requestedDocs, setRequestedDocs] = useState<string[]>([])
 
   const mutation = useMutation({
@@ -1417,63 +1440,80 @@ function RfiModal({
   })
 
   const toggleDoc = (value: string) =>
-    setRequestedDocs((prev) =>
-      prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value],
+    setRequestedDocs(prev =>
+      prev.includes(value) ? prev.filter(d => d !== value) : [...prev, value],
     )
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold mb-4">
-          Request information from provider
-        </h3>
-
-        <textarea
-          className="w-full border rounded p-2 text-sm resize-none"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Describe what information is needed…"
-          rows={4}
-        />
-
-        <fieldset className="mt-3">
-          <legend className="text-sm font-medium text-gray-700 mb-1">
-            Document types requested
-          </legend>
-          <div className="space-y-1">
-            {DOC_TYPES.map((dt) => (
-              <label key={dt.value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={requestedDocs.includes(dt.value)}
-                  onChange={() => toggleDoc(dt.value)}
-                />
-                {dt.label}
-              </label>
-            ))}
+    <div className="en-modal-scrim" onClick={onClose}>
+      <div className="en-modal-card" onClick={e => e.stopPropagation()}>
+        <div className="en-modal-h">
+          <div>
+            <div className="en-modal-title">Request additional information</div>
+            <div className="en-modal-sub">Sent to provider via portal &amp; FHIR</div>
           </div>
-        </fieldset>
-
-        {mutation.isError && (
-          <p className="mt-2 text-sm text-red-600">
-            Failed to send — please try again.
-          </p>
-        )}
-
-        <div className="mt-4 flex justify-end gap-2">
+        </div>
+        <div className="en-modal-b">
+          <label className="en-modal-label" htmlFor="rfi-question">
+            Request
+          </label>
+          <textarea
+            id="rfi-question"
+            className="en-textarea"
+            value={question}
+            onChange={e => setQuestion(e.target.value)}
+            placeholder="Describe what information is needed…"
+            rows={4}
+          />
+          <fieldset style={{ border: 0, margin: '12px 0 0', padding: 0 }}>
+            <legend className="en-modal-label">Document types requested</legend>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {DOC_TYPES.map(dt => (
+                <label
+                  key={dt.value}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={requestedDocs.includes(dt.value)}
+                    onChange={() => toggleDoc(dt.value)}
+                  />
+                  {dt.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="en-pausebar">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M6 5v6M10 5v6"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            </svg>
+            Sending this pauses the decision clock until a response is received.
+          </div>
+          {mutation.isError && (
+            <p role="alert" style={{ color: 'var(--red)', fontSize: 13, marginTop: 8 }}>
+              Failed to send — please try again.
+            </p>
+          )}
+        </div>
+        <div className="en-modal-f">
           <button
-            className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
+            className="en-act"
             onClick={onClose}
             disabled={mutation.isPending}
           >
             Cancel
           </button>
           <button
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            className="en-act primary"
             onClick={() => mutation.mutate()}
             disabled={!question.trim() || mutation.isPending}
           >
-            {mutation.isPending ? 'Sending…' : 'Send request'}
+            {mutation.isPending ? 'Sending…' : 'Send RFI & pause clock'}
           </button>
         </div>
       </div>
@@ -1492,6 +1532,14 @@ export function CasePage() {
   const [mdType, setMdType] = useState<AdverseOutcome>('denied')
   const [rfiOpen, setRfiOpen] = useState(false)
   const [timelineOpen, setTimelineOpen] = useState(false)
+  const [rfiInitialQuestion, setRfiInitialQuestion] = useState('')
+
+  const referToMdMutation = useMutation({
+    mutationFn: () => submitDecision(caseId!, 'escalate'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] })
+    },
+  })
 
   const auth = useAuth()
 
@@ -1683,12 +1731,33 @@ export function CasePage() {
                 </button>
               )}
 
+              {!decisionDone && !isMdReview && (
+                <button
+                  className="en-act"
+                  data-testid="btn-refer-md"
+                  onClick={() => referToMdMutation.mutate()}
+                  disabled={referToMdMutation.isPending}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  {referToMdMutation.isPending ? 'Referring…' : 'Refer to MD'}
+                </button>
+              )}
+
               {rfiOpen && (
                 <RfiModal
                   caseId={caseId!}
-                  onClose={() => setRfiOpen(false)}
+                  initialQuestion={rfiInitialQuestion}
+                  onClose={() => { setRfiOpen(false); setRfiInitialQuestion('') }}
                   onSuccess={() => {
                     setRfiOpen(false)
+                    setRfiInitialQuestion('')
                     queryClient.invalidateQueries({ queryKey: ['case', caseId] })
                     queryClient.invalidateQueries({ queryKey: ['worklist'] })
                   }}
@@ -1737,6 +1806,10 @@ export function CasePage() {
                 caseData={data}
                 caseId={caseId}
                 onDecisionComplete={() => setDecisionDone(true)}
+                onOpenRfi={(q) => {
+                  setRfiInitialQuestion(q ?? '')
+                  setRfiOpen(true)
+                }}
               />
               <AiColumn caseId={caseId} />
             </div>

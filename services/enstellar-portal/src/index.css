@@ -855,3 +855,19 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, select:focus-visi
   padding: 18px 20px;
   flex: 1;
 }
+
+/* ===== Per-criterion RFI trigger ===== */
+.en-mini-rfi {
+  margin-top: 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pine);
+  background: var(--pine-tint);
+  border: 1px solid rgba(15,86,76,.25);
+  border-radius: 9px;
+  padding: 9px 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.en-mini-rfi:hover { background: rgba(15,86,76,.14); }
