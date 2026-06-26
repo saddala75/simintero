@@ -37,6 +37,7 @@ from enstellar_workflow.criteria.router import router as criteria_router
 from enstellar_workflow.normalization.api import router as normalization_router
 from enstellar_workflow.queues.router import router as queues_router
 from enstellar_workflow.clocks.sla_poller import SlaPoller
+from enstellar_workflow.grievances.sla_poller import GrievanceSlaPoller
 from enstellar_workflow.revital.poller import RevitalPoller
 from enstellar_workflow.suggestions.router import router as suggestions_router
 
@@ -132,6 +133,10 @@ async def lifespan(app: FastAPI):
     sla_task = asyncio.create_task(sla_poller.start(), name="sla-poller")
     logger.info("SlaPoller started")
 
+    grievance_poller = GrievanceSlaPoller(pool)
+    gsp_task = asyncio.create_task(grievance_poller.start(), name="grievance-sla-poller")
+    logger.info("GrievanceSlaPoller started")
+
     try:
         yield
     finally:
@@ -153,7 +158,8 @@ async def lifespan(app: FastAPI):
         await relay.stop()
         await revital_poller.stop()
         await sla_poller.stop()
-        for t in (relay_task, dr_task, rp_task, sla_task):
+        await grievance_poller.stop()
+        for t in (relay_task, dr_task, rp_task, sla_task, gsp_task):
             t.cancel()
             try:
                 await t

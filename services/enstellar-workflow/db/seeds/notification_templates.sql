@@ -44,5 +44,11 @@ VALUES
    'Your grievance has been acknowledged and is being reviewed.'),
   ('tenant-dev', NULL, 'grievance_resolved', 'portal',
    'Grievance resolved',
-   'Your grievance has been resolved.')
+   'Your grievance has been resolved.'),
+  ('tenant-dev', NULL, 'grievance_acknowledgement_overdue', 'internal',
+   'Grievance acknowledgement overdue',
+   'Internal alert: grievance {{ grievance_id }} has passed its acknowledgement deadline.'),
+  ('tenant-dev', NULL, 'grievance_resolution_overdue', 'internal',
+   'Grievance resolution overdue',
+   'Internal alert: grievance {{ grievance_id }} has passed its resolution deadline.')
 ON CONFLICT (tenant_id, COALESCE(lob,''), event_type, channel, version) DO NOTHING;
