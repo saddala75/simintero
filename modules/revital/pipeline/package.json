@@ -20,7 +20,8 @@
     "@temporalio/workflow": "^1.10.0",
     "@temporalio/activity": "^1.10.0",
     "@sim/revital-extraction": "workspace:*",
-    "@sim/outbox-ts": "workspace:*"
+    "@sim/outbox-ts": "workspace:*",
+    "fast-xml-parser": "^4.4.0"
   },
   "devDependencies": {
     "vitest": "^2.0.0",
