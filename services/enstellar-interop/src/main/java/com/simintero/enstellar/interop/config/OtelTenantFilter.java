@@ -20,10 +20,10 @@ public class OtelTenantFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+        filterChain.doFilter(request, response);
         String tenantId = request.getHeader("X-Tenant-ID");
         if (tenantId != null && !tenantId.isBlank()) {
             Span.current().setAttribute("tenant_id", tenantId);
         }
-        filterChain.doFilter(request, response);
     }
 }

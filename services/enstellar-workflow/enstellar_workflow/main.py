@@ -206,8 +206,8 @@ app = FastAPI(
 
 async def otel_enrich(request: Request, call_next):
     """Stamp tenant_id and user.sub from auth context onto the active OTel span."""
-    response = await call_next(request)
     span = trace.get_current_span()
+    response = await call_next(request)
     ctx = getattr(request.state, "tenant_context", None)
     if ctx is not None:
         span.set_attribute("tenant_id", ctx.tenant_id)

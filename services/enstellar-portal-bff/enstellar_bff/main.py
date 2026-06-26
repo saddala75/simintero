@@ -31,8 +31,8 @@ app = FastAPI(title="Enstellar BFF", version="0.1.0")
 
 async def otel_enrich(request: Request, call_next):
     """Stamp tenant_id and user.sub from BFF auth context onto the active OTel span."""
-    response = await call_next(request)
     span = trace.get_current_span()
+    response = await call_next(request)
     ctx = getattr(request.state, "bff_context", None)
     if ctx is not None:
         span.set_attribute("tenant_id", ctx.tenant_id)
