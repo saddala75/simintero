@@ -1,4 +1,4 @@
-import type { AdverseOutcome, AdverseStructuredPayload, AppealDecisionPayload, AppealDetail, AppealFilingPayload, AppealItem, CaseDetail, CrdCard, CriterionItem, DocumentItem, QueueStats, SuggestionItem, WorklistPage } from '../types'
+import type { AdverseOutcome, AdverseStructuredPayload, AppealDecisionPayload, AppealDetail, AppealFilingPayload, AppealItem, CaseDetail, CrdCard, CriterionItem, DocumentItem, GrievanceDetail, GrievanceFilingPayload, GrievanceItem, GrievanceResolutionPayload, QueueStats, SuggestionItem, WorklistPage } from '../types'
 import { currentBearer, keycloak, IS_MOCK } from '../auth/keycloak'
 
 const BASE = '/bff'
@@ -184,4 +184,28 @@ export function assignAppeal(
     method: 'POST',
     body: JSON.stringify({ coordinator_id: coordinatorId }),
   })
+}
+
+export function fileGrievance(payload: GrievanceFilingPayload): Promise<{ grievance_id: string; status: string }> {
+  return apiFetch('/bff/grievances', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function getAssignedGrievances(): Promise<GrievanceItem[]> {
+  return apiFetch('/bff/grievances/assigned')
+}
+
+export function getGrievanceDetail(grievanceId: string): Promise<GrievanceDetail> {
+  return apiFetch(`/bff/grievances/${grievanceId}`)
+}
+
+export function acknowledgeGrievance(grievanceId: string): Promise<{ grievance_id: string; status: string }> {
+  return apiFetch(`/bff/grievances/${grievanceId}/acknowledgement`, { method: 'POST' })
+}
+
+export function assignInvestigator(grievanceId: string, investigatorId: string): Promise<{ grievance_id: string; assigned_to: string; status: string }> {
+  return apiFetch(`/bff/grievances/${grievanceId}/assignment`, { method: 'POST', body: JSON.stringify({ investigator_id: investigatorId }) })
+}
+
+export function resolveGrievance(grievanceId: string, payload: GrievanceResolutionPayload): Promise<{ grievance_id: string; status: string }> {
+  return apiFetch(`/bff/grievances/${grievanceId}/resolution`, { method: 'POST', body: JSON.stringify(payload) })
 }

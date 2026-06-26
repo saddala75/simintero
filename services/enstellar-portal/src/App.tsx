@@ -7,6 +7,8 @@ import { EhrOrderSimPage } from './pages/EhrOrderSimPage'
 import { DtrFormPage } from './pages/DtrFormPage'
 import { AppealsPage } from './pages/AppealsPage'
 import { AppealDetailPage } from './pages/AppealDetailPage'
+import { GrievancesPage } from './pages/GrievancesPage'
+import { GrievanceDetailPage } from './pages/GrievanceDetailPage'
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
       <Route path="/dtr" element={<DtrFormPage />} />
       <Route path="/appeals" element={<ProtectedRoute><AppealsPage /></ProtectedRoute>} />
       <Route path="/cases/:caseId/appeals/:appealId" element={<ProtectedRoute><AppealDetailPage /></ProtectedRoute>} />
+      <Route path="/grievances" element={<ProtectedRoute><GrievancesPage /></ProtectedRoute>} />
+      <Route path="/grievances/:grievanceId" element={<ProtectedRoute><GrievanceDetailPage /></ProtectedRoute>} />
     </Routes>
   )
 }

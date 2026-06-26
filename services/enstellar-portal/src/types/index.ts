@@ -145,3 +145,52 @@ export interface AppealDecisionPayload {
   clinician_id: string
   sign_off_confirmed: true
 }
+
+export type GrievanceStatus = 'filed' | 'acknowledged' | 'investigating' | 'resolved'
+
+export interface GrievanceItem {
+  grievance_id: string
+  member_ref: string | null
+  case_id: string | null
+  category: string | null
+  urgency: string
+  lob: string | null
+  status: GrievanceStatus
+  filed_at: string
+  assigned_to: string | null
+  assigned_at: string | null
+  resolution_due_at: string | null
+}
+
+export interface GrievanceDetail {
+  grievance_id: string
+  member_ref: string | null
+  case_id: string | null
+  category: string | null
+  description: string | null
+  urgency: string
+  lob: string | null
+  status: GrievanceStatus
+  filed_by: string
+  filed_at: string
+  acknowledged_at: string | null
+  acknowledged_by: string | null
+  assigned_to: string | null
+  assigned_at: string | null
+  resolution: string | null
+  resolved_at: string | null
+  resolution_due_at: string | null
+}
+
+export interface GrievanceFilingPayload {
+  member_ref: string
+  case_id?: string
+  category?: string
+  description?: string
+  urgency: string
+  lob?: string
+}
+
+export interface GrievanceResolutionPayload {
+  resolution: string
+}
