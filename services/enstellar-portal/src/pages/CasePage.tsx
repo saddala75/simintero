@@ -9,6 +9,7 @@ import { useAuth, hasRole } from '../auth/AuthContext'
 import { DecisionForm } from '../components/DecisionForm'
 import { MdAdverseForm, type MdFormReadiness } from '../components/MdAdverseForm'
 import { AppealFilingModal } from '../components/AppealFilingModal'
+import { GrievanceFilingModal } from '../components/GrievanceFilingModal'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -1181,6 +1182,7 @@ function MdWorkColumn({
   const navigate = useNavigate()
   const auth = useAuth()
   const [appealFilingOpen, setAppealFilingOpen] = useState(false)
+  const [grievanceFilingOpen, setGrievanceFilingOpen] = useState(false)
 
   return (
     <section className="en-col work">
@@ -1337,6 +1339,15 @@ function MdWorkColumn({
               File appeal
             </button>
           )}
+          {hasRole(auth, 'grievance_coordinator') && (
+            <button
+              className="en-btn en-btn--secondary"
+              data-testid="btn-file-grievance-from-case"
+              onClick={() => setGrievanceFilingOpen(true)}
+            >
+              File grievance
+            </button>
+          )}
         </div>
       )}
       {appealFilingOpen && caseId && (
@@ -1346,6 +1357,16 @@ function MdWorkColumn({
           onFiled={(cid, aid) => {
             setAppealFilingOpen(false)
             navigate(`/cases/${cid}/appeals/${aid}`)
+          }}
+        />
+      )}
+      {grievanceFilingOpen && caseId && (
+        <GrievanceFilingModal
+          caseId={caseId}
+          onClose={() => setGrievanceFilingOpen(false)}
+          onFiled={(grievanceId) => {
+            setGrievanceFilingOpen(false)
+            navigate(`/grievances/${grievanceId}`)
           }}
         />
       )}
