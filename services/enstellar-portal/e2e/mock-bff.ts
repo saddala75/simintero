@@ -80,7 +80,7 @@ const server = http.createServer((req, res) => {
   }
 
   // GET /bff/cases/:caseId
-  if (req.method === 'GET' && url.includes('/cases/') && !url.includes('/criteria') && !url.includes('/documents') && !url.includes('/suggestions') && !url.includes('/rfi')) {
+  if (req.method === 'GET' && url.includes('/cases/') && !url.includes('/criteria') && !url.includes('/documents') && !url.includes('/suggestions') && !url.includes('/rfi') && !url.includes('/notice-preview')) {
     const isMdCase = url.includes(MD_CASE_ID)
     respond(res, 200, {
       case_id: isMdCase ? MD_CASE_ID : CASE_ID,
@@ -209,6 +209,30 @@ const server = http.createServer((req, res) => {
   // POST /bff/cases/:caseId/suggestions/:id/action
   if (req.method === 'POST' && url.includes('/suggestions/') && url.includes('/action')) {
     respond(res, 200, {})
+    return
+  }
+
+  // GET /bff/cases/:caseId/notice-preview
+  if (req.method === 'GET' && url.includes('/notice-preview')) {
+    respond(res, 200, {
+      body: [
+        'NOTICE OF ADVERSE DETERMINATION',
+        '',
+        'Member: Jane E2E  |  Member ID: MBR-E2E',
+        'Date of Notice: 2026-06-26',
+        'Service Requested: Office Visit (99213)',
+        '',
+        'DETERMINATION: DENIED',
+        '',
+        'We have reviewed your request for the above service and have determined',
+        'that it does not meet medical necessity criteria at this time.',
+        '',
+        'Reason: Medical necessity attestation from treating physician not provided.',
+        '',
+        'You have the right to appeal this determination within 60 days.',
+        'Contact: 1-800-ENSTELLAR | appeals@enstellar.simintero.com',
+      ].join('\n'),
+    })
     return
   }
 

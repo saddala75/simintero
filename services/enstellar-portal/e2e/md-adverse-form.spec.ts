@@ -18,24 +18,10 @@ test.describe('MD adverse form', () => {
     await expect(page.getByTestId('md-adverse-form')).toBeVisible({ timeout: 5_000 })
   }
 
-  test('submit button disabled until all required fields filled', async ({ page }) => {
-    await openMdCase(page)
-
-    const submitBtn = page.getByTestId('btn-submit-md-adverse')
-    await expect(submitBtn).toBeDisabled()
-
-    // Fill rationale only — still disabled
-    await page.getByTestId('md-rationale').fill('Not medically necessary per clinical guidelines')
-    await expect(submitBtn).toBeDisabled()
-
-    // Add clinician ID — still disabled (no checkbox)
-    await page.getByTestId('md-clinician-id').fill('NPI-99901')
-    await expect(submitBtn).toBeDisabled()
-
-    // Check attestation — now enabled
-    await page.getByTestId('md-confirm-checkbox').check()
-    await expect(submitBtn).toBeEnabled()
-  })
+  // NOTE: test removed in Phase 4 Task 1 — internal submit button (btn-submit-md-adverse)
+  // was removed from MdAdverseForm; submit is now triggered via submitRef from CasePage.
+  // Replacement test using btn-issue-determination will be added in Task 2.
+  // test('submit button disabled until all required fields filled', async ({ page }) => { ... })
 
   test('gap findings pre-populated and toggleable', async ({ page }) => {
     await openMdCase(page)
@@ -102,19 +88,8 @@ test.describe('MD adverse form', () => {
     ).not.toBeVisible()
   })
 
-  test('successful submission hides form and shows Complete badge', async ({ page }) => {
-    await openMdCase(page)
-
-    await page.getByTestId('md-rationale').fill('Not medically necessary per clinical guidelines')
-    await page.getByTestId('md-clinician-id').fill('NPI-99901')
-    await page.getByTestId('md-confirm-checkbox').check()
-
-    await page.getByTestId('btn-submit-md-adverse').click()
-
-    // Form should be hidden after successful submission
-    await expect(page.getByTestId('md-adverse-form')).not.toBeVisible({ timeout: 5_000 })
-
-    // Section 4 header should show "Complete" badge
-    await expect(page.getByTestId('md-adverse-complete')).toBeVisible({ timeout: 5_000 })
-  })
+  // NOTE: test removed in Phase 4 Task 1 — internal submit button (btn-submit-md-adverse)
+  // was removed from MdAdverseForm; submit is now triggered via submitRef from CasePage.
+  // Replacement test using btn-issue-determination will be added in Task 2.
+  // test('successful submission hides form and shows Complete badge', async ({ page }) => { ... })
 })

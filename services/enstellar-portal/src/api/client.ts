@@ -95,6 +95,10 @@ export function getCriteria(caseId: string): Promise<CriterionItem[]> {
   return apiFetch<CriterionItem[]>(`/cases/${caseId}/criteria`)
 }
 
+export function getNoticePreview(caseId: string): Promise<{ body: string }> {
+  return apiFetch<{ body: string }>(`/cases/${caseId}/notice-preview`)
+}
+
 export function getSuggestions(caseId: string): Promise<SuggestionItem[]> {
   return apiFetch<SuggestionItem[]>(`/cases/${caseId}/suggestions`)
 }

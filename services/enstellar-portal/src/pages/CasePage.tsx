@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCase, getCaseDocuments, getCriteria, getDocumentContent, getSuggestions, getWorklist, postRfi, postSuggestionAction, submitDecision } from '../api/client'
@@ -1098,6 +1098,10 @@ function MdWorkColumn({
   decisionDone: boolean
   onDecisionComplete: () => void
 }) {
+  // Task 1 stubs — will be replaced with real wiring in Task 2
+  const _submitRef = useRef<{ submit: () => void } | null>(null)
+  const _onReadinessChange = () => {}
+
   return (
     <section className="en-col work">
       <div className="en-work-head">
@@ -1274,6 +1278,8 @@ function MdWorkColumn({
               caseId={caseId}
               determinationType={mdType}
               onComplete={onDecisionComplete}
+              onReadinessChange={_onReadinessChange}
+              submitRef={_submitRef}
             />
           </div>
         )}

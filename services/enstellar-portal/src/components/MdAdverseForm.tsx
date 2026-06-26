@@ -1,15 +1,33 @@
-import { useState } from 'react'
+import { useState, useEffect, useImperativeHandle, useMemo } from 'react'
+import type { RefObject } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { submitAdverseDecision, getCriteria } from '../api/client'
 import type { AdverseOutcome, CriterionItem, FindingSection } from '../types'
+
+export type MdFormReadiness = {
+  criteriaLoaded: boolean
+  hasFindings: boolean
+  citations: boolean
+  rationale: boolean
+  clinicianId: boolean
+  confirmed: boolean
+}
 
 interface Props {
   caseId: string
   determinationType: AdverseOutcome
   onComplete: () => void
+  onReadinessChange: (state: MdFormReadiness) => void
+  submitRef: RefObject<{ submit: () => void } | null>
 }
 
-export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) {
+export function MdAdverseForm({
+  caseId,
+  determinationType,
+  onComplete,
+  onReadinessChange,
+  submitRef,
+}: Props) {
   const queryClient = useQueryClient()
 
   const { data: criteria = [], isLoading: criteriaLoading, isError: criteriaError } = useQuery({
@@ -19,9 +37,13 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
   })
 
   // Only gap/unknown criteria are relevant for an adverse determination
-  const gapCriteria = criteria.filter(
-    (c): c is CriterionItem & { status: 'gap' | 'unknown' } =>
-      c.status === 'gap' || c.status === 'unknown',
+  const gapCriteria = useMemo(
+    () =>
+      criteria.filter(
+        (c): c is CriterionItem & { status: 'gap' | 'unknown' } =>
+          c.status === 'gap' || c.status === 'unknown',
+      ),
+    [criteria],
   )
 
   // Deselected set: starts empty (all gap criteria selected by default).
@@ -35,9 +57,6 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
   const [rationale, setRationale] = useState('')
   const [clinicianId, setClinicianId] = useState('')
   const [confirmed, setConfirmed] = useState(false)
-
-  const canSubmit =
-    rationale.trim().length > 0 && clinicianId.trim().length > 0 && confirmed
 
   const mut = useMutation({
     mutationFn: () => {
@@ -66,6 +85,23 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
       onComplete()
     },
   })
+
+  useImperativeHandle(
+    submitRef,
+    () => ({ submit: () => { if (!mut.isPending) mut.mutate() } }),
+    [mut],
+  )
+
+  useEffect(() => {
+    onReadinessChange({
+      criteriaLoaded: !criteriaLoading && !criteriaError,
+      hasFindings: gapCriteria.some(c => !deselectedIds.has(c.id)),
+      citations: citations.length > 0,
+      rationale: rationale.trim().length > 0,
+      clinicianId: clinicianId.trim().length > 0,
+      confirmed,
+    })
+  }, [criteriaLoading, criteriaError, gapCriteria, deselectedIds, citations, rationale, clinicianId, confirmed, onReadinessChange])
 
   function toggleFinding(id: string) {
     setDeselectedIds(prev => {
@@ -287,17 +323,6 @@ export function MdAdverseForm({ caseId, determinationType, onComplete }: Props) 
         </p>
       )}
 
-      <div className="en-decision-actions" style={{ marginTop: 14 }}>
-        <button
-          type="button"
-          onClick={() => mut.mutate()}
-          disabled={!canSubmit || mut.isPending}
-          data-testid="btn-submit-md-adverse"
-          className="en-act danger"
-        >
-          {mut.isPending ? 'Recording…' : 'Issue adverse determination'}
-        </button>
-      </div>
     </div>
   )
 }
