@@ -44,6 +44,12 @@ test.describe('Phase 2 — UM-home dashboard', () => {
     await expect(page.locator('.en-queue')).toContainText('No cases in this view.')
   })
 
+  test('"Decided" tab shows empty state (no decided items in fixture)', async ({ page }) => {
+    await page.getByRole('button', { name: /Decided/i }).click()
+    await expect(page.locator('tbody tr')).toHaveCount(0)
+    await expect(page.locator('.en-queue')).toContainText('No cases in this view.')
+  })
+
   test('escalation rail shows the md_review case', async ({ page }) => {
     // First rail-card is "Pending MD determination"
     await expect(page.locator('.en-rail-card').first().locator('.t')).toContainText('Pending MD determination')
@@ -53,12 +59,12 @@ test.describe('Phase 2 — UM-home dashboard', () => {
 
   test('escalation rail item click navigates to the md_review case', async ({ page }) => {
     await page.locator('.en-esc').first().click()
-    await expect(page).toHaveURL(/\/cases\//)
+    await expect(page).toHaveURL(/aaaaaaaa-bbbb-cccc-dddd-000000000002/)
   })
 
   test('worklist row click navigates to the case workspace', async ({ page }) => {
     await page.locator('tbody tr').first().click()
-    await expect(page).toHaveURL(/\/cases\//)
+    await expect(page).toHaveURL(/aaaaaaaa-bbbb-cccc-dddd-000000000001/)
   })
 
   test('governed-AI guardrails panel renders the AI boundary statement', async ({ page }) => {
