@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCase, getCaseDocuments, getCriteria, getSuggestions, getWorklist, postRfi, postSuggestionAction } from '../api/client'
 import type { AdverseOutcome, CaseDetail, CriterionItem, SlaInfo, SuggestionItem, WorklistItem } from '../types'
 import { AppShell } from '../components/AppShell'
+import { useAuth, hasRole } from '../auth/AuthContext'
 import { DecisionForm } from '../components/DecisionForm'
 import { MdAdverseForm } from '../components/MdAdverseForm'
 
@@ -1407,6 +1408,8 @@ export function CasePage() {
   const [mdType, setMdType] = useState<AdverseOutcome>('denied')
   const [rfiOpen, setRfiOpen] = useState(false)
 
+  const auth = useAuth()
+
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['case', caseId],
     queryFn: () => getCase(caseId!),
@@ -1453,7 +1456,29 @@ export function CasePage() {
     data.urgency.charAt(0).toUpperCase() + data.urgency.slice(1)
   const stateLabel = STATUS_LABEL[data.status] ?? data.status.replace(/_/g, ' ')
   const stCls = statusCls(data.status)
-  const isMdReview = data.status === 'md_review'
+  const canViewAsNurse = hasRole(auth, 'clinical-reviewer') && data.status === 'clinical_review'
+  const canViewAsMd = hasRole(auth, 'medical_director') && data.status === 'md_review'
+  const isMdReview = canViewAsMd
+
+  if (!canViewAsNurse && !canViewAsMd) {
+    return (
+      <AppShell noScroll breadcrumb={<b>Clinical Review</b>}>
+        <div className="en-body">
+          <div style={{ padding: 40 }}>
+            <p style={{ color: 'var(--ink-mut)', marginBottom: 12, fontSize: 14 }}>
+              This case is not assigned to your role in its current state.
+            </p>
+            <button
+              className="en-act"
+              onClick={() => navigate('/queues/default/worklist')}
+            >
+              ← Back to worklist
+            </button>
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
 
   const firstLine = data.service_lines[0] as Record<string, unknown> | undefined
   const serviceDesc = firstLine
