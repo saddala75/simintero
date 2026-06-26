@@ -18,11 +18,6 @@ test.describe('MD adverse form', () => {
     await expect(page.getByTestId('md-adverse-form')).toBeVisible({ timeout: 5_000 })
   }
 
-  // NOTE: test removed in Phase 4 Task 1 — internal submit button (btn-submit-md-adverse)
-  // was removed from MdAdverseForm; submit is now triggered via submitRef from CasePage.
-  // Replacement test using btn-issue-determination will be added in Task 2.
-  // test('submit button disabled until all required fields filled', async ({ page }) => { ... })
-
   test('gap findings pre-populated and toggleable', async ({ page }) => {
     await openMdCase(page)
 
@@ -88,8 +83,4 @@ test.describe('MD adverse form', () => {
     ).not.toBeVisible()
   })
 
-  // NOTE: test removed in Phase 4 Task 1 — internal submit button (btn-submit-md-adverse)
-  // was removed from MdAdverseForm; submit is now triggered via submitRef from CasePage.
-  // Replacement test using btn-issue-determination will be added in Task 2.
-  // test('successful submission hides form and shows Complete badge', async ({ page }) => { ... })
 })

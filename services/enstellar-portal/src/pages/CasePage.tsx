@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import type { RefObject } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCase, getCaseDocuments, getCriteria, getDocumentContent, getSuggestions, getWorklist, postRfi, postSuggestionAction, submitDecision } from '../api/client'
+import { getCase, getCaseDocuments, getCriteria, getDocumentContent, getNoticePreview, getSuggestions, getWorklist, postRfi, postSuggestionAction, submitDecision } from '../api/client'
 import type { AdverseOutcome, CaseDetail, CriterionItem, SlaInfo, SuggestionItem, WorklistItem } from '../types'
 import { AppShell } from '../components/AppShell'
 import { useAuth, hasRole } from '../auth/AuthContext'
 import { DecisionForm } from '../components/DecisionForm'
-import { MdAdverseForm } from '../components/MdAdverseForm'
+import { MdAdverseForm, type MdFormReadiness } from '../components/MdAdverseForm'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -882,6 +883,78 @@ function AiColumn({ caseId }: { caseId: string }) {
   )
 }
 
+// ── Notice preview modal ──────────────────────────────────────────────────────
+
+function NoticePreviewModal({
+  caseId,
+  onClose,
+}: {
+  caseId: string
+  onClose: () => void
+}) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['notice-preview', caseId],
+    queryFn: () => getNoticePreview(caseId),
+    staleTime: Infinity,
+  })
+
+  return (
+    <div className="en-modal-scrim" onClick={onClose}>
+      <div className="en-modal-card" onClick={e => e.stopPropagation()}>
+        <div className="en-modal-h">
+          <div>
+            <div className="en-modal-title">Notice of adverse determination</div>
+            <div className="en-modal-sub">Draft preview · not yet issued</div>
+          </div>
+          <button
+            className="en-iconbtn"
+            onClick={onClose}
+            aria-label="Close notice preview"
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="en-modal-b">
+          {isLoading && (
+            <p style={{ color: 'var(--ink-mut)', fontSize: 13 }}>Loading…</p>
+          )}
+          {isError && (
+            <p role="alert" style={{ color: 'var(--red)', fontSize: 13 }}>
+              Failed to load preview.
+            </p>
+          )}
+          {data && (
+            <pre
+              style={{
+                fontFamily: '"JetBrains Mono", monospace',
+                fontSize: 12,
+                whiteSpace: 'pre-wrap',
+                margin: 0,
+                lineHeight: 1.7,
+              }}
+              data-testid="notice-preview-body"
+            >
+              {data.body}
+            </pre>
+          )}
+        </div>
+        <div className="en-modal-f">
+          <button className="en-act" onClick={onClose} data-testid="btn-close-notice-preview">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── MD view: context column ───────────────────────────────────────────────────
 
 function MdContextColumn({ caseData }: { caseData: CaseDetail }) {
@@ -1090,6 +1163,8 @@ function MdWorkColumn({
   setMdType,
   decisionDone,
   onDecisionComplete,
+  onReadinessChange,
+  submitRef,
 }: {
   caseData: CaseDetail
   caseId: string
@@ -1097,10 +1172,9 @@ function MdWorkColumn({
   setMdType: (t: AdverseOutcome) => void
   decisionDone: boolean
   onDecisionComplete: () => void
+  onReadinessChange: (state: MdFormReadiness) => void
+  submitRef: RefObject<{ submit: () => void } | null>
 }) {
-  // Task 1 stubs — will be replaced with real wiring in Task 2
-  const _submitRef = useRef<{ submit: () => void } | null>(null)
-  const _onReadinessChange = () => {}
 
   return (
     <section className="en-col work">
@@ -1278,8 +1352,8 @@ function MdWorkColumn({
               caseId={caseId}
               determinationType={mdType}
               onComplete={onDecisionComplete}
-              onReadinessChange={_onReadinessChange}
-              submitRef={_submitRef}
+              onReadinessChange={onReadinessChange}
+              submitRef={submitRef}
             />
           </div>
         )}
@@ -1315,20 +1389,27 @@ function MdWorkColumn({
 
 function GateColumn({
   decisionDone,
+  mdFormState,
+  ready,
+  onIssue,
+  onPreviewNotice,
 }: {
   decisionDone: boolean
+  mdFormState: MdFormReadiness
+  ready: boolean
+  onIssue: () => void
+  onPreviewNotice: () => void
 }) {
   const gateItems = [
     { label: 'Determination type selected', done: true },
-    { label: 'Criteria reviewed', done: true },
-    { label: 'Gap criteria documented', done: true },
-    { label: 'Citations added', done: true },
-    { label: 'Clinical rationale complete', done: decisionDone },
-    { label: 'Clinician sign-off', done: decisionDone },
+    { label: 'Criteria reviewed', done: mdFormState.criteriaLoaded },
+    { label: 'Gap criteria documented', done: mdFormState.hasFindings },
+    { label: 'Citations added', done: mdFormState.citations },
+    { label: 'Clinical rationale complete', done: mdFormState.rationale },
+    { label: 'Clinician sign-off', done: mdFormState.clinicianId && mdFormState.confirmed },
   ]
   const doneCount = gateItems.filter((i) => i.done).length
   const total = gateItems.length
-  const ready = doneCount === total
   const pct = Math.round((doneCount / total) * 100)
 
   return (
@@ -1372,7 +1453,11 @@ function GateColumn({
           ))}
         </div>
         <div className="en-gate-f">
-          <button className="en-preview-btn">
+          <button
+            className="en-preview-btn"
+            onClick={onPreviewNotice}
+            data-testid="btn-preview-notice"
+          >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path
                 d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"
@@ -1391,7 +1476,9 @@ function GateColumn({
           </button>
           <button
             className={`en-issue-btn${ready ? ' ready' : ''}`}
-            disabled={!ready}
+            disabled={!ready || decisionDone}
+            onClick={onIssue}
+            data-testid="btn-issue-determination"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path
@@ -1539,6 +1626,27 @@ export function CasePage() {
   const [rfiOpen, setRfiOpen] = useState(false)
   const [timelineOpen, setTimelineOpen] = useState(false)
   const [rfiInitialQuestion, setRfiInitialQuestion] = useState('')
+  const [mdFormState, setMdFormState] = useState<MdFormReadiness>({
+    criteriaLoaded: false,
+    hasFindings: false,
+    citations: false,
+    rationale: false,
+    clinicianId: false,
+    confirmed: false,
+  })
+  const [noticePreviewOpen, setNoticePreviewOpen] = useState(false)
+  const mdSubmitRef = useRef<{ submit: () => void } | null>(null)
+
+  const handleMdReadinessChange = useCallback((state: MdFormReadiness) => {
+    setMdFormState(state)
+  }, [])
+
+  const mdFormReady =
+    mdFormState.hasFindings &&
+    mdFormState.citations &&
+    mdFormState.rationale &&
+    mdFormState.clinicianId &&
+    mdFormState.confirmed
 
   const referToMdMutation = useMutation({
     mutationFn: () => submitDecision(caseId!, 'escalate'),
@@ -1802,8 +1910,16 @@ export function CasePage() {
                 setMdType={setMdType}
                 decisionDone={decisionDone}
                 onDecisionComplete={() => setDecisionDone(true)}
+                onReadinessChange={handleMdReadinessChange}
+                submitRef={mdSubmitRef}
               />
-              <GateColumn decisionDone={decisionDone} />
+              <GateColumn
+                decisionDone={decisionDone}
+                mdFormState={mdFormState}
+                ready={mdFormReady}
+                onIssue={() => mdSubmitRef.current?.submit()}
+                onPreviewNotice={() => setNoticePreviewOpen(true)}
+              />
             </div>
           ) : (
             <div className="en-content">
@@ -1827,6 +1943,12 @@ export function CasePage() {
         open={timelineOpen}
         onClose={() => setTimelineOpen(false)}
       />
+      {noticePreviewOpen && (
+        <NoticePreviewModal
+          caseId={caseId!}
+          onClose={() => setNoticePreviewOpen(false)}
+        />
+      )}
     </AppShell>
   )
 }
