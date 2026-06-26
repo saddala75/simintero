@@ -39,7 +39,6 @@ function GrievanceRow({ item }: { item: GrievanceItem }) {
 
 export function GrievancesPage() {
   const auth = useAuth()
-  void auth
   const navigate = useNavigate()
   const [filingOpen, setFilingOpen] = useState(false)
 
