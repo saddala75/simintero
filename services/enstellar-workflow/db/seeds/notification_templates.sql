@@ -52,3 +52,14 @@ VALUES
    'Grievance resolution overdue',
    'Internal alert: grievance {{ grievance_id }} has passed its resolution deadline.')
 ON CONFLICT (tenant_id, COALESCE(lob,''), event_type, channel, version) DO NOTHING;
+
+-- B4: a PHI-permitted member letter (channel 'mail'). Rendered WITH the member's
+-- PHI and stored in MinIO; the NOTIFICATION_SENT event carries only a reference.
+-- (Demonstrative wording — NOT legal copy.)
+INSERT INTO notification_templates (tenant_id, lob, event_type, channel, subject_template, body_template, member_phi)
+VALUES
+  ('tenant-dev', NULL, 'denied', 'mail',
+   'Notice of Adverse Determination',
+   'Dear {{ member_name }} (DOB {{ dob }}, Member ID {{ member_id }}): your request received a determination of {{ outcome }}.{% if reason %} Reason: {{ reason }}.{% endif %} You have the right to appeal within {{ appeal_deadline_days }} days.',
+   true)
+ON CONFLICT (tenant_id, COALESCE(lob,''), event_type, channel, version) DO NOTHING;

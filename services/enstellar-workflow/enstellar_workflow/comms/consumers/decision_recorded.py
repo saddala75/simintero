@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 
@@ -44,11 +45,27 @@ class DecisionRecordedConsumer(IdempotentKafkaConsumer):
         async with tenant_transaction(self._pool, event.tenant.tenant_id) as conn:
             # Thread the case's LOB so LOB-specific notices are preferred
             # (generic fallback when the case row is absent → lob=None).
-            lob_row = await conn.fetchrow(
-                "SELECT lob FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
+            row = await conn.fetchrow(
+                "SELECT lob, case_json FROM workflow_instances WHERE case_id=$1 AND tenant_id=$2",
                 uuid.UUID(str(case_id)), event.tenant.tenant_id,
             )
-            lob = lob_row["lob"] if lob_row is not None else None
+            lob = row["lob"] if row is not None else None
+            # Source member PHI from the case snapshot. These keys are in _PHI_FIELDS,
+            # so render_and_dispatch strips them for non-PHI templates and includes
+            # them ONLY for member_phi ones (whose body goes to MinIO, never the event
+            # plane). Always DEFINED → StrictUndefined-safe.
+            m: dict = {}
+            if row is not None and row["case_json"] is not None:
+                cj = row["case_json"]
+                if isinstance(cj, str):
+                    cj = json.loads(cj)
+                m = cj.get("member") or {}
+            context["member_name"] = (
+                f"{m.get('first_name', '')} {m.get('last_name', '')}".strip()
+            )
+            context["dob"] = m.get("date_of_birth")
+            context["member_id"] = str(m.get("member_id")) if m.get("member_id") else None
+            context["mrn"] = m.get("mrn")
             await self._notify.render_and_dispatch(
                 conn,
                 event.tenant.tenant_id,
