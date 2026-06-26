@@ -47,7 +47,7 @@ export function GrievancesPage() {
     queryKey: ['grievances', 'assigned'],
     queryFn: getAssignedGrievances,
     staleTime: 60_000,
-    enabled: !!auth.token,
+    enabled: auth.authenticated,
   })
 
   return (
