@@ -44,6 +44,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("com.fasterxml.jackson.core:jackson-databind")
 
+    // OpenTelemetry API — used by OtelTenantFilter to stamp tenant_id on the active span.
+    // The OTel Java agent (v2.6.0) provides the SDK at runtime via the agent classloader;
+    // this compile-scope dependency exposes only the stable API surface.
+    implementation("io.opentelemetry:opentelemetry-api:1.40.0")
+
     // T11: Flyway schema migration
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")

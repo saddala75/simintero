@@ -124,6 +124,15 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- OpenTelemetry API — used by OtelTenantInterceptor to stamp tenant_id on the active span.
+             The OTel Java agent (v2.6.0) provides the SDK at runtime via the agent classloader;
+             this compile-scope dependency exposes only the stable API surface. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <version>1.40.0</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

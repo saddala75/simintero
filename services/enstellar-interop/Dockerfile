@@ -26,6 +26,9 @@ FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 RUN useradd -r -u 1001 -m appuser
 COPY --from=build /src/services/enstellar-interop/build/libs/interop-0.1.0.jar /app/app.jar
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.6.0/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+RUN chown appuser:appuser /app/opentelemetry-javaagent.jar
+ENV JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar"
 USER appuser
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

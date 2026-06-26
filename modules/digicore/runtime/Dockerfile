@@ -10,7 +10,9 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=build /build/target/digicore-runtime-*.jar app.jar
 
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.6.0/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 ENV JAVA_OPTS="-Xmx1536m -Xms512m"
+ENV JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar"
 ENV SERVER_PORT=8083
 EXPOSE 8083
 
