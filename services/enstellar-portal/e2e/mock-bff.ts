@@ -2,12 +2,17 @@
  * Minimal Express mock for the BFF — used by Playwright in CI.
  * Run with: npx tsx e2e/mock-bff.ts
  * Listens on PORT (default 8001).
+ *
+ * Also exports setupMockBff() and constants for use in Playwright spec files.
  */
 import http from 'node:http'
+import { fileURLToPath } from 'node:url'
+import type { Page } from '@playwright/test'
 
-const CASE_ID = 'aaaaaaaa-bbbb-cccc-dddd-000000000001'
+export const CASE_ID = 'aaaaaaaa-bbbb-cccc-dddd-000000000001'
 const MD_CASE_ID = 'aaaaaaaa-bbbb-cccc-dddd-000000000002'
-const APPEAL_ID = 'appeal-aaaa-bbbb-cccc-000000000001'
+export const APPEAL_ID = 'appeal-aaaa-bbbb-cccc-000000000001'
+export const GRIEVANCE_ID = 'grievance-bbbb-cccc-dddd-000000000001'
 const PORT = parseInt(process.env.PORT ?? '8001', 10)
 
 function respond(res: http.ServerResponse, status: number, body: unknown) {
@@ -328,9 +333,194 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Grievance handlers ────────────────────────────────────────────────────────
+
+  // GET /bff/grievances/assigned  (exact match first)
+  if (req.method === 'GET' && url === '/bff/grievances/assigned') {
+    respond(res, 200, [
+      {
+        grievance_id: GRIEVANCE_ID,
+        member_ref: 'member-001',
+        case_id: null,
+        category: 'billing',
+        urgency: 'standard',
+        lob: 'ma',
+        status: 'investigating',
+        filed_at: '2026-06-26T10:00:00Z',
+        assigned_to: 'mock-sub',
+        assigned_at: '2026-06-26T11:00:00Z',
+        resolution_due_at: '2026-07-16T10:00:00Z',
+      },
+    ])
+    return
+  }
+
+  // POST /bff/grievances  (file new — exact match, no ID segment)
+  if (req.method === 'POST' && url === '/bff/grievances') {
+    respond(res, 201, { grievance_id: GRIEVANCE_ID, status: 'filed' })
+    return
+  }
+
+  // POST /bff/grievances/:id/acknowledgement
+  if (req.method === 'POST' && url.includes('/grievances/') && url.includes('/acknowledgement')) {
+    respond(res, 200, { grievance_id: GRIEVANCE_ID, status: 'acknowledged' })
+    return
+  }
+
+  // POST /bff/grievances/:id/assignment
+  if (req.method === 'POST' && url.includes('/grievances/') && url.includes('/assignment')) {
+    respond(res, 200, { grievance_id: GRIEVANCE_ID, assigned_to: 'mock-sub', status: 'investigating' })
+    return
+  }
+
+  // POST /bff/grievances/:id/resolution
+  if (req.method === 'POST' && url.includes('/grievances/') && url.includes('/resolution')) {
+    respond(res, 200, { grievance_id: GRIEVANCE_ID, status: 'resolved' })
+    return
+  }
+
+  // GET /bff/grievances/:id  (detail — catch-all, placed last)
+  if (req.method === 'GET' && url.includes('/grievances/') && !url.endsWith('/assigned')) {
+    respond(res, 200, {
+      grievance_id: GRIEVANCE_ID,
+      member_ref: 'member-001',
+      case_id: null,
+      category: 'billing',
+      description: 'Incorrect charge on June bill',
+      urgency: 'standard',
+      lob: 'ma',
+      status: 'investigating',
+      filed_by: 'user-001',
+      filed_at: '2026-06-26T10:00:00Z',
+      acknowledged_at: '2026-06-26T10:30:00Z',
+      acknowledged_by: 'coord-001',
+      assigned_to: 'mock-sub',
+      assigned_at: '2026-06-26T11:00:00Z',
+      resolution: null,
+      resolved_at: null,
+      resolution_due_at: '2026-07-16T10:00:00Z',
+    })
+    return
+  }
+
   respond(res, 404, { detail: 'not found' })
 })
 
-server.listen(PORT, () => {
-  console.log(`mock-bff listening on http://localhost:${PORT}`)
-})
+// Only start the HTTP server when this file is run directly (not when imported).
+const isMain = fileURLToPath(import.meta.url) === process.argv[1]
+if (isMain) {
+  server.listen(PORT, () => {
+    console.log(`mock-bff listening on http://localhost:${PORT}`)
+  })
+}
+
+// ── Playwright page.route() interceptors ──────────────────────────────────────
+// Call setupMockBff(page) in beforeEach to wire up route handlers for grievance
+// specs. This intercepts at the browser level so tests can control state.
+
+export async function setupMockBff(page: Page): Promise<void> {
+  // Track whether a resolution has been submitted in this test
+  let resolvedInTest = false
+
+  // GET /bff/grievances/assigned  (exact URL)
+  await page.route('**/bff/grievances/assigned', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          grievance_id: GRIEVANCE_ID,
+          member_ref: 'member-001',
+          case_id: null,
+          category: 'billing',
+          urgency: 'standard',
+          lob: 'ma',
+          status: 'investigating',
+          filed_at: '2026-06-26T10:00:00Z',
+          assigned_to: 'mock-sub',
+          assigned_at: '2026-06-26T11:00:00Z',
+          resolution_due_at: '2026-07-16T10:00:00Z',
+        },
+      ]),
+    })
+  })
+
+  // POST /bff/grievances  (file new grievance)
+  await page.route('**/bff/grievances', async (route) => {
+    if (route.request().method() === 'POST') {
+      route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ grievance_id: GRIEVANCE_ID, status: 'filed' }),
+      })
+    } else {
+      route.fallback()
+    }
+  })
+
+  // POST .../acknowledgement
+  await page.route('**grievances/**/acknowledgement', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ grievance_id: GRIEVANCE_ID, status: 'acknowledged' }),
+    })
+  })
+
+  // POST .../assignment  (grievances only — not appeals)
+  await page.route('**grievances/**/assignment', (route) => {
+    if (!route.request().url().includes('/appeals/')) {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ grievance_id: GRIEVANCE_ID, assigned_to: 'mock-sub', status: 'investigating' }),
+      })
+    } else {
+      route.fallback()
+    }
+  })
+
+  // POST .../resolution  (sets resolvedInTest flag so subsequent GET returns resolved)
+  await page.route('**grievances/**/resolution', (route) => {
+    resolvedInTest = true
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ grievance_id: GRIEVANCE_ID, status: 'resolved' }),
+    })
+  })
+
+  // GET /bff/grievances/:id  (detail — catch-all, placed last)
+  // Returns 'resolved' status if resolution was posted in this test, else 'investigating'
+  await page.route('**/bff/grievances/**', async (route) => {
+    const url = new URL(route.request().url()).pathname
+    if (route.request().method() === 'GET' && !url.endsWith('/assigned')) {
+      const status = resolvedInTest ? 'resolved' : 'investigating'
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          grievance_id: GRIEVANCE_ID,
+          member_ref: 'member-001',
+          case_id: null,
+          category: 'billing',
+          description: 'Incorrect charge on June bill',
+          urgency: 'standard',
+          lob: 'ma',
+          status,
+          filed_by: 'user-001',
+          filed_at: '2026-06-26T10:00:00Z',
+          acknowledged_at: '2026-06-26T10:30:00Z',
+          acknowledged_by: 'coord-001',
+          assigned_to: 'mock-sub',
+          assigned_at: '2026-06-26T11:00:00Z',
+          resolution: resolvedInTest ? 'Reviewed and resolved in favor of member' : null,
+          resolved_at: resolvedInTest ? '2026-06-26T12:00:00Z' : null,
+          resolution_due_at: '2026-07-16T10:00:00Z',
+        }),
+      })
+    } else {
+      route.fallback()
+    }
+  })
+}
