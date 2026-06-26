@@ -8,6 +8,7 @@ import { AppShell } from '../components/AppShell'
 import { useAuth, hasRole } from '../auth/AuthContext'
 import { DecisionForm } from '../components/DecisionForm'
 import { MdAdverseForm, type MdFormReadiness } from '../components/MdAdverseForm'
+import { AppealFilingModal } from '../components/AppealFilingModal'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -1177,6 +1178,9 @@ function MdWorkColumn({
   submitRef: RefObject<{ submit: () => void } | null>
   criteria: CriterionItem[]
 }) {
+  const navigate = useNavigate()
+  const auth = useAuth()
+  const [appealFilingOpen, setAppealFilingOpen] = useState(false)
 
   return (
     <section className="en-col work">
@@ -1323,7 +1327,27 @@ function MdWorkColumn({
               The case timeline has been updated.
             </div>
           </div>
+          {hasRole(auth, 'appeals_coordinator') && (
+            <button
+              className="en-act"
+              style={{ marginLeft: 12 }}
+              onClick={() => setAppealFilingOpen(true)}
+              data-testid="btn-file-appeal-from-case"
+            >
+              File appeal
+            </button>
+          )}
         </div>
+      )}
+      {appealFilingOpen && caseId && (
+        <AppealFilingModal
+          caseId={caseId}
+          onClose={() => setAppealFilingOpen(false)}
+          onFiled={(cid, aid) => {
+            setAppealFilingOpen(false)
+            navigate(`/cases/${cid}/appeals/${aid}`)
+          }}
+        />
       )}
     </section>
   )
