@@ -1,0 +1,54 @@
+prometheus:
+  enabled: true
+  server:
+    extraFlags:
+      - web.enable-remote-write-receiver
+
+tempo:
+  enabled: true
+  tempo:
+    storage:
+      trace:
+        backend: local
+
+loki:
+  enabled: true
+  deploymentMode: SingleBinary
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: filesystem
+
+grafana:
+  enabled: true
+  adminPassword: "simintero-dev"
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          uid: prometheus
+          url: http://simintero-observability-prometheus-server
+          isDefault: true
+        - name: Tempo
+          type: tempo
+          uid: tempo
+          url: http://simintero-observability-tempo
+        - name: Loki
+          type: loki
+          uid: loki
+          url: http://simintero-observability-loki
+
+collector:
+  image: otel/opentelemetry-collector-contrib:0.103.0
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
