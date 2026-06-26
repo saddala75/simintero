@@ -36,10 +36,11 @@ export function createAnalysesRouter(pool: Pool, temporalClient: TemporalClientL
       }
 
       const analysisId = `ana_${ulid()}`;
-      const { case_ref, inputs, analysis_kinds } = req.body as {
+      const { case_ref, inputs, analysis_kinds, document_format } = req.body as {
         case_ref: string;
         analysis_kinds: string[];
         inputs: { document_refs: string[]; case_context: Record<string, unknown> };
+        document_format?: 'pdf' | 'ccda';
       };
       const rawMember = inputs?.case_context?.['member_ref'];
       const member_ref = typeof rawMember === 'string' ? rawMember : undefined;
@@ -72,6 +73,7 @@ export function createAnalysesRouter(pool: Pool, temporalClient: TemporalClientL
           prompt_ref: process.env['DEFAULT_PROMPT'] ?? 'https://artifacts.simintero.io/shared/prompt/pa-review',
           prompt_version: '1.0.0',
           cell_boundary: 'pooled',
+          document_format: document_format ?? 'pdf',
         }],
       });
 

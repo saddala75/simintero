@@ -25,6 +25,7 @@ export interface PersistInput {
   completeness: CompletenessBlock | null;
   triage: TriageBlock | null;
   unprocessed: Array<{ ref: string; reason: string }>;
+  advisory_type: 'pa' | 'claims_attachment';
 }
 
 export async function persistAdvisoryImpl(input: PersistInput, pool: Pool): Promise<void> {
@@ -33,8 +34,8 @@ export async function persistAdvisoryImpl(input: PersistInput, pool: Pool): Prom
     await client.query(
       `INSERT INTO revital.analysis
          (analysis_id, tenant_id, case_ref, status, interaction, summary, extraction,
-          completeness, triage, abstentions, unprocessed_inputs, completed_at)
-       VALUES ($1, current_setting('sim.tenant_id', true), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          completeness, triage, abstentions, unprocessed_inputs, completed_at, advisory_type)
+       VALUES ($1, current_setting('sim.tenant_id', true), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        ON CONFLICT (analysis_id) DO UPDATE SET
          status = EXCLUDED.status,
          summary = EXCLUDED.summary,
@@ -43,7 +44,8 @@ export async function persistAdvisoryImpl(input: PersistInput, pool: Pool): Prom
          triage = EXCLUDED.triage,
          abstentions = EXCLUDED.abstentions,
          unprocessed_inputs = EXCLUDED.unprocessed_inputs,
-         completed_at = EXCLUDED.completed_at`,
+         completed_at = EXCLUDED.completed_at,
+         advisory_type = EXCLUDED.advisory_type`,
       [
         input.analysis_id,
         input.case_ref,
@@ -61,6 +63,7 @@ export async function persistAdvisoryImpl(input: PersistInput, pool: Pool): Prom
         JSON.stringify([]),
         JSON.stringify(input.unprocessed),
         completedAt,
+        input.advisory_type,
       ],
     );
 

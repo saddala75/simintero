@@ -1,5 +1,6 @@
 export { fetchDocuments } from './fetchDocuments.js';
 export { parseSegment } from './parseSegment.js';
+export { parseCcda } from './parseCcda.js';
 export { extractEntities } from './extractEntities.js';
 export { fetchEvidenceRequirements } from './fetchEvidenceRequirements.js';
 export { mapEvidenceToCriteria } from './mapEvidenceToCriteria.js';

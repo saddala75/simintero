@@ -17,6 +17,7 @@ export interface AnalysisInput {
   prompt_ref: string;
   prompt_version: string;
   cell_boundary: 'pooled' | 'dedicated' | 'enclave';
+  document_format?: 'pdf' | 'ccda';
 }
 
 export interface AnalysisOutput {
@@ -27,6 +28,7 @@ export interface AnalysisOutput {
 const {
   fetchDocuments,
   parseSegment,
+  parseCcda,
   extractEntities,
   fetchEvidenceRequirements,
   mapEvidenceToCriteria,
@@ -50,8 +52,10 @@ export async function revitalAnalyzeCase(input: AnalysisInput): Promise<Analysis
     () => { status = 'partial'; return []; }
   );
 
+  const parseActivity = input.document_format === 'ccda' ? parseCcda : parseSegment;
+
   const spans = docs.length > 0
-    ? await parseSegment(docs, input.tenant_id).catch(() => { status = 'partial'; return {}; })
+    ? await parseActivity(docs, input.tenant_id).catch(() => { status = 'partial'; return {}; })
     : {};
 
   const extracted = await extractEntities(spans, input).catch(
@@ -96,6 +100,7 @@ export async function revitalAnalyzeCase(input: AnalysisInput): Promise<Analysis
     completeness: completenessResult,
     triage: triageResult,
     unprocessed,
+    advisory_type: input.document_format === 'ccda' ? 'claims_attachment' : 'pa',
   });
 
   return { analysis_id: input.analysis_id, status };
