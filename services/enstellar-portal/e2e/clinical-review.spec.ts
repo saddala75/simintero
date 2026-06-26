@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test'
 
 const CASE_ID = 'aaaaaaaa-bbbb-cccc-dddd-000000000001'
-const MD_CASE_ID = 'aaaaaaaa-bbbb-cccc-dddd-000000000002'
 const CASE_URL = `/cases/${CASE_ID}`
 
 test.describe('Phase 3 — Clinical review / nurse screen', () => {
