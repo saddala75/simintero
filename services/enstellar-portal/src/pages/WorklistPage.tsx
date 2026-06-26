@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getWorklist, getQueueStats } from '../api/client'
+import { AppShell } from '../components/AppShell'
 import type { WorklistItem, SlaInfo, QueueStats } from '../types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -58,35 +59,6 @@ function shortId(caseId: string): string {
   return `PA-${caseId.replace(/-/g, '').slice(0, 8).toUpperCase()}`
 }
 
-// ── Topbar ────────────────────────────────────────────────────────────────────
-
-function Topbar() {
-  return (
-    <div className="en-topbar">
-      <span className="en-brand">
-        <svg className="mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="2" y="2" width="20" height="20" rx="6" stroke="#74DBC8" strokeWidth="1.6" />
-          <circle cx="12" cy="12" r="3.4" fill="#74DBC8" />
-        </svg>
-        Enstellar
-      </span>
-      <span className="en-breadcrumb"><b>Utilization Management</b></span>
-      <div className="en-search">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.4" />
-          <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
-        Search cases, members, providers…
-      </div>
-      <div className="en-topright">
-        <span className="en-env">TENANT · DEV</span>
-        <span className="en-ai-global"><span className="dot" />Governed AI · on</span>
-        <span className="en-avatar" title="Reviewer">AP</span>
-      </div>
-    </div>
-  )
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function WorklistPage() {
@@ -137,9 +109,7 @@ export function WorklistPage() {
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div className="en-app">
-      <Topbar />
-      <div className="en-scroll">
+    <AppShell breadcrumb={<b>Utilization Management</b>}>
         <div className="en-wrap">
           {/* page header */}
           <div className="en-page-h">
@@ -322,7 +292,6 @@ export function WorklistPage() {
             </aside>
           </div>
         </div>
-      </div>
-    </div>
+    </AppShell>
   )
 }
