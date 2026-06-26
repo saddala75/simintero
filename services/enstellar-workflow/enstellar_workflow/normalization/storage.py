@@ -61,6 +61,18 @@ class MinioStore:
 
         return f"{self._bucket}/{object_key}"
 
+    def upload_notice(self, tenant_id: str, notification_id: str, body: str) -> str:
+        """Upload a rendered (PHI) notice body to MinIO. Returns "{bucket}/{key}"."""
+        self._ensure_bucket()
+        today = datetime.now(timezone.utc).date().isoformat()
+        object_key = f"{tenant_id}/notices/{today}/{notification_id}.txt"
+        payload = body.encode("utf-8")
+        self._client.put_object(
+            bucket_name=self._bucket, object_name=object_key,
+            data=io.BytesIO(payload), length=len(payload), content_type="text/plain",
+        )
+        return f"{self._bucket}/{object_key}"
+
     def _ensure_bucket(self) -> None:
         """Create the bucket if it does not exist."""
         try:
