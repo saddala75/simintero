@@ -160,6 +160,18 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /bff/queues/:queueId/stats
+  if (req.method === 'GET' && url.includes('/queues/') && url.includes('/stats')) {
+    respond(res, 200, {
+      ai_determinations: 0,
+      adverse_human_signed_pct: 100.0,
+      sla_compliance_expedited_pct: 96.0,
+      period_start: '2026-06-01T00:00:00Z',
+      period_end: '2026-06-30T23:59:59Z',
+    })
+    return
+  }
+
   respond(res, 404, { detail: 'not found' })
 })
 
