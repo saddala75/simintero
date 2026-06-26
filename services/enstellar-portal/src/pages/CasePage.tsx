@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCase, getCaseDocuments, getCriteria, getSuggestions, getWorklist, postRfi, postSuggestionAction } from '../api/client'
+import { getCase, getCaseDocuments, getCriteria, getDocumentContent, getSuggestions, getWorklist, postRfi, postSuggestionAction } from '../api/client'
 import type { AdverseOutcome, CaseDetail, CriterionItem, SlaInfo, SuggestionItem, WorklistItem } from '../types'
 import { AppShell } from '../components/AppShell'
 import { useAuth, hasRole } from '../auth/AuthContext'
@@ -135,9 +135,74 @@ function WorklistRail({
   )
 }
 
+// ── Document content modal ────────────────────────────────────────────────────
+
+function DocumentModal({
+  documentId,
+  onClose,
+}: {
+  documentId: string
+  onClose: () => void
+}) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['doc-content', documentId],
+    queryFn: () => getDocumentContent(documentId),
+    staleTime: Infinity,
+  })
+
+  return (
+    <div className="en-modal-scrim" onClick={onClose}>
+      <div className="en-modal-card" onClick={e => e.stopPropagation()}>
+        <div className="en-modal-h">
+          <div className="en-modal-title">{data?.title ?? 'Document'}</div>
+          <button className="en-iconbtn" onClick={onClose} aria-label="Close document">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="en-modal-b">
+          {isLoading && (
+            <p style={{ color: 'var(--ink-mut)', fontSize: 13 }}>Loading…</p>
+          )}
+          {isError && (
+            <p role="alert" style={{ color: 'var(--red)', fontSize: 13 }}>
+              Failed to load document.
+            </p>
+          )}
+          {data && (
+            <pre
+              style={{
+                fontFamily: '"JetBrains Mono", monospace',
+                fontSize: 12,
+                whiteSpace: 'pre-wrap',
+                margin: 0,
+                lineHeight: 1.7,
+              }}
+            >
+              {data.body}
+            </pre>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Context column ────────────────────────────────────────────────────────────
 
 function ContextColumn({ caseData }: { caseData: CaseDetail }) {
+  const [viewingDoc, setViewingDoc] = useState<string | null>(null)
+  const { data: documents = [], isLoading: docsLoading } = useQuery({
+    queryKey: ['documents', caseData.case_id],
+    queryFn: () => getCaseDocuments(caseData.case_id),
+    staleTime: 60_000,
+  })
   const m = caseData.member as Record<string, unknown>
   const c = caseData.coverage as Record<string, unknown>
   const name = memberName(m)
@@ -256,6 +321,50 @@ function ContextColumn({ caseData }: { caseData: CaseDetail }) {
           </div>
         </div>
       </div>
+
+      {/* Submitted documents */}
+      <div className="en-panel">
+        <div className="en-panel-h">
+          <span className="pt">Submitted documents</span>
+          {documents.length > 0 && (
+            <span className="lbl">{documents.length} docs</span>
+          )}
+        </div>
+        <div className="en-panel-b">
+          {docsLoading && (
+            <p style={{ color: 'var(--ink-mut)', fontSize: 13 }}>Loading…</p>
+          )}
+          {!docsLoading && documents.length === 0 && (
+            <p style={{ color: 'var(--ink-mut)', fontSize: 13 }}>
+              No documents attached.
+            </p>
+          )}
+          {documents.map(doc => (
+            <div key={doc.id} className="en-doc-row">
+              <div>
+                <div className="en-doc-name">{doc.title}</div>
+                {doc.authored && (
+                  <div className="en-doc-meta">{doc.authored.slice(0, 10)}</div>
+                )}
+              </div>
+              <button
+                className="en-doc-view"
+                onClick={() => setViewingDoc(doc.id)}
+                data-testid={`doc-view-${doc.id}`}
+              >
+                View →
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {viewingDoc && (
+        <DocumentModal
+          documentId={viewingDoc}
+          onClose={() => setViewingDoc(null)}
+        />
+      )}
     </section>
   )
 }

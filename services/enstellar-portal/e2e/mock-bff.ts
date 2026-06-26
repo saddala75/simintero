@@ -172,6 +172,46 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /bff/cases/:caseId/documents
+  if (req.method === 'GET' && url.includes('/cases/') && url.includes('/documents') && !url.includes('/content')) {
+    respond(res, 200, [
+      { id: 'doc-001', title: 'Referral note', url: '#', authored: '2026-06-02' },
+      { id: 'doc-002', title: 'PT progress notes', url: '#', authored: '2026-01-12' },
+    ])
+    return
+  }
+
+  // GET /bff/documents/:id/content
+  if (req.method === 'GET' && url.includes('/documents/') && url.includes('/content')) {
+    respond(res, 200, {
+      id: 'doc-001',
+      title: 'Referral note',
+      body: 'Patient referred for MRI lumbar spine.\nIndicating physician: Dr. M. Chen\nDiagnosis: M54.5 (low back pain)\nDate: 2026-06-02',
+    })
+    return
+  }
+
+  // GET /bff/cases/:caseId/suggestions
+  if (req.method === 'GET' && url.includes('/cases/') && url.includes('/suggestions') && !url.includes('/action')) {
+    respond(res, 200, [
+      {
+        id: 'sug-01',
+        title: 'Criterion C-01 supported',
+        body: 'Imaging modality is appropriate per submitted documentation.',
+        confidence: 0.94,
+        status: 'pending',
+        citations: ['Policy §4.2.1'],
+      },
+    ])
+    return
+  }
+
+  // POST /bff/cases/:caseId/suggestions/:id/action
+  if (req.method === 'POST' && url.includes('/suggestions/') && url.includes('/action')) {
+    respond(res, 200, {})
+    return
+  }
+
   respond(res, 404, { detail: 'not found' })
 })
 

@@ -706,4 +706,101 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, select:focus-visi
 .en-finding-toggle .ftext { font-size: 12px; color: var(--ink); flex: 1; }
 .en-finding-toggle .fstat { font-size: 10px; color: var(--amber); flex-shrink: 0; font-family: var(--mono); }
 .en-finding-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* ===== Document row (ContextColumn submitted docs) ===== */
+.en-doc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.en-doc-row:last-child { border-bottom: 0; }
+.en-doc-name { font-weight: 600; }
+.en-doc-meta { font-size: 11.5px; color: var(--ink-mut); margin-top: 2px; }
+.en-doc-view {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pine);
+  background: none;
+  border: 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+.en-doc-view:hover { text-decoration: underline; }
+
+/* ===== Modal (DocumentModal + RfiModal) ===== */
+.en-modal-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(20,20,26,.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.en-modal-card {
+  background: var(--panel);
+  border-radius: 18px;
+  width: 560px;
+  max-width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 40px 80px -30px rgba(9,58,51,.5);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.en-modal-h {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.en-modal-title {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+}
+.en-modal-sub { font-size: 12.5px; color: var(--ink-mut); margin-top: 3px; }
+.en-modal-b {
+  padding: 20px 22px;
+  overflow-y: auto;
+  flex: 1;
+}
+.en-modal-f {
+  padding: 16px 22px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.en-modal-label {
+  display: block;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--ink-mut);
+  margin-bottom: 7px;
+}
+.en-pausebar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--amber-tint);
+  border: 1px solid rgba(181,120,14,.3);
+  border-radius: 10px;
+  padding: 11px 14px;
+  margin-top: 15px;
+  font-size: 12.5px;
+  color: var(--amber);
+  font-weight: 600;
+}
 .en-chip-x { background: none; border: none; cursor: pointer; padding: 0; line-height: 1; }

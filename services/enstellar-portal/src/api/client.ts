@@ -83,6 +83,14 @@ export function getCaseDocuments(caseId: string): Promise<DocumentItem[]> {
   return apiFetch<DocumentItem[]>(`/cases/${caseId}/documents`)
 }
 
+export function getDocumentContent(
+  documentId: string,
+): Promise<{ id: string; title: string; body: string }> {
+  return apiFetch<{ id: string; title: string; body: string }>(
+    `/documents/${documentId}/content`,
+  )
+}
+
 export function getCriteria(caseId: string): Promise<CriterionItem[]> {
   return apiFetch<CriterionItem[]>(`/cases/${caseId}/criteria`)
 }
