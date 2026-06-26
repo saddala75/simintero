@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { keycloak, IS_MOCK, MOCK_ROLES } from './keycloak'
 
 let initStarted = false
@@ -77,8 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 /** Gate app routes: trigger login if unauthenticated. The public landing is NOT wrapped. */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const auth = useAuth()
+  const triedLogin = useRef(false)
   useEffect(() => {
-    if (auth.ready && !auth.authenticated) auth.login()
+    if (auth.ready && !auth.authenticated && !triedLogin.current) {
+      triedLogin.current = true
+      auth.login()
+    }
   }, [auth])
   if (!auth.ready || !auth.authenticated) return null
   return <>{children}</>
