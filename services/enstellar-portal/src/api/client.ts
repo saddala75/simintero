@@ -1,4 +1,4 @@
-import type { AdverseOutcome, AdverseStructuredPayload, CaseDetail, CrdCard, CriterionItem, DocumentItem, QueueStats, SuggestionItem, WorklistPage } from '../types'
+import type { AdverseOutcome, AdverseStructuredPayload, AppealDecisionPayload, AppealDetail, AppealFilingPayload, AppealItem, CaseDetail, CrdCard, CriterionItem, DocumentItem, QueueStats, SuggestionItem, WorklistPage } from '../types'
 import { currentBearer, keycloak, IS_MOCK } from '../auth/keycloak'
 
 const BASE = '/bff'
@@ -136,5 +136,52 @@ export function postSuggestionAction(
   return apiFetch(`/cases/${caseId}/suggestions/${suggestionId}/action`, {
     method: 'POST',
     body: JSON.stringify({ action }),
+  })
+}
+
+export function fileAppeal(
+  caseId: string,
+  payload: AppealFilingPayload,
+): Promise<{ appeal_id: string }> {
+  return apiFetch<{ appeal_id: string }>(`/cases/${caseId}/appeals`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getAssignedAppeals(): Promise<AppealItem[]> {
+  return apiFetch<AppealItem[]>('/appeals/assigned')
+}
+
+export function getOpenAppeals(): Promise<AppealItem[]> {
+  return apiFetch<AppealItem[]>('/appeals/open')
+}
+
+export function getAppealDetail(
+  caseId: string,
+  appealId: string,
+): Promise<AppealDetail> {
+  return apiFetch<AppealDetail>(`/cases/${caseId}/appeals/${appealId}`)
+}
+
+export function submitAppealDecision(
+  caseId: string,
+  appealId: string,
+  payload: AppealDecisionPayload,
+): Promise<unknown> {
+  return apiFetch<unknown>(`/cases/${caseId}/appeals/${appealId}/decision`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function assignAppeal(
+  caseId: string,
+  appealId: string,
+  coordinatorId: string,
+): Promise<unknown> {
+  return apiFetch<unknown>(`/cases/${caseId}/appeals/${appealId}/assignment`, {
+    method: 'POST',
+    body: JSON.stringify({ coordinator_id: coordinatorId }),
   })
 }

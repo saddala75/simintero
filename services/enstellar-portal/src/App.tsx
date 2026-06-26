@@ -5,6 +5,8 @@ import { WorklistPage } from './pages/WorklistPage'
 import { CasePage } from './pages/CasePage'
 import { EhrOrderSimPage } from './pages/EhrOrderSimPage'
 import { DtrFormPage } from './pages/DtrFormPage'
+import { AppealsPage } from './pages/AppealsPage'
+import { AppealDetailPage } from './pages/AppealDetailPage'
 
 export default function App() {
   return (
@@ -14,6 +16,8 @@ export default function App() {
       <Route path="/cases/:caseId" element={<ProtectedRoute><CasePage /></ProtectedRoute>} />
       <Route path="/ehr-sim" element={<EhrOrderSimPage />} />
       <Route path="/dtr" element={<DtrFormPage />} />
+      <Route path="/appeals" element={<ProtectedRoute><AppealsPage /></ProtectedRoute>} />
+      <Route path="/cases/:caseId/appeals/:appealId" element={<ProtectedRoute><AppealDetailPage /></ProtectedRoute>} />
     </Routes>
   )
 }

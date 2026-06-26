@@ -100,3 +100,48 @@ export interface CrdCard {
   detail?: string
   links?: CrdCardLink[]
 }
+
+// ── Appeals ──────────────────────────────────────────────────────────────────
+
+export type AppealCategory = 'member_request' | 'provider_request' | 'regulatory_requirement'
+export type AppealOutcome = 'full_overturn' | 'partial_overturn'
+export type AppealDecision = 'upheld' | 'overturned'
+export type AppealStatus = 'filed' | 'assigned' | 'under_review' | 'decided'
+
+export interface AppealItem {
+  appeal_id: string
+  case_id: string
+  member_name: string
+  category: AppealCategory
+  requested_outcome: AppealOutcome
+  status: AppealStatus
+  filed_at: string
+  days_open: number
+}
+
+export interface AppealDetail {
+  appeal_id: string
+  case_id: string
+  category: AppealCategory
+  grounds: string
+  requested_outcome: AppealOutcome
+  status: AppealStatus
+  filed_at: string
+  decision?: AppealDecision
+  rationale?: string
+}
+
+export interface AppealFilingPayload {
+  category: AppealCategory
+  grounds: string
+  requested_outcome: AppealOutcome
+  document_refs: string[]
+}
+
+export interface AppealDecisionPayload {
+  decision: AppealDecision
+  rationale: string
+  citations: string[]
+  clinician_id: string
+  sign_off_confirmed: true
+}
