@@ -10,6 +10,7 @@ import org.apache.xml.security.keys.KeyInfo;
 import org.apache.xml.security.signature.XMLSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
@@ -50,7 +51,7 @@ public class AttachmentProcessor {
     private final ClaimsServiceClient claimsClient;
     private final String bucket;
 
-    /** Spring-wired constructor: builds MinioClient from PasConfig (matches existing pattern). */
+    @Autowired
     public AttachmentProcessor(PasConfig config, JdbcTemplate jdbc, ClaimsServiceClient claimsClient) {
         PasConfig.MinioProps minio = config.minio();
         this.minioClient = MinioClient.builder()

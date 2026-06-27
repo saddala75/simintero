@@ -1,5 +1,7 @@
 -- V5: CMS-0053-F attachment correlation tables
 
+CREATE SCHEMA IF NOT EXISTS interop;
+
 CREATE TABLE IF NOT EXISTS interop.rfai_correlation (
     rfai_id         TEXT        PRIMARY KEY,
     claim_id        TEXT        NOT NULL,
