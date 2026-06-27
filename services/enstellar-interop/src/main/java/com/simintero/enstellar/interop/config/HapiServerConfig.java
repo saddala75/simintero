@@ -3,6 +3,7 @@ package com.simintero.enstellar.interop.config;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.api.EncodingEnum;
 import ca.uhn.fhir.rest.server.RestfulServer;
+import com.simintero.enstellar.interop.attachments.AttachDocumentOperation;
 import com.simintero.enstellar.interop.dtr.QuestionnaireResourceProvider;
 import com.simintero.enstellar.interop.dtr.QuestionnaireResponseResourceProvider;
 import com.simintero.enstellar.interop.pas.PasClaimInquireProvider;
@@ -21,6 +22,7 @@ public class HapiServerConfig {
     @Autowired private PasClaimInquireProvider pasInquireProvider;
     @Autowired private QuestionnaireResourceProvider questionnaireProvider;
     @Autowired private QuestionnaireResponseResourceProvider questionnaireResponseProvider;
+    @Autowired private AttachDocumentOperation attachDocumentOperation;
 
     @Bean
     public RestfulServer fhirServer(FhirContext fhirContext) {
@@ -32,7 +34,8 @@ public class HapiServerConfig {
                 pasSubmitProvider,
                 pasInquireProvider,
                 questionnaireProvider,
-                questionnaireResponseProvider
+                questionnaireResponseProvider,
+                attachDocumentOperation
         ));
 
         return server;
