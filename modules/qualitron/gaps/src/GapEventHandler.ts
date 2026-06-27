@@ -74,12 +74,44 @@ export async function handleMeasureReportCompleted(
     }
   } else if (payload.numerator) {
     // Numerator met — close any open gaps for this member+measure+period
-    await pool.query(
+    const { rows: closedGaps } = await pool.query<{
+      gap_id: string;
+      member_id: string;
+      measure_ref: string;
+    }>(
       `UPDATE qual.gap
        SET status = 'closed', closed_at = NOW(), closure_reason = 'numerator_met'
        WHERE tenant_id = $1 AND member_id = $2 AND measure_ref = $3
-         AND period_start = $4 AND period_end = $5 AND status = 'open'`,
+         AND period_start = $4 AND period_end = $5 AND status = 'open'
+       RETURNING gap_id, member_id, measure_ref`,
       [tenantId, payload.member_id, payload.measure_ref, periodStart, periodEnd],
     );
+    for (const gap of closedGaps) {
+      const eventId = 'evt_' + ulid();
+      const closedAt = new Date().toISOString();
+      await pool.query(
+        `INSERT INTO shared.outbox (event_id, topic, key, envelope, tenant_id)
+         VALUES ($1, 'qual.gap.closed', $2, $3::jsonb, $4)`,
+        [
+          eventId,
+          gap.gap_id,
+          JSON.stringify({
+            event_id: eventId,
+            schema_ref: 'sim.qual.gap/QualGapClosed/v1',
+            occurred_at: closedAt,
+            tenant: { tenant_id: tenantId },
+            correlation_id: gap.gap_id,
+            payload: {
+              event_type: 'QualGapClosed',
+              gap_id: gap.gap_id,
+              member_id: gap.member_id,
+              measure_ref: gap.measure_ref,
+              closed_at: closedAt,
+            },
+          }),
+          tenantId,
+        ],
+      );
+    }
   }
 }
