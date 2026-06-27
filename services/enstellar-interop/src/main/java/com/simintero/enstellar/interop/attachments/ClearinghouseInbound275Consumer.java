@@ -15,10 +15,11 @@ import org.springframework.stereotype.Component;
  *   <li>Parse the EDI string with {@link X12v6020AttachmentParser}.</li>
  *   <li>Delegate to {@link AttachmentProcessor} which stores the C-CDA, updates
  *       {@code interop.rfai_correlation}, and notifies the claims service.</li>
- *   <li>On {@link AttachmentParseException} log and acknowledge without processing
- *       (malformed EDI cannot be retried).</li>
- *   <li>Always acknowledge — infrastructure retries are handled by the container's
- *       {@code DefaultErrorHandler} (FixedBackOff + DeadLetterPublishingRecoverer).</li>
+ *   <li>On {@link AttachmentParseException}: ack-and-drop — malformed EDI is a
+ *       permanent failure that cannot be resolved by retrying.</li>
+ *   <li>On any other exception from {@code processor.process()}: rethrow so the
+ *       container's {@code DefaultErrorHandler} (FixedBackOff + DeadLetterPublishingRecoverer)
+ *       can retry and eventually DLQ the record.</li>
  * </ol>
  */
 @Component
@@ -35,16 +36,21 @@ public class ClearinghouseInbound275Consumer {
     @KafkaListener(topics = "clearinghouse.inbound.275",
                    containerFactory = "kafkaListenerContainerFactory")
     public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
+        ParsedAttachment275 parsed;
         try {
-            ParsedAttachment275 parsed = X12v6020AttachmentParser.parse(record.value());
-            String docId = processor.process(parsed);
-            log.info("[275-consumer] processed rfaiId={} docId={}", parsed.controlNumber(), docId);
+            parsed = X12v6020AttachmentParser.parse(record.value());
         } catch (AttachmentParseException ex) {
-            log.error("[275-consumer] parse failed offset={} error={}", record.offset(), ex.getMessage());
-        } catch (Exception ex) {
-            log.error("[275-consumer] processing failed offset={} error={}", record.offset(), ex.getMessage());
-        } finally {
+            // Malformed EDI is a permanent failure — ack-and-drop (no point in retrying).
+            log.warn("[275-consumer] parse failure offset={} — dropping message: {}",
+                    record.offset(), ex.getMessage());
             ack.acknowledge();
+            return;
         }
+
+        // processor.process() may throw on transient failures (MinIO, DB, claims HTTP).
+        // Do NOT catch those here — let the DefaultErrorHandler retry and eventually DLQ.
+        String docId = processor.process(parsed);
+        log.info("[275-consumer] processed rfaiId={} docId={}", parsed.controlNumber(), docId);
+        ack.acknowledge();
     }
 }

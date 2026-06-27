@@ -111,18 +111,13 @@ public class AttachmentProcessor {
         // Write signature audit record
         writeAudit(attachment.controlNumber(), docId, attachment.tenantId(), sigResult, true, null);
 
-        // Look up claim/case info from rfai_correlation
-        Map<String, Object> correlation;
-        try {
-            correlation = jdbc.queryForMap(
-                    "SELECT claim_id, case_ref, loinc_codes FROM interop.rfai_correlation WHERE rfai_id = ?",
-                    attachment.controlNumber()
-            );
-        } catch (Exception ex) {
-            log.error("[attachment-processor] rfai_correlation lookup failed rfaiId={}",
-                    attachment.controlNumber());
-            return docId;
-        }
+        // Look up claim/case info from rfai_correlation.
+        // If this throws (DB unavailable, row missing), propagate so the Kafka consumer's
+        // DefaultErrorHandler can retry and eventually DLQ — do not silently return docId.
+        Map<String, Object> correlation = jdbc.queryForMap(
+                "SELECT claim_id, case_ref, loinc_codes FROM interop.rfai_correlation WHERE rfai_id = ?",
+                attachment.controlNumber()
+        );
 
         String claimId = (String) correlation.get("claim_id");
         String caseRef = (String) correlation.get("case_ref");
@@ -160,17 +155,14 @@ public class AttachmentProcessor {
     private void rejectAndAudit(ParsedAttachment275 attachment,
                                  SigVerificationResult sig, String reason) {
         writeAudit(attachment.controlNumber(), null, attachment.tenantId(), sig, false, reason);
-        try {
-            Map<String, Object> correlation = jdbc.queryForMap(
-                    "SELECT claim_id FROM interop.rfai_correlation WHERE rfai_id = ?",
-                    attachment.controlNumber()
-            );
-            String claimId = (String) correlation.get("claim_id");
-            claimsClient.notifyRejected(claimId, attachment.tenantId(), reason);
-        } catch (Exception ex) {
-            log.error("[attachment-processor] rejection-notify failed rfaiId={}",
-                    attachment.controlNumber());
-        }
+        // Do NOT catch here — if the DB lookup or notifyRejected fails (transient),
+        // let the exception propagate so the Kafka consumer's DefaultErrorHandler retries/DLQs.
+        Map<String, Object> correlation = jdbc.queryForMap(
+                "SELECT claim_id FROM interop.rfai_correlation WHERE rfai_id = ?",
+                attachment.controlNumber()
+        );
+        String claimId = (String) correlation.get("claim_id");
+        claimsClient.notifyRejected(claimId, attachment.tenantId(), reason);
     }
 
     private void writeAudit(String rfaiId, String docId, String tenantId,
