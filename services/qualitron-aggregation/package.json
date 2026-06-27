@@ -1,0 +1,22 @@
+{
+  "name": "@sim/qualitron-aggregation-service",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@sim/qualitron-aggregation": "workspace:*",
+    "express": "^4.18.0",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.4.0"
+  }
+}

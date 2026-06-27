@@ -1,0 +1,58 @@
+import type { Pool } from 'pg'
+
+const EXECUTION_URL =
+  process.env['QUALITRON_EXECUTION_URL'] ?? 'http://localhost:4020'
+
+export async function triggerBatchRuns(pool: Pool): Promise<void> {
+  // Query one row per (tenant_id, measure_ref) pair that has a Digicore library ref
+  const { rows } = await pool.query<{
+    measure_ref: string
+    version: string
+    tenant_id: string
+  }>(
+    `SELECT measure_ref, version, tenant_id
+     FROM qual.measure_definition
+     WHERE digicore_library_ref IS NOT NULL`,
+  )
+
+  const periodStart = `${new Date().getFullYear()}-01-01`
+  const periodEnd = new Date().toISOString().split('T')[0]!
+
+  for (const row of rows) {
+    try {
+      const res = await fetch(`${EXECUTION_URL}/v1/quality/runs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-sim-tenant-id': row.tenant_id,
+        },
+        body: JSON.stringify({
+          measure_ref: row.measure_ref,
+          measure_version: row.version,
+          period_start: periodStart,
+          period_end: periodEnd,
+        }),
+      })
+      if (!res.ok) {
+        console.error(
+          `MeasureBatchSchedule: non-OK response ${res.status} for ${row.measure_ref} (tenant ${row.tenant_id})`,
+        )
+      }
+    } catch (err) {
+      console.error(
+        `MeasureBatchSchedule: failed to trigger run for ${row.measure_ref} (tenant ${row.tenant_id}):`,
+        err,
+      )
+    }
+  }
+}
+
+// Returns the interval handle so callers can clear it in tests
+export function scheduleDailyBatch(pool: Pool): ReturnType<typeof setInterval> {
+  const MS_24H = 24 * 60 * 60 * 1000
+  return setInterval(() => {
+    triggerBatchRuns(pool).catch(err =>
+      console.error('MeasureBatchSchedule: batch run error:', err),
+    )
+  }, MS_24H)
+}
