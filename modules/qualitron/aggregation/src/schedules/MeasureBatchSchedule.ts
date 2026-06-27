@@ -1,19 +1,42 @@
-import type { Pool } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 
 const EXECUTION_URL =
   process.env['QUALITRON_EXECUTION_URL'] ?? 'http://localhost:4020'
 
+// Role used for cross-tenant batch scans — mirrors the Python relay_db_role pattern.
+// sim_relay has BYPASSRLS, allowing it to read qual.measure_definition across all
+// tenants. sim_app (the normal app role) has NOBYPASSRLS: FORCE RLS on
+// qual.measure_definition returns zero rows when current_setting('sim.tenant_id')
+// is NULL (as it is in a scheduled batch context).
+const RELAY_DB_ROLE = process.env['RELAY_DB_ROLE'] ?? 'sim_relay'
+
 export async function triggerBatchRuns(pool: Pool): Promise<void> {
-  // Query one row per (tenant_id, measure_ref) pair that has a Digicore library ref
-  const { rows } = await pool.query<{
-    measure_ref: string
-    version: string
-    tenant_id: string
-  }>(
-    `SELECT measure_ref, version, tenant_id
-     FROM qual.measure_definition
-     WHERE digicore_library_ref IS NOT NULL`,
-  )
+  // Acquire a client and SET ROLE to the BYPASSRLS relay role so FORCE RLS on
+  // qual.measure_definition does not filter out all rows.
+  const client: PoolClient = await pool.connect()
+  let rows: Array<{ measure_ref: string; version: string; tenant_id: string }> = []
+  try {
+    await client.query(`SET ROLE "${RELAY_DB_ROLE}"`)
+    const result = await client.query<{
+      measure_ref: string
+      version: string
+      tenant_id: string
+    }>(
+      `SELECT measure_ref, version, tenant_id
+       FROM qual.measure_definition
+       WHERE digicore_library_ref IS NOT NULL`,
+    )
+    rows = result.rows
+  } finally {
+    // Always reset the role before releasing so the connection returns to the
+    // pool in its original state (sim_app).
+    try {
+      await client.query('RESET ROLE')
+    } catch {
+      // ignore — connection may be broken; pool will discard it
+    }
+    client.release()
+  }
 
   const periodStart = `${new Date().getFullYear()}-01-01`
   const periodEnd = new Date().toISOString().split('T')[0]!

@@ -2,6 +2,7 @@ packages:
   - "platform/libs/*"
   - "platform/libs/*/*"
   - "platform/services/*"
+  - "services/*"
   - "modules/digicore/*"
   - "modules/revital/*"
   - "modules/qualitron/*"

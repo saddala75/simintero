@@ -35,6 +35,7 @@ from enstellar_workflow.config import get_settings
 from enstellar_workflow.consumers import (
     AutoDeterminationConsumer,
     ClinicalReviewConsumer,
+    QualGapClosedConsumer,
     RfiResponseConsumer,
 )
 from enstellar_workflow.kafka.producer import KafkaProducer
@@ -134,6 +135,10 @@ async def lifespan(app: FastAPI):
     rfi_task = asyncio.create_task(rfi_response_consumer.run(), name="rfi-response-consumer")
     logger.info("RfiResponseConsumer started")
 
+    qual_gap_consumer = QualGapClosedConsumer(pool=pool)
+    qual_gap_task = asyncio.create_task(qual_gap_consumer.run(), name="qual-gap-closed-consumer")
+    logger.info("QualGapClosedConsumer started")
+
     producer = KafkaProducer()
     await producer.start()
     relay = OutboxRelay(pool, producer)
@@ -173,6 +178,11 @@ async def lifespan(app: FastAPI):
         rfi_task.cancel()
         try:
             await rfi_task
+        except asyncio.CancelledError:
+            pass
+        qual_gap_task.cancel()
+        try:
+            await qual_gap_task
         except asyncio.CancelledError:
             pass
         await relay.stop()
