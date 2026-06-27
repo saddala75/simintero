@@ -1,15 +1,7 @@
 -- Seeds BCS-E as a VKAS cql_library artifact so Digicore CqfEvaluator can resolve it.
--- The CQL is minimal on purpose: FabricRetrieveProvider returns all member resources;
--- the legacy SQL path handles period filtering. This layer proves CQL → FHIR → populationBooleans.
-INSERT INTO vkas.artifact (
-  canonical_url, version, tenant_id, artifact_type, status, content, content_hash, created_by
-) VALUES (
-  'https://artifacts.simintero.io/shared/cql_library/bcs-e',
-  '1.0.0',
-  'shared',
-  'cql_library',
-  'active',
-  jsonb_build_object('cql', $cql$library BcsE version '1.0.0'
+-- CTE pattern avoids duplicating the CQL text: content is defined once, md5 computed from it.
+WITH cql_content AS (
+  SELECT jsonb_build_object('cql', $cql$library BcsE version '1.0.0'
 
 using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1'
@@ -47,8 +39,19 @@ define "Exception":
 
 define "Meets All Criteria":
   "Denominator" and "Numerator" and not "Exclusion" and not "Exception"
-$cql$),
-  md5(jsonb_build_object('cql', 'bcs-e-v1-placeholder')::text),
-  'seed'
+$cql$) AS content
 )
+INSERT INTO vkas.artifact (
+  canonical_url, version, tenant_id, artifact_type, status, content, content_hash, created_by
+)
+SELECT
+  'https://artifacts.simintero.io/shared/cql_library/bcs-e',
+  '1.0.0',
+  'shared',
+  'cql_library',
+  'active',
+  content,
+  md5(content::text),
+  'seed'
+FROM cql_content
 ON CONFLICT (canonical_url, version) DO NOTHING;
