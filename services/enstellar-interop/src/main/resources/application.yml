@@ -49,25 +49,6 @@ hapi:
 enstellar:
   security:
     expected-audience: ${EXPECTED_AUDIENCE:enstellar-api}
-  fhir:
-    capability:
-      publisher: "Simintero Enstellar"
-      resources:
-        - type: Patient
-          profile: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient|5.0.1"
-          interactions: [read, search-type, create]
-        - type: Practitioner
-          profile: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-practitioner|5.0.1"
-          interactions: [read, search-type, create]
-        - type: Coverage
-          profile: "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-coverage-pas|2.0.1"
-          interactions: [read, search-type, create]
-        - type: Organization
-          profile: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization|5.0.1"
-          interactions: [read, search-type, create]
-        - type: DocumentReference
-          profile: "http://hl7.org/fhir/us/core/StructureDefinition/us-core-documentreference|5.0.1"
-          interactions: [read, search-type, create]
   pas:
     normalization-url: ${NORMALIZATION_URL:http://localhost:8000}
     minio:

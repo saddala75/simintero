@@ -2,6 +2,7 @@ package com.simintero.enstellar.interop;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.simintero.enstellar.interop.proxy.CapabilityStatementAugmenter;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.*;
 
@@ -70,6 +71,39 @@ class CapabilityStatementIT extends FhirTestBase {
             .collect(Collectors.toSet());
 
         assertThat(types).containsExactlyInAnyOrder(
-            "Patient", "Practitioner", "Coverage", "Organization", "DocumentReference");
+            "Patient", "Practitioner", "Coverage", "Organization", "DocumentReference",
+            "Claim", "ClaimResponse", "Questionnaire", "QuestionnaireResponse");
+    }
+
+    @Test
+    void metadata_augments_claim_resource_with_pas_operations() throws Exception {
+        JsonNode cs = JSON.readTree(restTemplate.getForObject(
+            "http://localhost:" + port + "/fhir/metadata", String.class));
+        JsonNode resources = cs.path("rest").path(0).path("resource");
+
+        JsonNode claim = StreamSupport.stream(resources.spliterator(), false)
+            .filter(r -> "Claim".equals(r.path("type").asText()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("Claim not found in CapabilityStatement resources"));
+
+        assertThat(claim.path("profile").asText())
+            .isEqualTo("http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-claim-pas|2.0.1");
+
+        Set<String> ops = StreamSupport.stream(claim.path("operation").spliterator(), false)
+            .map(o -> o.path("name").asText())
+            .collect(Collectors.toSet());
+        assertThat(ops).contains("submit", "inquire");
+    }
+
+    @Test
+    void metadata_augments_implementation_guides() throws Exception {
+        JsonNode cs = JSON.readTree(restTemplate.getForObject(
+            "http://localhost:" + port + "/fhir/metadata", String.class));
+
+        Set<String> igs = StreamSupport.stream(cs.path("implementationGuide").spliterator(), false)
+            .map(JsonNode::asText)
+            .collect(Collectors.toSet());
+
+        assertThat(igs).containsAll(CapabilityStatementAugmenter.IMPLEMENTATION_GUIDES);
     }
 }

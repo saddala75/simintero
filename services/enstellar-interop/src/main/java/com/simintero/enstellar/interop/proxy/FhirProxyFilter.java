@@ -57,11 +57,13 @@ public class FhirProxyFilter extends OncePerRequestFilter {
     private final HapiProperties props;
     private final String hapiBaseUrl;
     private final CloseableHttpClient httpClient;
+    private final CapabilityStatementAugmenter csAugmenter;
 
-    public FhirProxyFilter(HapiProperties props) {
+    public FhirProxyFilter(HapiProperties props, CapabilityStatementAugmenter csAugmenter) {
         this.props = props;
         this.hapiBaseUrl = props.getBaseUrl();
         this.httpClient = HttpClients.createDefault();
+        this.csAugmenter = csAugmenter;
     }
 
     /**
@@ -126,6 +128,16 @@ public class FhirProxyFilter extends OncePerRequestFilter {
             byte[] responseBody = hapiResponse.getEntity() != null
                 ? hapiResponse.getEntity().getContent().readAllBytes()
                 : new byte[0];
+
+            // Augment capability statement before relaying — adds publisher, implementationGuide,
+            // and Da Vinci resource entries (Claim/$submit/$inquire, ClaimResponse, Questionnaire, QR).
+            if (isMetadata && hapiResponse.getCode() == 200 && responseBody.length > 0) {
+                try {
+                    responseBody = csAugmenter.augment(responseBody);
+                } catch (IOException e) {
+                    logger.warn("Failed to augment CapabilityStatement; returning upstream response unmodified", e);
+                }
+            }
 
             // Enforce tenant ownership on direct reads (GET /fhir/ResourceType/{id}).
             // Accept is forced to application/fhir+json above, so the body is always JSON.
