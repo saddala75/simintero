@@ -17,24 +17,26 @@ export function buildDocumentationRequestRouter(pool: Pool): express.Router {
 
     const { caseRef } = req.params;
 
-    const { rows } = await pool.query<{ claim_id: string; documentation_status: string }>(
-      `UPDATE claims.claim
-         SET documentation_status = 'requested'
-       WHERE case_id = $1::uuid
-         AND tenant_id = $2
-         AND documentation_status = 'not_requested'
-       RETURNING claim_id, documentation_status`,
-      [caseRef, tenantId],
-    );
+    // UPDATE and outbox INSERT run in the same tenant-scoped transaction so RLS
+    // applies to the UPDATE and the outbox write is atomic with it.
+    const result = await withTenant(pool, tenantId, async (client) => {
+      const { rows } = await client.query<{ claim_id: string; documentation_status: string }>(
+        `UPDATE claims.claim
+           SET documentation_status = 'requested'
+         WHERE case_id = $1::uuid
+           AND tenant_id = $2
+           AND documentation_status = 'not_requested'
+         RETURNING claim_id, documentation_status`,
+        [caseRef, tenantId],
+      );
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Claim not found or documentation already requested' });
-    }
+      if (rows.length === 0) {
+        return null;
+      }
 
-    const { claim_id } = rows[0]!;
+      const { claim_id } = rows[0]!;
 
-    await withTenant(pool, tenantId, (client) =>
-      appendEvent(client, {
+      await appendEvent(client, {
         topic: 'claims.attachment.requested',
         schemaRef: 'claims.attachment.requested/v1',
         tenantId,
@@ -44,10 +46,16 @@ export function buildDocumentationRequestRouter(pool: Pool): express.Router {
           loinc_codes,
         },
         correlationId: claim_id,
-      }),
-    );
+      });
 
-    return res.status(200).json({ claim_id, documentation_status: 'requested' });
+      return { claim_id, documentation_status: rows[0]!.documentation_status };
+    });
+
+    if (result === null) {
+      return res.status(404).json({ error: 'Claim not found or documentation already requested' });
+    }
+
+    return res.status(200).json(result);
   });
 
   return router;

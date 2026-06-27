@@ -3,14 +3,21 @@ import express from 'express';
 import supertest from 'supertest';
 import { buildDocumentationRequestRouter } from '../routes/documentationRequest.js';
 
-function makePool(responses: Array<{ rows: unknown[] }> = []) {
+/**
+ * All queries now go through withTenant (pool.connect -> client.query).
+ * pool.query is never called directly in this route.
+ */
+function makePool(clientResponses: Array<{ rows: unknown[] }> = []) {
   let i = 0;
   const client = {
-    query: vi.fn().mockImplementation(() => Promise.resolve({ rows: [] })),
+    query: vi.fn().mockImplementation(() =>
+      Promise.resolve(clientResponses[i++] ?? { rows: [] }),
+    ),
     release: vi.fn(),
   };
   return {
-    query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })),
+    // pool.query is not used by this route after the fix
+    query: vi.fn().mockResolvedValue({ rows: [] }),
     connect: vi.fn().mockResolvedValue(client),
     _client: client,
   } as any;
@@ -43,7 +50,17 @@ describe('POST /:caseRef/documentation-request', () => {
   });
 
   it('returns 404 when claim is not found for the tenant', async () => {
-    const pool = makePool([{ rows: [] }]); // UPDATE returns 0 rows
+    // withTenant calls BEGIN, set_config, UPDATE (returns 0 rows), COMMIT via client.query.
+    // The first substantive response (after BEGIN and set_config preamble) is the UPDATE.
+    // makePool responses [0]=BEGIN, [1]=set_config, [2]=UPDATE→0 rows, [3]=COMMIT.
+    // But client.query mock returns clientResponses[i++], and BEGIN/set_config don't need
+    // real rows; the UPDATE returning [] triggers the 404 path.
+    const pool = makePool([
+      { rows: [] }, // BEGIN
+      { rows: [] }, // set_config
+      { rows: [] }, // UPDATE RETURNING → 0 rows → triggers null return
+      { rows: [] }, // COMMIT
+    ]);
     const res = await supertest(makeApp(pool))
       .post('/case-001/documentation-request')
       .set('x-sim-tenant-id', 'tenant-dev')
@@ -53,7 +70,11 @@ describe('POST /:caseRef/documentation-request', () => {
 
   it('returns 200 and emits outbox event on valid request', async () => {
     const pool = makePool([
+      { rows: [] }, // BEGIN
+      { rows: [] }, // set_config
       { rows: [{ claim_id: 'CLM_001', documentation_status: 'requested' }] }, // UPDATE RETURNING
+      { rows: [] }, // outbox INSERT
+      { rows: [] }, // COMMIT
     ]);
     const res = await supertest(makeApp(pool))
       .post('/case-001/documentation-request')
@@ -61,9 +82,15 @@ describe('POST /:caseRef/documentation-request', () => {
       .send({ loinc_codes: ['11506-3', '18842-5'] });
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ claim_id: 'CLM_001', documentation_status: 'requested' });
-    // Verify outbox INSERT was called via pooled client
+    // Verify withTenant was used: pool.connect must be called
     expect(pool.connect).toHaveBeenCalled();
+    // Verify outbox INSERT went through the client
     const sqls = pool._client.query.mock.calls.map((c: unknown[]) => c[0] as string);
     expect(sqls.some((s: string) => s.includes('shared.outbox'))).toBe(true);
+    // Verify tenant GUC was set before the UPDATE
+    const setConfigIdx = sqls.findIndex((s: string) => s.includes("set_config('sim.tenant_id'"));
+    const updateIdx = sqls.findIndex((s: string) => s.includes('UPDATE claims.claim'));
+    expect(setConfigIdx).toBeGreaterThanOrEqual(0);
+    expect(updateIdx).toBeGreaterThan(setConfigIdx);
   });
 });

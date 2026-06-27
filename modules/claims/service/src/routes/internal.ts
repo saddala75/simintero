@@ -1,5 +1,6 @@
 import express from 'express';
 import type { Pool } from 'pg';
+import { withTenant } from '../db/withTenant.js';
 
 const REVITAL_SERVICE_URL = process.env['REVITAL_SERVICE_URL'] ?? 'http://localhost:3050';
 
@@ -16,14 +17,19 @@ export function buildInternalRouter(pool: Pool): express.Router {
       });
     }
 
-    const { rows } = await pool.query<{ claim_id: string }>(
-      `UPDATE claims.claim
-         SET documentation_status = 'received', rfai_doc_id = $1
-       WHERE claim_id = $2
-         AND tenant_id = $3
-       RETURNING claim_id`,
-      [doc_id, claim_id, tenant_id],
-    );
+    // UPDATE must run inside withTenant so the RLS GUC is set for the sim_app role.
+    // tenant_id comes from the interop callback body (internal route, not user-facing).
+    const rows = await withTenant(pool, tenant_id as string, async (client) => {
+      const { rows } = await client.query<{ claim_id: string }>(
+        `UPDATE claims.claim
+           SET documentation_status = 'received', rfai_doc_id = $1
+         WHERE claim_id = $2
+           AND tenant_id = $3
+         RETURNING claim_id`,
+        [doc_id, claim_id, tenant_id],
+      );
+      return rows;
+    });
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Claim not found' });
@@ -59,14 +65,18 @@ export function buildInternalRouter(pool: Pool): express.Router {
       return res.status(400).json({ error: 'Required: claim_id, tenant_id, reason' });
     }
 
-    const { rows } = await pool.query<{ claim_id: string }>(
-      `UPDATE claims.claim
-         SET documentation_status = 'rejected'
-       WHERE claim_id = $1
-         AND tenant_id = $2
-       RETURNING claim_id`,
-      [claim_id, tenant_id],
-    );
+    // UPDATE must run inside withTenant so the RLS GUC is set for the sim_app role.
+    const rows = await withTenant(pool, tenant_id as string, async (client) => {
+      const { rows } = await client.query<{ claim_id: string }>(
+        `UPDATE claims.claim
+           SET documentation_status = 'rejected'
+         WHERE claim_id = $1
+           AND tenant_id = $2
+         RETURNING claim_id`,
+        [claim_id, tenant_id],
+      );
+      return rows;
+    });
 
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Claim not found' });

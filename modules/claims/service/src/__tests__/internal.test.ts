@@ -3,10 +3,22 @@ import express from 'express';
 import supertest from 'supertest';
 import { buildInternalRouter } from '../routes/internal.js';
 
-function makePool(responses: Array<{ rows: unknown[] }> = []) {
+/**
+ * All DB queries now go through withTenant (pool.connect -> client.query).
+ * pool.query is never called directly in this route.
+ */
+function makePool(clientResponses: Array<{ rows: unknown[] }> = []) {
   let i = 0;
+  const client = {
+    query: vi.fn().mockImplementation(() =>
+      Promise.resolve(clientResponses[i++] ?? { rows: [] }),
+    ),
+    release: vi.fn(),
+  };
   return {
-    query: vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? { rows: [] })),
+    query: vi.fn().mockResolvedValue({ rows: [] }),
+    connect: vi.fn().mockResolvedValue(client),
+    _client: client,
   } as any;
 }
 
@@ -37,7 +49,13 @@ describe('POST /v1/internal/attachment-received', () => {
   });
 
   it('updates documentation_status to received and triggers Revital', async () => {
-    const pool = makePool([{ rows: [{ claim_id: 'CLM_001' }] }]);
+    // client.query sequence: BEGIN, set_config, UPDATE RETURNING, COMMIT
+    const pool = makePool([
+      { rows: [] }, // BEGIN
+      { rows: [] }, // set_config
+      { rows: [{ claim_id: 'CLM_001' }] }, // UPDATE RETURNING
+      { rows: [] }, // COMMIT
+    ]);
     const res = await supertest(makeApp(pool))
       .post('/v1/internal/attachment-received')
       .send({
@@ -54,10 +72,21 @@ describe('POST /v1/internal/attachment-received', () => {
       expect.stringContaining('/v1/assist/analyses'),
       expect.objectContaining({ method: 'POST' }),
     );
+    // Verify withTenant was used
+    expect(pool.connect).toHaveBeenCalled();
+    // Verify tenant GUC was set and UPDATE went through client
+    const sqls = pool._client.query.mock.calls.map((c: unknown[]) => c[0] as string);
+    expect(sqls.some((s: string) => s.includes("set_config('sim.tenant_id'"))).toBe(true);
+    expect(sqls.some((s: string) => s.includes("documentation_status = 'received'"))).toBe(true);
   });
 
   it('returns 404 when claim not found', async () => {
-    const pool = makePool([{ rows: [] }]);
+    const pool = makePool([
+      { rows: [] }, // BEGIN
+      { rows: [] }, // set_config
+      { rows: [] }, // UPDATE RETURNING → 0 rows
+      { rows: [] }, // COMMIT
+    ]);
     const res = await supertest(makeApp(pool))
       .post('/v1/internal/attachment-received')
       .send({
@@ -81,7 +110,12 @@ describe('POST /v1/internal/attachment-rejected', () => {
   });
 
   it('updates documentation_status to rejected', async () => {
-    const pool = makePool([{ rows: [{ claim_id: 'CLM_001' }] }]);
+    const pool = makePool([
+      { rows: [] }, // BEGIN
+      { rows: [] }, // set_config
+      { rows: [{ claim_id: 'CLM_001' }] }, // UPDATE RETURNING
+      { rows: [] }, // COMMIT
+    ]);
     const res = await supertest(makeApp(pool))
       .post('/v1/internal/attachment-rejected')
       .send({
@@ -91,9 +125,10 @@ describe('POST /v1/internal/attachment-rejected', () => {
       });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
-    expect(pool.query).toHaveBeenCalledWith(
-      expect.stringContaining("documentation_status = 'rejected'"),
-      expect.arrayContaining(['CLM_001', 'tenant-dev']),
-    );
+    expect(pool.connect).toHaveBeenCalled();
+    // Verify tenant GUC and rejected status update went through client
+    const sqls = pool._client.query.mock.calls.map((c: unknown[]) => c[0] as string);
+    expect(sqls.some((s: string) => s.includes("documentation_status = 'rejected'"))).toBe(true);
+    expect(sqls.some((s: string) => s.includes("set_config('sim.tenant_id'"))).toBe(true);
   });
 });
