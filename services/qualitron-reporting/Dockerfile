@@ -7,13 +7,18 @@ RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY modules/qualitron/reporting/package.json ./modules/qualitron/reporting/
 COPY services/qualitron-reporting/package.json ./services/qualitron-reporting/
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 
 RUN pnpm install --frozen-lockfile --filter @sim/qualitron-reporting-service...
 
 COPY modules/qualitron/reporting/ ./modules/qualitron/reporting/
 COPY services/qualitron-reporting/ ./services/qualitron-reporting/
+COPY platform/libs/otel/ ./platform/libs/otel/
 
-# Build workspace lib first
+# Build workspace libs first
+RUN pnpm --filter @sim/otel run build
+
+# Build the reporting library
 RUN pnpm --filter @sim/qualitron-reporting run build
 
 # Build the service

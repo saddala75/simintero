@@ -1157,9 +1157,9 @@ services:
       loki:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:13133/"]
+      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otel/collector-config.yaml"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 10
 
   prometheus:
@@ -1184,6 +1184,7 @@ services:
 
   tempo:
     image: grafana/tempo:2.5.0
+    user: "0"
     command: ["-config.file=/etc/tempo/tempo.yaml"]
     volumes:
       - ./infra/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro

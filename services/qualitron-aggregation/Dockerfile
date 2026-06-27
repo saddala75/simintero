@@ -7,13 +7,21 @@ RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY modules/qualitron/aggregation/package.json ./modules/qualitron/aggregation/
 COPY services/qualitron-aggregation/package.json ./services/qualitron-aggregation/
+COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 
 RUN pnpm install --frozen-lockfile --filter @sim/qualitron-aggregation-service...
 
 COPY modules/qualitron/aggregation/ ./modules/qualitron/aggregation/
 COPY services/qualitron-aggregation/ ./services/qualitron-aggregation/
+COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
+COPY platform/libs/otel/ ./platform/libs/otel/
 
-# Build workspace lib first
+# Build workspace libs first
+RUN pnpm --filter @sim/outbox-ts run build
+RUN pnpm --filter @sim/otel run build
+
+# Build the aggregation library
 RUN pnpm --filter @sim/qualitron-aggregation run build
 
 # Build the service

@@ -1,2 +1,2 @@
-export { default as measuresRouter } from './routes/measures.js';
-export { default as gapsRouter } from './routes/gaps.js';
+export { createMeasuresRouter } from './routes/measures.js';
+export { createGapsRouter } from './routes/gaps.js';

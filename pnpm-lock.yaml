@@ -1575,6 +1575,15 @@ importers:
         specifier: ^8.11.0
         version: 8.21.0
     devDependencies:
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
+      '@types/pg':
+        specifier: ^8.11.0
+        version: 8.20.0
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
