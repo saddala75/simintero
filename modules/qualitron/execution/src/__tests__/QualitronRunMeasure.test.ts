@@ -11,14 +11,16 @@ import type { MeasureResult, MeasureSpec } from '../activities/evaluateMeasure.j
 // is mocked, but the run's spec load is a direct query in the workflow).
 // ---------------------------------------------------------------------------
 
-const { evaluateMeasure, persistMeasureReport, fetchEligibleMembers, handleMeasureReportCompleted } = vi.hoisted(() => ({
+const { evaluateMeasure, evaluateWithDigicore, persistMeasureReport, fetchEligibleMembers, handleMeasureReportCompleted } = vi.hoisted(() => ({
   evaluateMeasure: vi.fn(),
+  evaluateWithDigicore: vi.fn(),
   persistMeasureReport: vi.fn(),
   fetchEligibleMembers: vi.fn(),
   handleMeasureReportCompleted: vi.fn(),
 }));
 
 vi.mock('../activities/evaluateMeasure.js', () => ({ evaluateMeasure }));
+vi.mock('../activities/evaluateWithDigicore.js', () => ({ evaluateWithDigicore }));
 vi.mock('../activities/persistMeasureReport.js', () => ({ persistMeasureReport }));
 vi.mock('../activities/fetchEligibleMembers.js', () => ({ fetchEligibleMembers }));
 vi.mock('@sim/qualitron-gaps', () => ({ handleMeasureReportCompleted }));
@@ -31,7 +33,9 @@ const { createRunsRouter } = await import('../routes/runs.js');
 // ---------------------------------------------------------------------------
 
 function makePool(rows: unknown[] = []): Pool {
-  return { query: vi.fn().mockResolvedValue({ rows }) } as unknown as Pool;
+  const query = vi.fn().mockResolvedValue({ rows });
+  const client = { query, release: vi.fn() } as unknown as PoolClient;
+  return { query, connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 }
 
 const SPEC: MeasureSpec = {
@@ -42,10 +46,16 @@ const SPEC: MeasureSpec = {
  * Build a Pool whose connect() returns a mock client. The client's query is a
  * spy; the SELECT for the measure_definition spec resolves to `specRows`.
  */
-function makeTxPool(specRows: Array<{ spec: MeasureSpec }>): { pool: Pool; query: ReturnType<typeof vi.fn> } {
+function makeTxPool(
+  specRows: Array<{ spec: MeasureSpec; digicore_library_ref?: string | null }>,
+): { pool: Pool; query: ReturnType<typeof vi.fn> } {
+  const rowsWithDefault = specRows.map((r) => ({
+    digicore_library_ref: null,
+    ...r,
+  }));
   const query = vi.fn().mockImplementation((sql: string) => {
     if (typeof sql === 'string' && sql.includes('qual.measure_definition')) {
-      return Promise.resolve({ rows: specRows });
+      return Promise.resolve({ rows: rowsWithDefault });
     }
     return Promise.resolve({ rows: [] });
   });
@@ -82,6 +92,7 @@ const RUN_INPUT = {
 describe('qualitronRunMeasure', () => {
   beforeEach(() => {
     evaluateMeasure.mockReset();
+    evaluateWithDigicore.mockReset();
     persistMeasureReport.mockReset();
     fetchEligibleMembers.mockReset();
     handleMeasureReportCompleted.mockReset();
@@ -169,6 +180,40 @@ describe('qualitronRunMeasure', () => {
     expect(result.total).toBe(2);
     expect(result.failed).toBe(1);
     expect(persistMeasureReport).toHaveBeenCalledTimes(1); // only the good member
+  });
+
+  it('calls evaluateWithDigicore (not evaluateMeasure) when digicore_library_ref is set', async () => {
+    const { pool } = makeTxPool([{
+      spec: SPEC,
+      digicore_library_ref: 'https://artifacts.simintero.io/shared/cql_library/bcs-e',
+    }]);
+    fetchEligibleMembers.mockResolvedValue(['mem_001', 'mem_002']);
+    evaluateWithDigicore.mockResolvedValue([
+      { memberRef: 'mem_001', denominator: true, numerator: true, exclusion: false, exception: false, traceRef: 'tr-1' },
+      { memberRef: 'mem_002', denominator: true, numerator: false, exclusion: false, exception: false, traceRef: 'tr-2' },
+    ]);
+    persistMeasureReport.mockResolvedValue(undefined);
+    handleMeasureReportCompleted.mockResolvedValue(undefined);
+
+    const result = await qualitronRunMeasure(RUN_INPUT, pool, 'http://task.internal');
+
+    expect(result.total).toBe(2);
+    expect(result.failed).toBe(0);
+    // Digicore path: one batch call, not per-member legacy evaluateMeasure
+    expect(evaluateWithDigicore).toHaveBeenCalledTimes(1);
+    expect(evaluateMeasure).not.toHaveBeenCalled();
+    expect(evaluateWithDigicore.mock.calls[0]?.[0]).toMatchObject({
+      tenantId: RUN_INPUT.tenant_id,
+      libraryRef: 'https://artifacts.simintero.io/shared/cql_library/bcs-e',
+      memberRefs: ['mem_001', 'mem_002'],
+    });
+    // each result is persisted and gap-checked
+    expect(persistMeasureReport).toHaveBeenCalledTimes(2);
+    expect(handleMeasureReportCompleted).toHaveBeenCalledTimes(2);
+    const gapPayload = handleMeasureReportCompleted.mock.calls[0]?.[0] as { event_type: string; member_id: string; numerator: boolean };
+    expect(gapPayload.event_type).toBe('MeasureReportCompleted');
+    expect(gapPayload.member_id).toBe('mem_001');
+    expect(gapPayload.numerator).toBe(true);
   });
 });
 

@@ -1,4 +1,5 @@
 import { evaluateMeasure, type MeasureSpec } from '../activities/evaluateMeasure.js';
+import { evaluateWithDigicore } from '../activities/evaluateWithDigicore.js';
 import { persistMeasureReport } from '../activities/persistMeasureReport.js';
 import { fetchEligibleMembers } from '../activities/fetchEligibleMembers.js';
 import { withTenant } from '../db/withTenant.js';
@@ -25,6 +26,10 @@ export interface RunMeasureResult {
  * load the measure spec, evaluate each eligible member over the fabric, persist
  * the report (+ outbox), and detect gaps in-process. All writes share the run's
  * client so they commit/rollback together and run under the same RLS tenant.
+ *
+ * When `digicore_library_ref` is set on the measure definition, the Digicore
+ * CQL path is used: one batch HTTP call for all members. Otherwise the legacy
+ * SQL fabric path (evaluateMeasure per member) is used unchanged.
  */
 export async function qualitronRunMeasure(
   input: RunMeasureInput,
@@ -37,8 +42,11 @@ export async function qualitronRunMeasure(
       [input.run_id],
     );
 
-    const { rows: defRows } = await client.query<{ spec: MeasureSpec }>(
-      `SELECT spec FROM qual.measure_definition WHERE measure_ref = $1 AND version = $2`,
+    const { rows: defRows } = await client.query<{
+      spec: MeasureSpec;
+      digicore_library_ref: string | null;
+    }>(
+      `SELECT spec, digicore_library_ref FROM qual.measure_definition WHERE measure_ref = $1 AND version = $2`,
       [input.measure_ref, input.measure_version],
     );
     if (!defRows[0]) {
@@ -48,49 +56,103 @@ export async function qualitronRunMeasure(
       );
       return { run_id: input.run_id, total: 0, failed: 0 };
     }
-    const spec = defRows[0].spec;
 
+    const { spec, digicore_library_ref } = defRows[0];
     const members = await fetchEligibleMembers(client);
     let failed = 0;
 
-    for (const member of members) {
-      try {
-        const result = await evaluateMeasure(
-          client,
-          member,
-          input.measure_ref,
-          spec,
-          input.period_start,
-          input.period_end,
-        );
-        await persistMeasureReport(
-          client,
-          input.run_id,
-          input.tenant_id,
-          result,
-          input.period_start,
-          input.period_end,
-        );
-        await handleMeasureReportCompleted(
-          {
-            event_type: 'MeasureReportCompleted',
-            run_id: input.run_id,
-            member_id: result.member_id,
-            measure_ref: result.measure_ref,
-            numerator: result.numerator,
-            denominator: result.denominator,
-            exclusion: result.exclusion,
-          },
-          input.tenant_id,
-          input.period_start,
-          input.period_end,
-          // The handler only calls .query — a PoolClient is .query-compatible,
-          // so gap inserts run in the same tenant transaction as the run.
-          client as unknown as Pool,
-          taskServiceUrl,
-        );
-      } catch {
-        failed++;
+    if (digicore_library_ref) {
+      // Digicore CQL path: batch evaluate all members in one HTTP call
+      const digiResults = await evaluateWithDigicore({
+        tenantId: input.tenant_id,
+        libraryRef: digicore_library_ref,
+        memberRefs: members,
+        periodStart: input.period_start,
+        periodEnd: input.period_end,
+      });
+
+      for (const dr of digiResults) {
+        try {
+          const result = {
+            member_id: dr.memberRef,
+            measure_ref: input.measure_ref,
+            numerator: dr.numerator,
+            denominator: dr.denominator,
+            exclusion: dr.exclusion,
+            evidence_refs: [] as string[],
+            trace_ref: dr.traceRef,
+          };
+          await persistMeasureReport(
+            client,
+            input.run_id,
+            input.tenant_id,
+            result,
+            input.period_start,
+            input.period_end,
+          );
+          await handleMeasureReportCompleted(
+            {
+              event_type: 'MeasureReportCompleted',
+              run_id: input.run_id,
+              member_id: result.member_id,
+              measure_ref: result.measure_ref,
+              numerator: result.numerator,
+              denominator: result.denominator,
+              exclusion: result.exclusion,
+            },
+            input.tenant_id,
+            input.period_start,
+            input.period_end,
+            // The handler only calls .query — a PoolClient is .query-compatible,
+            // so gap inserts run in the same tenant transaction as the run.
+            client as unknown as Pool,
+            taskServiceUrl,
+          );
+        } catch {
+          failed++;
+        }
+      }
+    } else {
+      // Legacy SQL path — unchanged
+      for (const member of members) {
+        try {
+          const result = await evaluateMeasure(
+            client,
+            member,
+            input.measure_ref,
+            spec,
+            input.period_start,
+            input.period_end,
+          );
+          await persistMeasureReport(
+            client,
+            input.run_id,
+            input.tenant_id,
+            result,
+            input.period_start,
+            input.period_end,
+          );
+          await handleMeasureReportCompleted(
+            {
+              event_type: 'MeasureReportCompleted',
+              run_id: input.run_id,
+              member_id: result.member_id,
+              measure_ref: result.measure_ref,
+              numerator: result.numerator,
+              denominator: result.denominator,
+              exclusion: result.exclusion,
+            },
+            input.tenant_id,
+            input.period_start,
+            input.period_end,
+            // The handler only calls .query — a PoolClient is .query-compatible,
+            // so gap inserts run in the same tenant transaction as the run.
+            client as unknown as Pool,
+            taskServiceUrl,
+          );
+        } catch {
+          failed++;
+        }
       }
     }
 

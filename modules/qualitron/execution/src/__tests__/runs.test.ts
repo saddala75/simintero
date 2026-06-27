@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { createRunsRouter } from '../routes/runs.js';
 
 const VALID_RUN_BODY = {
@@ -10,6 +10,17 @@ const VALID_RUN_BODY = {
   period_start: '2026-01-01',
   period_end: '2026-06-30',
 };
+
+/**
+ * Build a pool that satisfies withTenant's need for pool.connect() → PoolClient.
+ * Returns both the pool and the shared query spy so callers can assert on it.
+ */
+function makePool() {
+  const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [] });
+  const client = { query, release: vi.fn() } as unknown as PoolClient;
+  const pool = { query, connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
+  return { pool, query };
+}
 
 function buildApp(pool: Pool, opts?: Parameters<typeof createRunsRouter>[1]) {
   const app = express();
@@ -20,9 +31,9 @@ function buildApp(pool: Pool, opts?: Parameters<typeof createRunsRouter>[1]) {
 
 describe('POST /v1/quality/runs kicks off the measure run', () => {
   it('returns 202 + run_id and kicks off the runner (non-awaited)', async () => {
-    const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [] });
+    const { pool } = makePool();
     const runner = vi.fn().mockResolvedValue({ run_id: 'x', total: 0, failed: 0 });
-    const app = buildApp({ query } as unknown as Pool, { runner });
+    const app = buildApp(pool, { runner });
 
     const res = await request(app)
       .post('/v1/quality/runs')
@@ -48,9 +59,9 @@ describe('POST /v1/quality/runs kicks off the measure run', () => {
   });
 
   it('marks the run failed when the runner rejects', async () => {
-    const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [] });
+    const { pool, query } = makePool();
     const runner = vi.fn().mockRejectedValue(new Error('boom'));
-    const app = buildApp({ query } as unknown as Pool, { runner });
+    const app = buildApp(pool, { runner });
 
     const res = await request(app)
       .post('/v1/quality/runs')
@@ -71,9 +82,9 @@ describe('POST /v1/quality/runs kicks off the measure run', () => {
   });
 
   it('returns 401 when x-sim-tenant-id header is absent (no runner kicked off)', async () => {
-    const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [] });
+    const { pool } = makePool();
     const runner = vi.fn();
-    const app = buildApp({ query } as unknown as Pool, { runner });
+    const app = buildApp(pool, { runner });
 
     const res = await request(app).post('/v1/quality/runs').send(VALID_RUN_BODY);
 
@@ -83,9 +94,9 @@ describe('POST /v1/quality/runs kicks off the measure run', () => {
   });
 
   it('returns 400 when required fields are absent (no runner kicked off)', async () => {
-    const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [] });
+    const { pool } = makePool();
     const runner = vi.fn();
-    const app = buildApp({ query } as unknown as Pool, { runner });
+    const app = buildApp(pool, { runner });
 
     const { measure_ref: _omitted, ...bodyWithoutRef } = VALID_RUN_BODY;
     const res = await request(app)
