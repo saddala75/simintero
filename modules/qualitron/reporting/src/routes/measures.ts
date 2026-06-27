@@ -115,6 +115,33 @@ export function createMeasuresRouter(pool: Pool): Router {
     }
   });
 
+  // GET /v1/quality/measures/:ref/runs/:runId/report — FHIR submission-ready Summary MeasureReport
+  router.get('/v1/quality/measures/:ref/runs/:runId/report', async (req, res, next) => {
+    try {
+      const tenantId = req.headers['x-sim-tenant-id'] as string | undefined;
+      if (!tenantId) {
+        res.status(401).json({ code: 'MISSING_TENANT_ID', detail: 'x-sim-tenant-id is required' });
+        return;
+      }
+      const { runId } = req.params as { runId: string };
+      const { rows } = await pool.query<{ report_fhir: object }>(
+        `SELECT report_fhir FROM qual.measure_report
+         WHERE run_id = $1 AND tenant_id = $2 AND report_type = 'summary'
+         LIMIT 1`,
+        [runId, tenantId],
+      );
+      if (!rows[0] || !rows[0].report_fhir) {
+        res.status(404).json({ code: 'NOT_FOUND', detail: 'No summary report for this run' });
+        return;
+      }
+      res.status(200)
+        .header('Content-Type', 'application/fhir+json')
+        .json(rows[0].report_fhir);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }
 
