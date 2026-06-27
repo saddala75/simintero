@@ -1531,6 +1531,9 @@ importers:
 
   services/qualitron-aggregation:
     dependencies:
+      '@sim/otel':
+        specifier: workspace:*
+        version: link:../../platform/libs/otel
       '@sim/qualitron-aggregation':
         specifier: workspace:*
         version: link:../../modules/qualitron/aggregation
@@ -1559,6 +1562,9 @@ importers:
 
   services/qualitron-reporting:
     dependencies:
+      '@sim/otel':
+        specifier: workspace:*
+        version: link:../../platform/libs/otel
       '@sim/qualitron-reporting':
         specifier: workspace:*
         version: link:../../modules/qualitron/reporting

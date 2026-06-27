@@ -1,4 +1,5 @@
 // services/qualitron-reporting/src/server.ts
+import '@sim/otel'
 import express from 'express'
 import pg from 'pg'
 import { createMeasuresRouter } from '@sim/qualitron-reporting'

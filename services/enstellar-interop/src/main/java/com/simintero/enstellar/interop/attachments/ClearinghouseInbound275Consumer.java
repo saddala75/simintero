@@ -1,5 +1,6 @@
 package com.simintero.enstellar.interop.attachments;
 
+import io.opentelemetry.api.trace.Span;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +48,7 @@ public class ClearinghouseInbound275Consumer {
             return;
         }
 
+        Span.current().setAttribute("tenant_id", parsed.tenantId());
         // processor.process() may throw on transient failures (MinIO, DB, claims HTTP).
         // Do NOT catch those here — let the DefaultErrorHandler retry and eventually DLQ.
         String docId = processor.process(parsed);

@@ -2,6 +2,7 @@ package com.simintero.enstellar.interop.attachments;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.opentelemetry.api.trace.Span;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,7 @@ public class ClaimsAttachmentRequestedConsumer {
         String claimId  = payload.path("claim_id").asText();
         String caseRef  = payload.path("case_ref").asText();
         String tenantId = payload.path("tenant_id").asText("unknown");
+        Span.current().setAttribute("tenant_id", tenantId);
 
         List<String> loincCodes = new ArrayList<>();
         payload.path("loinc_codes").forEach(n -> loincCodes.add(n.asText()));

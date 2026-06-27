@@ -8,6 +8,7 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@sim/otel": "workspace:*",
     "@sim/qualitron-reporting": "workspace:*",
     "express": "^4.18.0",
     "pg": "^8.11.0"

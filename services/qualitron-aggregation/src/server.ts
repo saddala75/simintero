@@ -1,4 +1,5 @@
 // services/qualitron-aggregation/src/server.ts
+import '@sim/otel'
 import { Kafka } from 'kafkajs'
 import pg from 'pg'
 import express from 'express'
