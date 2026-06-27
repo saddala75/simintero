@@ -1,6 +1,9 @@
-import { evaluateMeasure, type MeasureSpec } from '../activities/evaluateMeasure.js';
+import { evaluateMeasure, type MeasureSpec, type MeasureResult } from '../activities/evaluateMeasure.js';
 import { evaluateWithDigicore } from '../activities/evaluateWithDigicore.js';
-import { persistMeasureReport } from '../activities/persistMeasureReport.js';
+import {
+  persistMeasureReport,
+  persistSummaryMeasureReport,
+} from '../activities/persistMeasureReport.js';
 import { fetchEligibleMembers } from '../activities/fetchEligibleMembers.js';
 import { withTenant } from '../db/withTenant.js';
 import { handleMeasureReportCompleted } from '@sim/qualitron-gaps';
@@ -71,15 +74,18 @@ export async function qualitronRunMeasure(
         periodEnd: input.period_end,
       });
 
+      const measureUrl = `http://sim.internal/Measure/${input.measure_ref}`;
+      const allResults: MeasureResult[] = [];
+
       for (const dr of digiResults) {
         try {
-          const result = {
+          const result: MeasureResult = {
             member_id: dr.memberRef,
             measure_ref: input.measure_ref,
             numerator: dr.numerator,
             denominator: dr.denominator,
             exclusion: dr.exclusion,
-            evidence_refs: [] as string[],
+            evidence_refs: [],
             trace_ref: dr.traceRef,
           };
           await persistMeasureReport(
@@ -89,7 +95,9 @@ export async function qualitronRunMeasure(
             result,
             input.period_start,
             input.period_end,
+            measureUrl,
           );
+          allResults.push(result);
           await handleMeasureReportCompleted(
             {
               event_type: 'MeasureReportCompleted',
@@ -111,6 +119,19 @@ export async function qualitronRunMeasure(
         } catch {
           failed++;
         }
+      }
+
+      if (allResults.length > 0) {
+        await persistSummaryMeasureReport(
+          client,
+          input.run_id,
+          input.tenant_id,
+          input.measure_ref,
+          measureUrl,
+          allResults,
+          input.period_start,
+          input.period_end,
+        );
       }
     } else {
       // Legacy SQL path — unchanged

@@ -11,17 +11,18 @@ import type { MeasureResult, MeasureSpec } from '../activities/evaluateMeasure.j
 // is mocked, but the run's spec load is a direct query in the workflow).
 // ---------------------------------------------------------------------------
 
-const { evaluateMeasure, evaluateWithDigicore, persistMeasureReport, fetchEligibleMembers, handleMeasureReportCompleted } = vi.hoisted(() => ({
+const { evaluateMeasure, evaluateWithDigicore, persistMeasureReport, persistSummaryMeasureReport, fetchEligibleMembers, handleMeasureReportCompleted } = vi.hoisted(() => ({
   evaluateMeasure: vi.fn(),
   evaluateWithDigicore: vi.fn(),
   persistMeasureReport: vi.fn(),
+  persistSummaryMeasureReport: vi.fn(),
   fetchEligibleMembers: vi.fn(),
   handleMeasureReportCompleted: vi.fn(),
 }));
 
 vi.mock('../activities/evaluateMeasure.js', () => ({ evaluateMeasure }));
 vi.mock('../activities/evaluateWithDigicore.js', () => ({ evaluateWithDigicore }));
-vi.mock('../activities/persistMeasureReport.js', () => ({ persistMeasureReport }));
+vi.mock('../activities/persistMeasureReport.js', () => ({ persistMeasureReport, persistSummaryMeasureReport }));
 vi.mock('../activities/fetchEligibleMembers.js', () => ({ fetchEligibleMembers }));
 vi.mock('@sim/qualitron-gaps', () => ({ handleMeasureReportCompleted }));
 
@@ -94,6 +95,7 @@ describe('qualitronRunMeasure', () => {
     evaluateMeasure.mockReset();
     evaluateWithDigicore.mockReset();
     persistMeasureReport.mockReset();
+    persistSummaryMeasureReport.mockReset();
     fetchEligibleMembers.mockReset();
     handleMeasureReportCompleted.mockReset();
   });
