@@ -1017,6 +1017,8 @@ services:
       KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/simintero
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
       EXPECTED_AUDIENCE: enstellar-api
+      INTEROP_CONFORMANCE_TEST_MODE: "${INTEROP_CONFORMANCE_TEST_MODE:-false}"
+      INTEROP_CONFORMANCE_TEST_TOKEN: "${INTEROP_CONFORMANCE_TEST_TOKEN:-conformance-test-token}"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: interop
@@ -1239,3 +1241,100 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # ── Inferno FHIR conformance test kits (profile: conformance) ──────────────
+
+  inferno-us-core:
+    image: ghcr.io/inferno-community/us-core-test-kit:latest
+    profiles: [conformance]
+    ports:
+      - "4545:4567"
+    environment:
+      FHIR_SERVER_URL: http://interop:8080/fhir
+    depends_on:
+      interop:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4567/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    networks:
+      - sim-net
+
+  inferno-smart:
+    image: ghcr.io/inferno-community/smart-app-launch-test-kit:latest
+    profiles: [conformance]
+    ports:
+      - "4546:4567"
+    environment:
+      FHIR_SERVER_URL: http://interop:8080/fhir
+    depends_on:
+      interop:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4567/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    networks:
+      - sim-net
+
+  inferno-pas:
+    image: ghcr.io/inferno-framework/davinci-pas-test-kit:latest
+    profiles: [conformance]
+    ports:
+      - "4547:4567"
+    environment:
+      FHIR_SERVER_URL: http://interop:8080/fhir
+    depends_on:
+      interop:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4567/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    networks:
+      - sim-net
+
+  inferno-crd:
+    image: ghcr.io/inferno-framework/davinci-crd-test-kit:latest
+    profiles: [conformance]
+    ports:
+      - "4548:4567"
+    environment:
+      FHIR_SERVER_URL: http://interop:8080/fhir
+    depends_on:
+      interop:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4567/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    networks:
+      - sim-net
+
+  inferno-dtr:
+    image: ghcr.io/inferno-framework/davinci-dtr-test-kit:latest
+    profiles: [conformance]
+    ports:
+      - "4549:4567"
+    environment:
+      FHIR_SERVER_URL: http://interop:8080/fhir
+    depends_on:
+      interop:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4567/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    networks:
+      - sim-net
