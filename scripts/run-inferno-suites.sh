@@ -15,11 +15,14 @@ run_suite() {
   local SESSION_ID
   SESSION_ID=$(curl -sf -X POST "$BASE_URL/api/test_sessions" \
     -H "Content-Type: application/json" \
-    -d "{\"test_suite_id\":\"$SUITE_ID\",
-         \"inputs\":[{\"name\":\"url\",\"value\":\"$FHIR_URL\"},
-                     {\"name\":\"additional_headers\",\"value\":\"Authorization: Bearer $TOKEN\"}]}" \
+    -d "{\"test_suite_id\":\"$SUITE_ID\",\"inputs\":[{\"name\":\"url\",\"value\":\"$FHIR_URL\"},{\"name\":\"additional_headers\",\"value\":\"Authorization: Bearer $TOKEN\"}]}" \
     | jq -r '.id')
 
+  if [[ -z "$SESSION_ID" || "$SESSION_ID" == "null" ]]; then
+    echo "  ERROR: [$NAME] failed to create session — suite marked failed"
+    FAILURES=$((FAILURES + 1))
+    return
+  fi
   echo "    session_id=$SESSION_ID"
 
   curl -sf -X POST "$BASE_URL/api/test_sessions/$SESSION_ID/run" > /dev/null
@@ -29,7 +32,9 @@ run_suite() {
   while [[ "$RESULT" == "running" && $i -lt 60 ]]; do
     sleep 5
     i=$((i + 1))
-    RESULT=$(curl -sf "$BASE_URL/api/test_sessions/$SESSION_ID" | jq -r '.result // "running"')
+    # ponytail: || true prevents set -e from aborting on transient network hiccups
+    RESULT=$(curl -sf "$BASE_URL/api/test_sessions/$SESSION_ID" 2>/dev/null \
+      | jq -r '.result // "running"' 2>/dev/null || echo "running")
   done
 
   echo "    result=$RESULT"
