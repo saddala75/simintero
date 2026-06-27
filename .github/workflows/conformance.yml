@@ -1,26 +1,27 @@
 name: Conformance
 on:
+  pull_request:
+    branches: [main]
   schedule:
     - cron: "0 4 * * 1"  # Weekly Monday 4am UTC
   workflow_dispatch:
+
+env:
+  INTEROP_CONFORMANCE_TEST_MODE: "true"
+  INTEROP_CONFORMANCE_TEST_TOKEN: "conformance-test-token"
 
 jobs:
   fhir-conformance:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      # C3a: fhir-facade retired; FHIR conformance is covered by interop ITs (PasSubmitIT/CdsServicesIT/DtrLaunchIT)
-      # C4a: stack unified — Inferno runs against the unified-stack interop (host-exposed at :8080).
-      - name: Bring up interop + deps (unified stack)
-        run: docker compose up -d --wait postgres keycloak hapi redpanda minio digicore-runtime interop
-      - name: Run Inferno US Core conformance
-        run: npx --yes inferno-program-suite --base-url http://localhost:8080/fhir
-      - name: Run Inferno SMART App Launch
-        run: npx --yes inferno-program-suite --suite smart-app-launch --base-url http://localhost:8080/fhir
+      - name: Bring up interop + Inferno kits
+        run: |
+          docker compose --profile conformance up -d --wait \
+            postgres keycloak hapi redpanda minio digicore-runtime interop \
+            inferno-us-core inferno-smart inferno-pas inferno-crd inferno-dtr
+      - name: Run Inferno suites
+        run: bash scripts/run-inferno-suites.sh
       - name: Tear down
         if: always()
-        run: docker compose down -v
+        run: docker compose --profile conformance down -v
