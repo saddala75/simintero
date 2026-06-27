@@ -14,6 +14,7 @@ import asyncpg
 import httpx
 
 from canonical_model import EventEnvelope
+from simintero_tenant_context import tenant_transaction
 from ..kafka.consumer import IdempotentKafkaConsumer
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class QualGapClosedConsumer(IdempotentKafkaConsumer):
             )
             return
 
-        async with self._pool.acquire() as conn:
+        async with tenant_transaction(self._pool, tenant_id) as conn:
             row = await conn.fetchrow(
                 """
                 SELECT otr.task_id

@@ -31,33 +31,45 @@ def _make_gap_closed_event(gap_id: str = "gap-01", member_id: str = "member-001"
     )
 
 
-def _make_pool(fetchrow_return):
-    """Build a minimal asyncpg pool mock that supports `async with pool.acquire() as conn`."""
+def _make_pool_and_conn(fetchrow_return):
+    """Build a minimal asyncpg pool mock. The pool itself is only passed to
+    QualGapClosedConsumer for storage; the actual acquire/transaction is handled
+    by the patched tenant_transaction below."""
     conn = AsyncMock()
     conn.fetchrow = AsyncMock(return_value=fetchrow_return)
 
+    pool = MagicMock()
+    return pool, conn
+
+
+def _patch_tenant_transaction(conn):
+    """Return a patch context manager that replaces tenant_transaction in the
+    consumer module with a version that yields ``conn`` directly."""
+
     @asynccontextmanager
-    async def _acquire():
+    async def _fake_tenant_transaction(pool, tenant_id):
         yield conn
 
-    pool = MagicMock()
-    pool.acquire = _acquire
-    return pool, conn
+    return patch(
+        "enstellar_workflow.consumers.qual_gap_closed_consumer.tenant_transaction",
+        side_effect=_fake_tenant_transaction,
+    )
 
 
 @pytest.mark.asyncio
 async def test_resolves_outreach_task_when_gap_has_one():
     """When outreach_task_ref exists for the gap, POST to Task Service to resolve it."""
-    pool, conn = _make_pool(fetchrow_return={"task_id": "task-001"})
+    pool, conn = _make_pool_and_conn(fetchrow_return={"task_id": "task-001"})
 
-    with patch("httpx.AsyncClient") as mock_client_cls:
-        mock_client = AsyncMock()
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-        mock_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+    with _patch_tenant_transaction(conn):
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post = AsyncMock(return_value=MagicMock(status_code=200))
 
-        consumer = QualGapClosedConsumer(pool)
-        await consumer.handle(_make_gap_closed_event())
+            consumer = QualGapClosedConsumer(pool)
+            await consumer.handle(_make_gap_closed_event())
 
     mock_client.post.assert_called_once()
     call_url = mock_client.post.call_args[0][0]
@@ -68,16 +80,17 @@ async def test_resolves_outreach_task_when_gap_has_one():
 @pytest.mark.asyncio
 async def test_acks_without_error_when_no_outreach_task():
     """When no outreach_task_ref exists for the gap, log and return — no Task Service call."""
-    pool, conn = _make_pool(fetchrow_return=None)
+    pool, conn = _make_pool_and_conn(fetchrow_return=None)
 
-    with patch("httpx.AsyncClient") as mock_client_cls:
-        mock_client = AsyncMock()
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-        mock_client.post = AsyncMock()
+    with _patch_tenant_transaction(conn):
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post = AsyncMock()
 
-        consumer = QualGapClosedConsumer(pool)
-        await consumer.handle(_make_gap_closed_event())
+            consumer = QualGapClosedConsumer(pool)
+            await consumer.handle(_make_gap_closed_event())
 
     # Task Service should NOT be called
     mock_client.post.assert_not_called()

@@ -135,7 +135,7 @@ async def lifespan(app: FastAPI):
     rfi_task = asyncio.create_task(rfi_response_consumer.run(), name="rfi-response-consumer")
     logger.info("RfiResponseConsumer started")
 
-    qual_gap_consumer = QualGapClosedConsumer(pool=pool)
+    qual_gap_consumer = QualGapClosedConsumer(pool=fabric_pool)
     qual_gap_task = asyncio.create_task(qual_gap_consumer.run(), name="qual-gap-closed-consumer")
     logger.info("QualGapClosedConsumer started")
 
