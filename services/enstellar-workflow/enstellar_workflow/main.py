@@ -43,6 +43,11 @@ from enstellar_workflow.outbox.relay import OutboxRelay
 from enstellar_workflow.outbox.publisher import OutboxPublisher
 from enstellar_workflow.comms.consumers.decision_recorded import DecisionRecordedConsumer
 from enstellar_workflow.comms.service import NotificationService
+from enstellar_workflow.comms.delivery.consumer import NotificationDeliveryConsumer
+from enstellar_workflow.comms.delivery.email import SmtpEmailSender
+from enstellar_workflow.comms.delivery.print_vendor import PrintVendorClient
+from enstellar_workflow.normalization.storage import MinioStore
+from enstellar_workflow.normalization.config import get_normalization_settings
 from enstellar_workflow.criteria.router import router as criteria_router
 from enstellar_workflow.normalization.api import router as normalization_router
 from enstellar_workflow.queues.router import router as queues_router
@@ -142,6 +147,15 @@ async def lifespan(app: FastAPI):
     producer = KafkaProducer()
     await producer.start()
     relay = OutboxRelay(pool, producer)
+    relay_task = asyncio.create_task(relay.start(), name="outbox-relay")
+    logger.info("OutboxRelay started")
+
+    decision_consumer = DecisionRecordedConsumer(
+        pool=pool, notification_service=NotificationService(OutboxPublisher())
+    )
+    dr_task = asyncio.create_task(decision_consumer.run(), name="decision-recorded-consumer")
+    logger.info("DecisionRecordedConsumer started")
+
     # Give each consumer a reference to the producer so _send_to_dlq can
     # publish to the Kafka dead-letter topic in addition to the DB table.
     auto_consumer._producer = producer
@@ -149,13 +163,6 @@ async def lifespan(app: FastAPI):
     rfi_response_consumer._producer = producer
     qual_gap_consumer._producer = producer
     decision_consumer._producer = producer
-    relay_task = asyncio.create_task(relay.start(), name="outbox-relay")
-    logger.info("OutboxRelay started")
-    decision_consumer = DecisionRecordedConsumer(
-        pool=pool, notification_service=NotificationService(OutboxPublisher())
-    )
-    dr_task = asyncio.create_task(decision_consumer.run(), name="decision-recorded-consumer")
-    logger.info("DecisionRecordedConsumer started")
 
     revital_poller = RevitalPoller(pool)
     rp_task = asyncio.create_task(revital_poller.start(), name="revital-poller")
@@ -168,6 +175,24 @@ async def lifespan(app: FastAPI):
     grievance_poller = GrievanceSlaPoller(pool)
     gsp_task = asyncio.create_task(grievance_poller.start(), name="grievance-sla-poller")
     logger.info("GrievanceSlaPoller started")
+
+    delivery_consumer = NotificationDeliveryConsumer(
+        pool=pool,
+        email_sender=SmtpEmailSender(
+            host=settings.smtp_host,
+            port=settings.smtp_port,
+            username=settings.smtp_username,
+            password=settings.smtp_password,
+            from_addr=settings.smtp_from_addr,
+        ),
+        print_client=PrintVendorClient(),
+        minio_store=MinioStore(get_normalization_settings()),
+    )
+    delivery_task = asyncio.create_task(
+        delivery_consumer.run(), name="notification-delivery-consumer"
+    )
+    delivery_consumer._producer = producer
+    logger.info("NotificationDeliveryConsumer started")
 
     try:
         yield
@@ -196,7 +221,7 @@ async def lifespan(app: FastAPI):
         await revital_poller.stop()
         await sla_poller.stop()
         await grievance_poller.stop()
-        for t in (relay_task, dr_task, rp_task, sla_task, gsp_task):
+        for t in (relay_task, dr_task, rp_task, sla_task, gsp_task, delivery_task):
             t.cancel()
             try:
                 await t
