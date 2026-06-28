@@ -142,6 +142,13 @@ async def lifespan(app: FastAPI):
     producer = KafkaProducer()
     await producer.start()
     relay = OutboxRelay(pool, producer)
+    # Give each consumer a reference to the producer so _send_to_dlq can
+    # publish to the Kafka dead-letter topic in addition to the DB table.
+    auto_consumer._producer = producer
+    clinical_review_consumer._producer = producer
+    rfi_response_consumer._producer = producer
+    qual_gap_consumer._producer = producer
+    decision_consumer._producer = producer
     relay_task = asyncio.create_task(relay.start(), name="outbox-relay")
     logger.info("OutboxRelay started")
     decision_consumer = DecisionRecordedConsumer(
