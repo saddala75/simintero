@@ -152,3 +152,45 @@ async def test_phi_upload_failure_is_fail_loud(pg_pool, monkeypatch):
                     context={"outcome": "denied", "member_name": "Jane Roe", "dob": "1980-01-02"},
                     actor_id="system", actor_type="system", lob="ma",
                 )
+
+
+def test_download_notice_roundtrip(tmp_path, monkeypatch):
+    """upload_notice then download_notice returns the original body."""
+    import io
+    from unittest.mock import MagicMock, patch
+    from enstellar_workflow.normalization.storage import MinioStore
+    from enstellar_workflow.normalization.config import NormalizationSettings
+
+    settings = NormalizationSettings(
+        minio_endpoint="localhost:9000",
+        minio_access_key="test",
+        minio_secret_key="test",
+        minio_bucket="test-bucket",
+        minio_secure=False,
+    )
+
+    store = MinioStore.__new__(MinioStore)
+    store._bucket = "test-bucket"
+
+    stored: dict = {}
+
+    def fake_put(bucket_name, object_name, data, length, content_type):
+        stored["key"] = object_name
+        stored["body"] = data.read()
+
+    def fake_get(bucket_name, object_name):
+        resp = MagicMock()
+        resp.read.return_value = stored["body"]
+        resp.close = MagicMock()
+        resp.release_conn = MagicMock()
+        return resp
+
+    mock_client = MagicMock()
+    mock_client.put_object.side_effect = fake_put
+    mock_client.get_object.side_effect = fake_get
+    mock_client.bucket_exists.return_value = True
+    store._client = mock_client
+
+    body_ref = store.upload_notice("tenant-t01", "notif-abc", "Dear member, your case was approved.")
+    result = store.download_notice(body_ref)
+    assert result == "Dear member, your case was approved."

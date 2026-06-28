@@ -73,6 +73,18 @@ class MinioStore:
         )
         return f"{self._bucket}/{object_key}"
 
+    def download_notice(self, body_ref: str) -> str:
+        """Download a rendered notice body from MinIO. body_ref is '{bucket}/{object_key}'."""
+        first_slash = body_ref.index("/")
+        bucket = body_ref[:first_slash]
+        object_key = body_ref[first_slash + 1:]
+        response = self._client.get_object(bucket, object_key)
+        try:
+            return response.read().decode("utf-8")
+        finally:
+            response.close()
+            response.release_conn()
+
     def _ensure_bucket(self) -> None:
         """Create the bucket if it does not exist."""
         try:
