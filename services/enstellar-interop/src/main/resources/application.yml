@@ -73,7 +73,7 @@ interop:
     base-url: ${HAPI_BASE_URL:http://hapi:8080/fhir}
     proxy-enabled: ${HAPI_PROXY_ENABLED:true}
   conformance-test-mode: ${INTEROP_CONFORMANCE_TEST_MODE:false}
-  conformance-test-token: ${INTEROP_CONFORMANCE_TEST_TOKEN:conformance-test-token}
+  conformance-test-token: ${INTEROP_CONFORMANCE_TEST_TOKEN:}
 
 logging:
   level:

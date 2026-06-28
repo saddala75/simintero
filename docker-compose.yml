@@ -1079,9 +1079,17 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: enstellar-workflow
+      # SMTP — required for email notice delivery (SmtpEmailSender)
+      WORKFLOW_SMTP_HOST: "${SMTP_HOST:-localhost}"
+      WORKFLOW_SMTP_PORT: "${SMTP_PORT:-587}"
+      WORKFLOW_SMTP_USERNAME: "${SMTP_USERNAME:-}"
+      WORKFLOW_SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      WORKFLOW_SMTP_FROM_ADDR: "${SMTP_FROM_ADDR:-noreply@simintero.local}"
+      # OIDC audience — must match Keycloak client ID; enforced in all environments
+      WORKFLOW_OIDC_AUDIENCE: "${WORKFLOW_OIDC_AUDIENCE:-enstellar-workflow}"
     networks: [sim-net]
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -1109,6 +1117,8 @@ services:
       BFF_CRD_API_URL: http://interop:8080/cds-services
       BFF_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
       BFF_OIDC_ISSUER: http://localhost:8081/realms/simintero
+      # OIDC audience — must match Keycloak client ID
+      BFF_OIDC_AUDIENCE: "${BFF_OIDC_AUDIENCE:-enstellar-bff}"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: enstellar-portal-bff

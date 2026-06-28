@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Simintero OS | Reporting &amp; Analytics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-bright": "#f7f9fb",
+                    "tertiary-container": "#001a42",
+                    "on-tertiary-container": "#3980f4",
+                    "surface-container-high": "#e6e8ea",
+                    "surface-container-low": "#f2f4f6",
+                    "secondary-fixed": "#6ffbbe",
+                    "primary": "#000000",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed": "#d8e2ff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-container": "#7c839b",
+                    "inverse-surface": "#2d3133",
+                    "inverse-primary": "#bec6e0",
+                    "on-surface-variant": "#45464d",
+                    "on-background": "#191c1e",
+                    "on-surface": "#191c1e",
+                    "outline": "#76777d",
+                    "on-secondary-fixed": "#002113",
+                    "on-tertiary-fixed": "#001a42",
+                    "primary-fixed": "#dae2fd",
+                    "primary-container": "#131b2e",
+                    "secondary-container": "#6cf8bb",
+                    "surface": "#f7f9fb",
+                    "surface-variant": "#e0e3e5",
+                    "on-primary-fixed": "#131b2e",
+                    "error-container": "#ffdad6",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-secondary-fixed-variant": "#005236",
+                    "on-secondary-container": "#00714d",
+                    "inverse-on-surface": "#eff1f3",
+                    "secondary-fixed-dim": "#4edea3",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "secondary": "#006c49",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#000000",
+                    "surface-container": "#eceef0",
+                    "error": "#ba1a1a",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-tint": "#565e74",
+                    "surface-dim": "#d8dadc",
+                    "outline-variant": "#c6c6cd",
+                    "background": "#f7f9fb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "margin-desktop": "32px",
+                    "container-max": "1440px",
+                    "unit": "4px",
+                    "margin-mobile": "16px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "label-md": ["JetBrains Mono"],
+                    "display": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-sm": ["10px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+        }
+        .evidence-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+        .evidence-card:hover {
+            box-shadow: 0px 4px 12px rgba(15, 23, 42, 0.05);
+        }
+        .rule-badge {
+            font-family: 'JetBrains Mono', monospace;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: 500;
+            border-radius: 2px;
+            background: #131b2e;
+            color: #ffffff;
+        }
+        /* Custom Scrollbar for Sidebar */
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Sidebar Navigation -->
+<nav class="fixed left-0 top-0 h-screen w-64 flex flex-col p-4 bg-surface-container-lowest border-r border-outline-variant z-40">
+<div class="mb-8">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary">Simintero OS</h1>
+<p class="font-label-md text-label-md text-on-primary-container">Healthcare Payer Platform</p>
+</div>
+<div class="flex-1 overflow-y-auto pr-2 sidebar-scroll space-y-6">
+<!-- Utilization Mgmt -->
+<div>
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant/60 px-4 mb-2">Utilization Mgmt</h3>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">clinical_notes</span>
+<span class="font-body-md text-body-md">Review queue</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">settings_input_component</span>
+<span class="font-body-md text-body-md">Intake &amp; channels</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">schedule</span>
+<span class="font-body-md text-body-md">Regulatory clocks</span>
+</a>
+</div>
+</div>
+<!-- Intelligence -->
+<div>
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant/60 px-4 mb-2">Intelligence</h3>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+<span class="font-body-md text-body-md">AI review - Revital</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">architecture</span>
+<span class="font-body-md text-body-md">Policy studio - Digicore</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">fact_check</span>
+<span class="font-body-md text-body-md">Quality &amp; gaps - Qualitron</span>
+</a>
+</div>
+</div>
+<!-- Governance -->
+<div>
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant/60 px-4 mb-2">Governance</h3>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">gavel</span>
+<span class="font-body-md text-body-md">Determinations &amp; appeals</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">history_edu</span>
+<span class="font-body-md text-body-md">Audit &amp; traceability</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 bg-tertiary-container text-on-tertiary-container font-semibold rounded-xl opacity-90 transition-opacity" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="font-body-md text-body-md">Reports</span>
+</a>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant mt-4">
+<div class="bg-surface-container-high/50 p-3 rounded-xl mb-4">
+<p class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+                    System Status: Active
+                </p>
+</div>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">help</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- Top App Bar -->
+<header class="sticky top-0 right-0 w-full flex items-center justify-between px-margin-desktop h-16 z-50 bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-8">
+<div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full w-80">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-2" placeholder="Search claims, rules, or data..." type="text"/>
+</div>
+<nav class="hidden md:flex gap-6">
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary" href="#">Cases</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary" href="#">Providers</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary" href="#">Claims</a>
+<a class="font-label-md text-label-md text-primary border-b-2 border-primary pb-2" href="#">Reporting</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-surface-container rounded-full p-2">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-surface-container rounded-full p-2">history</span>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg font-label-md text-label-md hover:opacity-80 transition-opacity">
+                    Execute Rule
+                </button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img alt="User profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9yXVofWHC6Dhu57UII-lNmVQPPVbxlQ3QQJdvtHOaMn6nQTzhgWm04u0RbaCaWhohuXMomJJWuEm17w1dNuGvxK2eTduCt_2v-X0PABXj44cbbL9Hg3Dp61v2DyJj-AWmq7jAhpHtakaRVtPSsy0XSRQM1dUQzx9RE5HRXwE0iQ68grHfsYYZ7B63i_bdqvfI8LgkVHOaGo7WEbs-JB1LHGNUU1VYKwq1Y44E1h9F74fEp7sdTtG5Z6FE4o0QhKMt_QqzwYaiyfw"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="p-margin-desktop max-w-container-max mx-auto">
+<!-- Page Title -->
+<div class="mb-8 flex justify-between items-end">
+<div>
+<h2 class="font-display text-display text-primary">Qualitron Intelligence</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-2">Platform-wide performance and rule compliance auditing.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline rounded-lg font-label-md text-label-md hover:bg-surface-container-low">
+<span class="material-symbols-outlined">calendar_today</span>
+                        Last 30 Days
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 border border-outline rounded-lg font-label-md text-label-md hover:bg-surface-container-low">
+<span class="material-symbols-outlined">file_download</span>
+                        Export PDF
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Metrics -->
+<div class="bento-grid mb-gutter">
+<!-- TAT Metric -->
+<div class="col-span-3 evidence-card p-6 rounded-xl flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<span class="rule-badge">KPI-TAT</span>
+<span class="material-symbols-outlined text-secondary">trending_down</span>
+</div>
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Avg Turnaround Time</h3>
+<p class="font-display text-display text-primary mt-1">4.2<span class="text-headline-md font-normal ml-1">hrs</span></p>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-secondary-container bg-secondary-container px-2 py-0.5 rounded">-12% vs LY</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">info</span>
+</div>
+</div>
+<!-- Manual Touch Rate -->
+<div class="col-span-3 evidence-card p-6 rounded-xl flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<span class="rule-badge">AUTH-TOUCH</span>
+<span class="material-symbols-outlined text-error">trending_up</span>
+</div>
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Manual Touch Rate</h3>
+<p class="font-display text-display text-primary mt-1">18.4<span class="text-headline-md font-normal ml-1">%</span></p>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-error-container bg-error-container px-2 py-0.5 rounded">+2.1% spike</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">warning</span>
+</div>
+</div>
+<!-- Policy Reuse Rate -->
+<div class="col-span-3 evidence-card p-6 rounded-xl flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<span class="rule-badge">REUSE-INDX</span>
+<span class="material-symbols-outlined text-secondary">trending_up</span>
+</div>
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Policy Reuse Rate</h3>
+<p class="font-display text-display text-primary mt-1">92.1<span class="text-headline-md font-normal ml-1">%</span></p>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-secondary-container bg-secondary-container px-2 py-0.5 rounded">High Efficiency</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">check_circle</span>
+</div>
+</div>
+<!-- AI Adoption -->
+<div class="col-span-3 evidence-card p-6 rounded-xl flex flex-col justify-between border-2 border-tertiary-container/10 bg-tertiary-container/[0.02]">
+<div>
+<div class="flex justify-between items-start mb-4">
+<span class="rule-badge bg-on-tertiary-container text-white">AI-ADOPT</span>
+<span class="material-symbols-outlined text-on-tertiary-container" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<h3 class="font-label-md text-label-md text-on-tertiary-container uppercase tracking-wider">AI Adoption Rate</h3>
+<p class="font-display text-display text-on-tertiary-container mt-1">74.5<span class="text-headline-md font-normal ml-1">%</span></p>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-tertiary-container bg-tertiary-fixed px-2 py-0.5 rounded">Target: 80%</span>
+<span class="material-symbols-outlined text-on-tertiary-container text-[16px]">bolt</span>
+</div>
+</div>
+</div>
+<!-- Main Charts Row -->
+<div class="grid grid-cols-12 gap-gutter mb-gutter">
+<!-- Large Performance Graph -->
+<div class="col-span-8 evidence-card rounded-xl p-6">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h4 class="font-headline-md text-headline-md text-primary">Throughput Velocity</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Claims processed vs automation capacity</p>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-surface-container rounded-lg text-label-sm font-label-sm">Daily</button>
+<button class="px-3 py-1 text-on-surface-variant text-label-sm font-label-sm">Weekly</button>
+</div>
+</div>
+<div class="h-64 flex items-end justify-between gap-2 px-4">
+<!-- Mock Chart Bars -->
+<div class="w-full bg-surface-container-high relative group h-[40%] rounded-t-sm">
+<div class="absolute bottom-0 left-0 w-full bg-primary h-[80%] rounded-t-sm opacity-20 transition-all group-hover:opacity-40"></div>
+</div>
+<div class="w-full bg-surface-container-high relative group h-[55%] rounded-t-sm">
+<div class="absolute bottom-0 left-0 w-full bg-primary h-[75%] rounded-t-sm opacity-20 transition-all group-hover:opacity-40"></div>
+</div>
+<div class="w-full bg-surface-container-high relative group h-[65%] rounded-t-sm">
+<div class="absolute bottom-0 left-0 w-full bg-primary h-[85%] rounded-t-sm opacity-20 transition-all group-hover:opacity-40"></div>
+</div>
+<div class="w-full bg-surface-container-high relative group h-[50%] rounded-t-sm">
+<div class="absolute bottom-0 left-0 w-full bg-primary h-[90%] rounded-t-sm opacity-20 transition-all group-hover:opacity-40"></div>
+</div>
+<div class="w-full bg-surface-container-high relative group h-[70%] rounded-t-sm">
+<div class="absolute bottom-0 left-0 w-full bg-primary h-[82%] rounded-t-sm opacity-20 transition-all group-hover:opacity-40"></div>
+</div>
+<div class="w-full bg-surface-container-high relative group h-[85%] rounded-t-sm">
+<div class="absolute bottom-0 left-0 w-full bg-primary h-[95%] rounded-t-sm opacity-20 transition-all group-hover:opacity-40"></div>
+</div>
+<div class="w-full bg-surface-container-high relative group h-[60%] rounded-t-sm">
+<div class="absolute bottom-0 left-0 w-full bg-primary h-[70%] rounded-t-sm opacity-20 transition-all group-hover:opacity-40"></div>
+</div>
+<div class="w-full bg-surface-container-high relative group h-[75%] rounded-t-sm">
+<div class="absolute bottom-0 left-0 w-full bg-primary h-[88%] rounded-t-sm opacity-20 transition-all group-hover:opacity-40"></div>
+</div>
+</div>
+<div class="flex justify-between mt-4 px-4 font-label-sm text-label-sm text-on-surface-variant">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span><span>Today</span>
+</div>
+</div>
+<!-- AI Confidence Heatmap -->
+<div class="col-span-4 evidence-card rounded-xl p-6 bg-primary-container text-white">
+<h4 class="font-headline-md text-headline-md mb-2">Model Explainability</h4>
+<p class="font-body-md text-body-md text-on-primary-container mb-6">Real-time AI decision confidence by clinical category.</p>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-label-md mb-2">
+<span>Cardiology</span>
+<span>98% Conf</span>
+</div>
+<div class="w-full h-1 bg-on-primary-container/20 rounded-full overflow-hidden">
+<div class="h-full bg-secondary-fixed w-[98%]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-md mb-2">
+<span>Oncology</span>
+<span>82% Conf</span>
+</div>
+<div class="w-full h-1 bg-on-primary-container/20 rounded-full overflow-hidden">
+<div class="h-full bg-secondary-fixed w-[82%]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-md mb-2">
+<span>Neurology</span>
+<span>91% Conf</span>
+</div>
+<div class="w-full h-1 bg-on-primary-container/20 rounded-full overflow-hidden">
+<div class="h-full bg-secondary-fixed w-[91%]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-label-md mb-2">
+<span>Orthopedics</span>
+<span>74% Conf</span>
+</div>
+<div class="w-full h-1 bg-on-primary-container/20 rounded-full overflow-hidden">
+<div class="h-full bg-secondary-fixed w-[74%]"></div>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-3 border border-on-primary-container/30 rounded-lg text-label-md font-label-md hover:bg-white/5 transition-colors flex items-center justify-center gap-2">
+                        View Calibration Report
+                        <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</button>
+</div>
+</div>
+<!-- Detailed Drill-down Table -->
+<div class="evidence-card rounded-xl overflow-hidden mb-gutter">
+<div class="p-6 border-b border-outline-variant flex justify-between items-center">
+<h4 class="font-headline-md text-headline-md text-primary">Compliance Anomalies</h4>
+<div class="flex gap-2">
+<span class="rule-badge bg-error-container text-on-error-container">Critical: 03</span>
+<span class="rule-badge bg-surface-container-highest text-on-surface-variant">Warning: 12</span>
+</div>
+</div>
+<table class="w-full text-left">
+<thead class="bg-surface-container-low font-label-md text-label-md text-on-surface-variant uppercase tracking-tight">
+<tr>
+<th class="px-6 py-4">Rule Reference</th>
+<th class="px-6 py-4">Clinical Entity</th>
+<th class="px-6 py-4 text-center">Status</th>
+<th class="px-6 py-4">Drift Score</th>
+<th class="px-6 py-4">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant font-body-md text-body-md">
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-label-md text-label-md">CMS-CORE-42</td>
+<td class="px-6 py-4">BlueCross Partners - NE</td>
+<td class="px-6 py-4 text-center">
+<span class="bg-error-container text-on-error-container px-3 py-1 rounded-full text-xs font-bold">CRITICAL</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-24 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-error w-[85%]"></div>
+</div>
+<span class="font-label-sm text-label-sm">0.85</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="text-primary hover:underline font-label-md">Review Evidence</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-label-md text-label-md">HIPAA-270-V2</td>
+<td class="px-6 py-4">Mainland Health System</td>
+<td class="px-6 py-4 text-center">
+<span class="bg-surface-container-highest text-on-surface-variant px-3 py-1 rounded-full text-xs font-bold">WARNING</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-24 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-on-surface-variant w-[45%]"></div>
+</div>
+<span class="font-label-sm text-label-sm">0.45</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="text-primary hover:underline font-label-md">Review Evidence</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-label-md text-label-md">INT-OP-331</td>
+<td class="px-6 py-4">Evergreen Surgical Group</td>
+<td class="px-6 py-4 text-center">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold">HEALTHY</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-24 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[12%]"></div>
+</div>
+<span class="font-label-sm text-label-sm">0.12</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="text-primary hover:underline font-label-md">Review Evidence</button>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 bg-surface-container-low flex justify-center">
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary flex items-center gap-2">
+                        See All 42 Anomalies
+                        <span class="material-symbols-outlined">expand_more</span>
+</button>
+</div>
+</div>
+<!-- Intelligence Section / Explainability -->
+<div class="grid grid-cols-2 gap-gutter">
+<div class="evidence-card rounded-xl p-8 relative overflow-hidden">
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-4 text-on-tertiary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-label-md text-label-md uppercase tracking-widest">AI Insight</span>
+</div>
+<h4 class="font-headline-lg text-headline-lg text-primary mb-4 leading-tight">Optimization Opportunity</h4>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-6">Based on last week's traffic, shifting 15% of manual oncology reviews to the 'Automated Priority' queue could reduce TAT by an additional 1.2 hours without impacting accuracy.</p>
+<button class="px-6 py-3 bg-primary text-on-primary rounded-lg font-label-md text-label-md flex items-center gap-3 shadow-lg">
+                            Apply Automation Rule
+                            <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+<!-- Decorative Element -->
+<div class="absolute -right-16 -bottom-16 w-64 h-64 bg-secondary-container/20 rounded-full blur-3xl"></div>
+</div>
+<div class="evidence-card rounded-xl p-8 bg-surface-container-low border-dashed">
+<div class="flex items-center gap-2 mb-4 text-on-surface-variant">
+<span class="material-symbols-outlined">history_edu</span>
+<span class="font-label-md text-label-md uppercase tracking-widest">Source Integrity</span>
+</div>
+<h4 class="font-headline-lg text-headline-lg text-primary mb-4">Latest Policy Updates</h4>
+<ul class="space-y-4">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary mt-1">update</span>
+<div>
+<p class="font-label-md text-label-md text-primary">CMS 2024 Final Rule v3.1</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Applied 2 hours ago. Affects 1,204 pending cases.</p>
+</div>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary mt-1">update</span>
+<div>
+<p class="font-label-md text-label-md text-primary">Aetna Provider Contract Addendum</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Manual override detected on clause 14B. Audit recommended.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interaction for sidebar links
+        document.querySelectorAll('nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                link.classList.add('scale-95');
+                setTimeout(() => link.classList.remove('scale-95'), 150);
+            });
+        });
+
+        // Simple mock search animation
+        const searchInput = document.querySelector('input');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('ring-2', 'ring-on-tertiary-container', 'bg-white');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('ring-2', 'ring-on-tertiary-container', 'bg-white');
+        });
+    </script>
+</body></html>

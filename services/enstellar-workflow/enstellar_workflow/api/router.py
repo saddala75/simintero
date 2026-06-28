@@ -62,7 +62,7 @@ class PendRfiBody(BaseModel):
 
     provider_npi: str
     document_types: list[str]
-    free_text: str | None = None
+    free_text: str | None = Field(default=None, max_length=5_000)
 
 
 class EscalateBody(BaseModel):

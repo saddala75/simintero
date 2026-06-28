@@ -105,10 +105,14 @@ async def submit_adverse_decision(
       2. POST /cases/{id}/transitions with human_signoff_recorded=True
 
     Returns 400 if sign_off_confirmed is not True.
+    Returns 403 if clinician_id does not match the authenticated user's JWT sub.
 
     Non-negotiable invariant: no adverse determination without a recorded
     human (clinician) sign-off. This endpoint is the sole BFF path to an
     adverse state; the workflow-engine transition guard is the final backstop.
+
+    Identity invariant: clinician_id MUST match the authenticated JWT sub.
+    Prevents reviewers from recording sign-offs attributed to other clinicians.
     """
     ctx, _bearer = auth
     if not body.sign_off_confirmed:
@@ -117,16 +121,26 @@ async def submit_adverse_decision(
             detail="sign_off_confirmed must be True for adverse decisions",
         )
 
+    # Identity enforcement: clinician_id must match the authenticated user.
+    # This closes the spoofing gap where any reviewer could record a sign-off
+    # attributed to any other clinician. Actor identity ALWAYS comes from JWT sub.
+    if body.clinician_id and body.clinician_id != ctx.sub:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"clinician_id must match authenticated user; "
+                f"got {body.clinician_id!r}, expected {ctx.sub!r}"
+            ),
+        )
+
     # Generate once — shared by signoff and transition for audit trail traceability.
     correlation_id = str(uuid_module.uuid4())
 
-    # TODO(compliance): clinician_id comes from the request body — it is not validated
-    # against the auth token. Enforcement that the clinician is the authenticated user
-    # or a verified MD/DO requires a dedicated identity validation step (future work).
+    # Always stamp actor from JWT sub — never from request body.
     await workflow_client.record_signoff(
         case_id=str(case_id),
-        tenant_id=ctx.tenant_id,  # still sent in body for audit trail
-        actor_id=body.clinician_id,
+        tenant_id=ctx.tenant_id,
+        actor_id=ctx.sub,
         actor_type="clinician",
         outcome_context=body.outcome,
     )

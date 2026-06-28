@@ -16,11 +16,11 @@ router = APIRouter(prefix="/grievances", tags=["grievances"])
 
 
 class FileGrievanceBody(BaseModel):
-    member_ref: str = Field(min_length=1)
-    filed_by: str = Field(min_length=1)
+    member_ref: str = Field(min_length=1, max_length=256)
+    filed_by: str = Field(min_length=1, max_length=256)
     case_id: uuid.UUID | None = None
-    category: str | None = None
-    description: str | None = None
+    category: str | None = Field(default=None, max_length=128)
+    description: str | None = Field(default=None, max_length=10_000)
     urgency: str = "standard"
     lob: str | None = None
 
@@ -30,7 +30,7 @@ class AssignInvestigatorBody(BaseModel):
 
 
 class ResolveGrievanceBody(BaseModel):
-    resolution: str = Field(min_length=1)
+    resolution: str = Field(min_length=1, max_length=10_000)
 
 
 @router.post("", status_code=201, response_model=None)

@@ -35,6 +35,7 @@ from enstellar_workflow.config import get_settings
 from enstellar_workflow.consumers import (
     AutoDeterminationConsumer,
     ClinicalReviewConsumer,
+    IntakeConsumer,
     QualGapClosedConsumer,
     RfiResponseConsumer,
 )
@@ -126,11 +127,16 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("SIMINTERO_DB_URL unset — fabric pool disabled")
     app.state.fabric_pool = fabric_pool
+    app.state.pool = pool  # exposed for /ready readiness probe
 
     digicore = DigiCoreClient()
     auto_consumer = AutoDeterminationConsumer(pool=pool, digicore=digicore)
     consumer_task = asyncio.create_task(auto_consumer.run(), name="auto-determination-consumer")
     logger.info("AutoDeterminationConsumer started")
+
+    intake_consumer = IntakeConsumer(pool=pool)
+    intake_task = asyncio.create_task(intake_consumer.run(), name="intake-consumer")
+    logger.info("IntakeConsumer started")
 
     clinical_review_consumer = ClinicalReviewConsumer(pool=pool)
     cr_task = asyncio.create_task(clinical_review_consumer.run(), name="clinical-review-consumer")
@@ -159,6 +165,7 @@ async def lifespan(app: FastAPI):
     # Give each consumer a reference to the producer so _send_to_dlq can
     # publish to the Kafka dead-letter topic in addition to the DB table.
     auto_consumer._producer = producer
+    intake_consumer._producer = producer
     clinical_review_consumer._producer = producer
     rfi_response_consumer._producer = producer
     qual_gap_consumer._producer = producer
@@ -200,6 +207,11 @@ async def lifespan(app: FastAPI):
         consumer_task.cancel()
         try:
             await consumer_task
+        except asyncio.CancelledError:
+            pass
+        intake_task.cancel()
+        try:
+            await intake_task
         except asyncio.CancelledError:
             pass
         cr_task.cancel()
@@ -287,6 +299,37 @@ async def _forbidden_handler(request: Request, exc: ForbiddenError) -> JSONRespo
     return JSONResponse(status_code=403, content={"detail": str(exc) or "Forbidden"})
 
 
-@app.get("/health")
+@app.get("/health", include_in_schema=False)
 async def health() -> dict[str, str]:
+    """Liveness probe — always returns 200 while the process is alive."""
     return {"status": "ok"}
+
+
+@app.get("/ready", include_in_schema=False)
+async def readiness(request: Request) -> JSONResponse:
+    """Readiness probe — verifies critical dependencies are reachable.
+
+    Returns:
+        200 {"status": "ready", "postgres": "ok"} when healthy.
+        503 {"status": "degraded", "postgres": "unreachable"} when any dep fails.
+
+    Used by Kubernetes/Docker healthchecks to gate traffic routing.
+    """
+    checks: dict[str, str] = {}
+    http_status = 200
+
+    # --- Postgres check ---
+    try:
+        pool = getattr(request.app.state, "pool", None)
+        if pool is None:
+            raise RuntimeError("pool not initialised")
+        async with pool.acquire() as conn:
+            await asyncio.wait_for(conn.fetchval("SELECT 1"), timeout=3.0)
+        checks["postgres"] = "ok"
+    except Exception as exc:
+        logger.warning("readiness_postgres_check_failed", extra={"error": str(exc)})
+        checks["postgres"] = "unreachable"
+        http_status = 503
+
+    checks["status"] = "ready" if http_status == 200 else "degraded"
+    return JSONResponse(content=checks, status_code=http_status)

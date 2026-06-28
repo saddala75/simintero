@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Simintero OS | Governance &amp; Appeals</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-bright": "#f7f9fb",
+                    "tertiary-container": "#001a42",
+                    "on-tertiary-container": "#3980f4",
+                    "surface-container-high": "#e6e8ea",
+                    "surface-container-low": "#f2f4f6",
+                    "secondary-fixed": "#6ffbbe",
+                    "primary": "#000000",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed": "#d8e2ff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-container": "#7c839b",
+                    "inverse-surface": "#2d3133",
+                    "inverse-primary": "#bec6e0",
+                    "on-surface-variant": "#45464d",
+                    "on-background": "#191c1e",
+                    "on-surface": "#191c1e",
+                    "outline": "#76777d",
+                    "on-secondary-fixed": "#002113",
+                    "on-tertiary-fixed": "#001a42",
+                    "primary-fixed": "#dae2fd",
+                    "primary-container": "#131b2e",
+                    "secondary-container": "#6cf8bb",
+                    "surface": "#f7f9fb",
+                    "surface-variant": "#e0e3e5",
+                    "on-primary-fixed": "#131b2e",
+                    "error-container": "#ffdad6",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-secondary-fixed-variant": "#005236",
+                    "on-secondary-container": "#00714d",
+                    "inverse-on-surface": "#eff1f3",
+                    "secondary-fixed-dim": "#4edea3",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "secondary": "#006c49",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#000000",
+                    "surface-container": "#eceef0",
+                    "error": "#ba1a1a",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-tint": "#565e74",
+                    "surface-dim": "#d8dadc",
+                    "outline-variant": "#c6c6cd",
+                    "background": "#f7f9fb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "margin-desktop": "32px",
+                    "container-max": "1440px",
+                    "unit": "4px",
+                    "margin-mobile": "16px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "label-md": ["JetBrains Mono"],
+                    "display": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .evidence-card {
+            border: 1px solid #E2E8F0;
+            background: #FFFFFF;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .evidence-card:hover {
+            box-shadow: 0px 4px 12px rgba(15, 23, 42, 0.05);
+        }
+        .intelligence-glow {
+            box-shadow: 0 0 15px -3px rgba(57, 128, 244, 0.2);
+        }
+        .nav-item-active {
+            background-color: #001a42; /* tertiary-container */
+            color: #3980f4; /* on-tertiary-container */
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex min-h-screen">
+<!-- SideNavBar (Updated according to COMPONENTS_17 and 3-category request) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 w-64 border-r border-outline-variant bg-surface-container-lowest overflow-y-auto">
+<div class="p-6">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary">Simintero OS</h1>
+<p class="font-body-md text-on-primary-container">Healthcare Payer Platform</p>
+</div>
+<nav class="flex-1 px-4 space-y-6 mt-4">
+<!-- Utilization Management Category -->
+<div>
+<p class="px-4 mb-2 font-label-sm text-on-surface-variant uppercase tracking-widest text-[10px]">Utilization Mgmt</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">clinical_notes</span>
+<span class="font-body-md">Review queue</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">settings_input_component</span>
+<span class="font-body-md">Intake &amp; channels</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">schedule</span>
+<span class="font-body-md">Regulatory clocks</span>
+</a>
+</div>
+</div>
+<!-- Intelligence Category -->
+<div>
+<p class="px-4 mb-2 font-label-sm text-on-surface-variant uppercase tracking-widest text-[10px]">Intelligence</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+<span class="font-body-md">AI review - Revital</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">architecture</span>
+<span class="font-body-md">Policy studio - Digicore</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">fact_check</span>
+<span class="font-body-md">Quality &amp; gaps - Qualitron</span>
+</a>
+</div>
+</div>
+<!-- Governance Category -->
+<div>
+<p class="px-4 mb-2 font-label-sm text-on-surface-variant uppercase tracking-widest text-[10px]">Governance</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 nav-item-active rounded-xl transition-opacity active:opacity-90" href="#">
+<span class="material-symbols-outlined text-[20px]">gavel</span>
+<span class="font-body-md">Determinations &amp; appeals</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">history_edu</span>
+<span class="font-body-md">Audit &amp; traceability</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">description</span>
+<span class="font-body-md">Reports</span>
+</a>
+</div>
+</div>
+</nav>
+<div class="px-4 py-6 mt-auto border-t border-outline-variant space-y-4">
+<div class="px-4 py-2 bg-surface-container-low rounded-lg">
+<p class="font-label-md text-on-surface-variant">System Status: Active</p>
+</div>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md">Support</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full flex items-center justify-between px-margin-desktop h-16 z-50 bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-8">
+<h2 class="font-headline-md text-headline-md font-black tracking-tight text-primary">Simintero OS</h2>
+<div class="flex items-center gap-6">
+<a class="font-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Cases</a>
+<a class="font-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Providers</a>
+<a class="font-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Claims</a>
+<a class="font-label-md text-primary border-b-2 border-primary pb-2" href="#">Reporting</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg font-label-md">Execute Rule</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional portrait of a clinical director in a high-tech healthcare office setting. The lighting is soft and natural, emphasizing a look of experienced authority and calm. The background features blurred monitors showing medical data, maintaining a corporate yet clinical atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2a8YLLS2skHK6__RrTR7gpQcMzQtdqAuL-A2gVwH9Kci5hu8JiWKLJf6z0dZ5NNvsxYor5Ofxu4v3xxMC6Vpj6hKMJHJz6JhHPw8frEqkM1Fa4O1odH95i12sZkepnefX_9HWDCq6pt_2-Xl54WNySIRewWD_OuEKd9OWwPflYSMLMWEj1Sz_9g4nTEiEF_tpPdjsZ7qu7ybhRjdVR72X2OqFJ8Mn0nz0v0-F_dUo0vnkizUgBm_uOdhqQydTQMtsKKKURsTdDGc"/>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-margin-desktop space-y-8 max-w-container-max mx-auto w-full">
+<!-- Dashboard Header -->
+<section class="flex justify-between items-end">
+<div>
+<h3 class="font-headline-lg text-headline-lg text-primary">Clinical Governance &amp; Appeals</h3>
+<p class="text-on-surface-variant font-body-md">Reviewing 1,429 determinations across current cycle.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl font-label-md">
+<span class="material-symbols-outlined">filter_list</span>
+                    Filter Standards
+                </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-tertiary-container text-on-tertiary-container rounded-xl font-label-md intelligence-glow">
+<span class="material-symbols-outlined">auto_awesome</span>
+                    AI Compliance Audit
+                </button>
+</div>
+</section>
+<!-- SLA Tracking & KPI Bento -->
+<section class="grid grid-cols-12 gap-gutter">
+<div class="col-span-12 md:col-span-4 evidence-card p-6 rounded-xl space-y-4">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-on-surface-variant uppercase tracking-widest">Legal SLA Integrity</span>
+<span class="material-symbols-outlined text-secondary">verified</span>
+</div>
+<div class="text-4xl font-bold font-headline-lg text-primary">98.2%</div>
+<div class="h-2 w-full bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[98.2%]"></div>
+</div>
+<p class="font-label-md text-on-surface-variant">42 minutes remaining for critical determinations</p>
+</div>
+<div class="col-span-12 md:col-span-4 evidence-card p-6 rounded-xl space-y-4">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-on-surface-variant uppercase tracking-widest">Active Appeals</span>
+<span class="material-symbols-outlined text-on-tertiary-container">gavel</span>
+</div>
+<div class="text-4xl font-bold font-headline-lg text-primary">124</div>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-surface-container-high rounded font-label-sm text-on-surface-variant">Pending: 42</span>
+<span class="px-2 py-1 bg-on-tertiary-container/10 rounded font-label-sm text-on-tertiary-container">Review: 82</span>
+</div>
+<p class="font-label-md text-on-surface-variant">Trend: +4% from last fiscal week</p>
+</div>
+<div class="col-span-12 md:col-span-4 evidence-card p-6 rounded-xl space-y-4">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-on-surface-variant uppercase tracking-widest">Audit Readiness</span>
+<span class="material-symbols-outlined text-primary">security</span>
+</div>
+<div class="text-4xl font-bold font-headline-lg text-primary">Lvl 4</div>
+<p class="font-body-md text-on-surface-variant">System fully compliant with NCQA and URAC standards for 2024 cycle.</p>
+<button class="text-on-tertiary-container font-label-md hover:underline">Download Report</button>
+</div>
+</section>
+<!-- Main Decisions Workspace -->
+<section class="grid grid-cols-12 gap-gutter">
+<!-- Appeal Tracking List -->
+<div class="col-span-12 lg:col-span-8 space-y-4">
+<div class="flex items-center justify-between">
+<h4 class="font-headline-md text-headline-md text-primary">Finalized Determinations</h4>
+<div class="flex gap-2">
+<span class="font-label-md text-on-surface-variant">Sorted by: SLA Priority</span>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Table Row Mockup -->
+<div class="evidence-card rounded-xl p-4 flex items-center justify-between border-l-4 border-l-error">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-low rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">description</span>
+</div>
+<div>
+<div class="font-headline-md text-primary text-base">Case #8829-XL</div>
+<div class="font-label-sm text-on-surface-variant">CMS-1500 | Orthopedic Surgery</div>
+</div>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-label-md text-error px-2 py-0.5 bg-error-container rounded">Adverse</span>
+<span class="font-label-sm text-on-surface-variant mt-1">Pending Director Sign-off</span>
+</div>
+<div class="text-right">
+<div class="font-label-md text-primary">SLA: 14h 20m</div>
+<div class="font-label-sm text-on-surface-variant">Clinical Rule: CMS-204.1</div>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="evidence-card rounded-xl p-4 flex items-center justify-between border-l-4 border-l-secondary">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-low rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">description</span>
+</div>
+<div>
+<div class="font-headline-md text-primary text-base">Case #8901-PT</div>
+<div class="font-label-sm text-on-surface-variant">UB-04 | Specialty Pharmacy</div>
+</div>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-label-md text-secondary px-2 py-0.5 bg-secondary-container rounded">Certified</span>
+<span class="font-label-sm text-on-surface-variant mt-1">Provider Notified</span>
+</div>
+<div class="text-right">
+<div class="font-label-md text-primary">SLA: Resolved</div>
+<div class="font-label-sm text-on-surface-variant">Clinical Rule: AUTO-APP-12</div>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="evidence-card rounded-xl p-4 flex items-center justify-between border-l-4 border-l-on-tertiary-container">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-low rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">gavel</span>
+</div>
+<div>
+<div class="font-headline-md text-primary text-base">Appeal #APP-455</div>
+<div class="font-label-sm text-on-surface-variant">Member Initiated | Level 1</div>
+</div>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-label-md text-on-tertiary-container px-2 py-0.5 bg-on-tertiary-container/10 rounded">Under Review</span>
+<span class="font-label-sm text-on-surface-variant mt-1">Awaiting Med. Records</span>
+</div>
+<div class="text-right">
+<div class="font-label-md text-primary">SLA: 5d 11h</div>
+<div class="font-label-sm text-on-surface-variant">Legal: ERISA-CONFORM</div>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Sign-off Drawer / Quick Actions -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<div class="evidence-card rounded-xl overflow-hidden border-2 border-primary/10 intelligence-glow">
+<div class="bg-primary p-4 flex justify-between items-center">
+<h5 class="text-on-primary font-headline-md text-base">Director Sign-off Required</h5>
+<span class="px-2 py-0.5 bg-on-primary text-primary font-label-md rounded">High Priority</span>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex gap-4">
+<div class="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-size: 32px;">verified_user</span>
+</div>
+<div class="flex-1">
+<p class="font-body-md text-primary font-semibold">Inpatient Rehab Denial</p>
+<p class="font-label-sm text-on-surface-variant">Case: #8829-XL | Patient: J. Doe</p>
+</div>
+</div>
+<div class="p-4 bg-surface-container-low rounded-lg space-y-2">
+<p class="font-label-sm text-on-surface-variant uppercase">Clinical Evidence Summary</p>
+<p class="font-body-md text-on-surface italic">"The request for acute rehab does not meet InterQual criteria for continued stay. Patient is medically stable for skilled nursing facility (SNF) placement..."</p>
+<button class="text-on-tertiary-container font-label-md flex items-center gap-1">
+                                Read Full Evidence File
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+</button>
+</div>
+<div class="space-y-3">
+<p class="font-label-md text-on-surface-variant">Apply Digital Identity Signature:</p>
+<div class="flex flex-col gap-2">
+<button class="w-full bg-primary text-on-primary py-3 rounded-xl font-headline-md text-base flex items-center justify-center gap-2 transition-transform active:scale-95">
+<span class="material-symbols-outlined">draw</span>
+                                    Sign &amp; Execute Denial
+                                </button>
+<button class="w-full bg-surface-container-lowest border border-outline-variant py-3 rounded-xl font-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">
+                                    Request Peer-to-Peer
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Compliance Reference -->
+<div class="bg-surface-container-low p-6 rounded-xl space-y-4 border border-outline-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant">menu_book</span>
+<span class="font-headline-md text-base text-primary">Regulatory Standards</span>
+</div>
+<ul class="space-y-3">
+<li class="flex items-start gap-3">
+<span class="font-label-md px-2 py-0.5 bg-surface-container-highest rounded text-primary">HIPAA-270</span>
+<p class="font-label-sm text-on-surface-variant leading-tight">Eligibility Inquiry and Response compliance check: Passed</p>
+</li>
+<li class="flex items-start gap-3">
+<span class="font-label-md px-2 py-0.5 bg-surface-container-highest rounded text-primary">ERISA</span>
+<p class="font-label-sm text-on-surface-variant leading-tight">Benefit determination notification requirements: Active</p>
+</li>
+<li class="flex items-start gap-3">
+<span class="font-label-md px-2 py-0.5 bg-surface-container-highest rounded text-primary">URAC-7.1</span>
+<p class="font-label-sm text-on-surface-variant leading-tight">Clinical review criteria accessibility for members: Certified</p>
+</li>
+</ul>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Micro-interaction Scripts -->
+<script>
+    // Simple animation for director sign-off interaction
+    document.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            if (this.innerText.includes('Sign')) {
+                const originalText = this.innerHTML;
+                this.innerHTML = `<span class="material-symbols-outlined animate-spin">sync</span> Validating Identity...`;
+                setTimeout(() => {
+                    this.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Determination Finalized`;
+                    this.classList.replace('bg-primary', 'bg-secondary');
+                }, 1200);
+            }
+        });
+    });
+
+    // Atmospheric shader background (subtle texture)
+    const overlay = document.createElement('div');
+    overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; opacity:0.02; z-index:0; background: radial-gradient(circle at 20% 20%, #3980f4 0%, transparent 40%), radial-gradient(circle at 80% 80%, #6cf8bb 0%, transparent 40%);";
+    document.body.prepend(overlay);
+</script>
+</body></html>
