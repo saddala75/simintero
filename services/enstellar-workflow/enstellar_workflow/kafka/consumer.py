@@ -8,7 +8,6 @@ Processing order (Gap 1 fix):
      - attempt < max_retries: do NOT commit, Kafka redelivers.
      - attempt >= max_retries: _send_to_dlq → _mark_processed → commit.
 """
-import asyncio
 import json
 import logging
 from abc import ABC, abstractmethod
