@@ -133,13 +133,7 @@ class NotificationService:
                 to_address_raw = tmpl.get("to_address")
                 to_address: str | None = None
                 if to_address_raw:
-                    try:
-                        to_address = _jinja.from_string(to_address_raw).render(**render_ctx)
-                    except Exception as exc:
-                        logger.error(
-                            "to_address render failed template_id=%s: %s",
-                            tmpl["template_id"], exc,
-                        )
+                    to_address = _jinja.from_string(to_address_raw).render(**render_ctx)
                 payload = {
                     "case_id": case_id,
                     "channel": tmpl["channel"],

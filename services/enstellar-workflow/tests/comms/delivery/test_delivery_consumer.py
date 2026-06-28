@@ -9,12 +9,6 @@ from unittest.mock import AsyncMock, MagicMock
 from simintero_outbox import SchemaRef, make_envelope
 
 
-def _seed_notification_log(conn_coro, notification_id, tenant_id, case_id, channel="email"):
-    """Helper coroutine factory — call as: await _seed_notification_log(pg_pool.acquire(), ...)"""
-    import asyncpg
-    return conn_coro
-
-
 async def _insert_notif(pool, notification_id, tenant_id, case_id, channel="email"):
     async with pool.acquire() as conn:
         await conn.execute(
