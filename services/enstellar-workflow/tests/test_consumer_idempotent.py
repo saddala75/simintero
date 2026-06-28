@@ -28,21 +28,28 @@ def _make_event() -> EventEnvelope:
 
 
 @pytest.mark.asyncio
-async def test_first_event_is_processed(pg_pool: asyncpg.Pool):
+async def test_first_event_is_not_processed_before_mark(pg_pool: asyncpg.Pool):
     consumer = _RecordingConsumer(pg_pool, ["sim.case.lifecycle"])
     event = _make_event()
-    processed = await consumer._mark_processed(event)
-    assert processed is True
+    assert not await consumer._is_processed(event)
+
+
+@pytest.mark.asyncio
+async def test_mark_processed_makes_event_seen(pg_pool: asyncpg.Pool):
+    consumer = _RecordingConsumer(pg_pool, ["sim.case.lifecycle"])
+    event = _make_event()
+    await consumer._mark_processed(event)
+    assert await consumer._is_processed(event)
 
 
 @pytest.mark.asyncio
 async def test_duplicate_event_is_skipped(pg_pool: asyncpg.Pool):
     consumer = _RecordingConsumer(pg_pool, ["sim.case.lifecycle"])
     event = _make_event()
-    first = await consumer._mark_processed(event)
-    second = await consumer._mark_processed(event)
-    assert first is True
-    assert second is False
+    await consumer._mark_processed(event)
+    # Second mark should be idempotent (no error)
+    await consumer._mark_processed(event)
+    assert await consumer._is_processed(event)
 
 
 @pytest.mark.asyncio
@@ -53,7 +60,8 @@ async def test_same_event_different_consumer_group(pg_pool: asyncpg.Pool):
     c2._group_id = "group-b"
 
     event = _make_event()
-    r1 = await c1._mark_processed(event)
-    r2 = await c2._mark_processed(event)
-    assert r1 is True
-    assert r2 is True
+    assert not await c1._is_processed(event)
+    assert not await c2._is_processed(event)
+    await c1._mark_processed(event)
+    assert await c1._is_processed(event)
+    assert not await c2._is_processed(event)
