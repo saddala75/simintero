@@ -16,6 +16,7 @@ import uuid
 import asyncpg
 
 from simintero_outbox import SchemaRef, Topics
+from simintero_tenant_context import tenant_transaction
 from canonical_model import EventEnvelope
 from ..delivery.email import SmtpEmailSender
 from ..delivery.print_vendor import PrintVendorClient
@@ -74,7 +75,7 @@ class NotificationDeliveryConsumer(IdempotentKafkaConsumer):
             )
             return
 
-        async with self._pool.acquire() as conn:
+        async with tenant_transaction(self._pool, event.tenant.id) as conn:
             await conn.execute(
                 "UPDATE notification_log SET delivered_at = now() "
                 "WHERE notification_id = $1",

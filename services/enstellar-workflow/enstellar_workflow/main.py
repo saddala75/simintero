@@ -85,15 +85,14 @@ async def lifespan(app: FastAPI):
     # enstellar_workflow.auth at import; expose the validator on app.state.
     app.state.jwt_validator = jwt_validator
 
-    # Fail fast if JWT audience verification is disabled in a non-local deploy.
+    # Fail fast if JWT audience verification is disabled in any environment.
     # When oidc_audience is None the validator does NOT enforce `aud`, so tokens
-    # minted for OTHER simintero-realm services would be accepted. Allow this
-    # only for local/test/dev where an audience is commonly unset.
-    if not settings.oidc_audience and settings.env not in ("local", "test", "dev"):
+    # minted for OTHER simintero-realm services would be accepted.
+    if not settings.oidc_audience:
         raise RuntimeError(
             "WORKFLOW_OIDC_AUDIENCE (oidc_audience) is not set — JWT audience verification "
             "would be disabled, accepting tokens minted for other simintero-realm services. "
-            "Set the expected audience, or run with env=local/test/dev."
+            "Set WORKFLOW_OIDC_AUDIENCE to the expected audience (e.g. 'enstellar-workflow')."
         )
 
     logger.info(
