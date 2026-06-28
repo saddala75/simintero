@@ -4,13 +4,15 @@ WORKDIR /repo
 RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY modules/digicore/governance/package.json ./modules/digicore/governance/
-# Workspace lib deps (@sim/outbox-ts, @sim/tenant-context-ts) — manifests for install
+# Workspace lib deps — manifests for install
 COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
 COPY platform/libs/tenant-context/ts/package.json ./platform/libs/tenant-context/ts/
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 RUN pnpm install --frozen-lockfile --filter @sim/digicore-governance...
 # Workspace lib deps source — needed to compile their dist/ for runtime resolution
 COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
 COPY platform/libs/tenant-context/ts/ ./platform/libs/tenant-context/ts/
+COPY platform/libs/otel/ ./platform/libs/otel/
 COPY modules/digicore/governance/ ./modules/digicore/governance/
 # Build deps (...) so @sim/outbox-ts + @sim/tenant-context-ts dist/ exist for deploy
 RUN pnpm --filter @sim/digicore-governance... run build

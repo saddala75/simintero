@@ -73,13 +73,17 @@ export function createActivateRouter(
       return;
     }
 
-    const result = await handleActivate(
-      { artifact_id: body['artifact_id'] },
-      store,
-      enforcer,
-      vkasClient,
-    );
-    res.status(result.status).json(result.body);
+    try {
+      const result = await handleActivate(
+        { artifact_id: body['artifact_id'] },
+        store,
+        enforcer,
+        vkasClient,
+      );
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   return router;

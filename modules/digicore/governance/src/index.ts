@@ -43,7 +43,8 @@ const fetchVkasClient: VkasClient = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ canonical_url: canonicalUrl, version }),
     });
-    if (!r.ok) throw new Error(`VKAS activate failed (${r.status}) for ${canonicalUrl}`);
+    // 422 = StatusTransitionError (e.g. already active) — treat as idempotent success
+    if (!r.ok && r.status !== 422) throw new Error(`VKAS activate failed (${r.status}) for ${canonicalUrl}`);
   },
 };
 
