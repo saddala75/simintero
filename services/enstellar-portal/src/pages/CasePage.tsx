@@ -764,10 +764,10 @@ function AiColumn({ caseId }: { caseId: string }) {
         </div>
         <div className="en-ai-card-b">
           <p className="en-ai-sum">
-            {suggestions.length > 0
-              ? suggestions[0].title
-              : caseDetail?.service_type
-              ? `Prior authorization evaluation for ${caseDetail.service_type}. Patient clinical criteria and medical documentation under active review.`
+            {sugItems.length > 0
+              ? sugItems[0].title
+              : caseData.service_description
+              ? `Prior authorization evaluation for ${caseData.service_description}. Patient clinical criteria and medical documentation under active review.`
               : 'Patient clinical documentation under review.'}
           </p>
 
@@ -780,8 +780,8 @@ function AiColumn({ caseId }: { caseId: string }) {
               marginTop: 10,
             }}
           >
-            {(caseDetail?.service_type
-              ? [`Plan Policy §4.2`, `${caseDetail.service_type}`, `Clinical Records`]
+            {(caseData.service_description
+              ? [`Plan Policy §4.2`, `${caseData.service_description}`, `Clinical Records`]
               : ['Plan Policy §4.2', 'Clinical Criteria', 'Medical Records']
             ).map((c) => (
               <span
@@ -980,8 +980,8 @@ function MdContextColumn({ caseData }: { caseData: CaseDetail }) {
               Escalated for MD determination
             </div>
             <div className="en">
-              {caseDetail?.service_type
-                ? `Case for ${caseDetail.service_type} escalated for Medical Director determination on medical necessity criteria per plan policy §4.2.`
+              {caseData.service_description
+                ? `Case for ${caseData.service_description} escalated for Medical Director determination on medical necessity criteria per plan policy §4.2.`
                 : 'Case escalated for Medical Director determination per plan policy §4.2.'}
             </div>
           </div>
@@ -1247,8 +1247,8 @@ function MdWorkColumn({
               Escalated by nurse reviewer
             </div>
             <div className="en">
-              {caseDetail?.service_type
-                ? `Case for ${caseDetail.service_type} escalated for MD determination on medical necessity grounds per plan policy §4.2.`
+              {caseData.service_description
+                ? `Case for ${caseData.service_description} escalated for MD determination on medical necessity grounds per plan policy §4.2.`
                 : 'Escalated for MD determination on medical necessity grounds per plan policy §4.2.'}
             </div>
           </div>
