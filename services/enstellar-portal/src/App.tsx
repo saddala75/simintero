@@ -12,6 +12,19 @@ import { GrievanceDetailPage } from './pages/GrievanceDetailPage'
 import { RegulatoryClocksPage } from './pages/RegulatoryClocksPage'
 import { IntakeChannelsPage } from './pages/IntakeChannelsPage'
 
+// Console Apps & Pages
+import { AiWorkbenchPage } from '@sim/reviewer-workspace/pages/AiWorkbenchPage'
+import { PolicyListPage } from '@sim/digicore-console/pages/PolicyListPage'
+import { PolicyDetailPage } from '@sim/digicore-console/pages/PolicyDetailPage'
+import { GovernanceReportsPage } from '@sim/digicore-console/pages/GovernanceReportsPage'
+import { GapAnalysisPage } from '@sim/quality-console/pages/GapAnalysisPage'
+import { MeasurePerformancePage } from '@sim/quality-console/pages/MeasurePerformancePage'
+import { GapDetailPage } from '@sim/quality-console/pages/GapDetailPage'
+import AnalyticsApp from '@sim/analytics-console/App'
+import AiOpsApp from '@sim/ai-ops-console/App'
+import SaasAdminApp from '@sim/saas-admin/App'
+import SupportConsoleApp from '@sim/support-console/App'
+
 export default function App() {
   return (
     <Routes>
@@ -27,6 +40,20 @@ export default function App() {
       <Route path="/cases/:caseId/appeals/:appealId" element={<ProtectedRoute><AppealDetailPage /></ProtectedRoute>} />
       <Route path="/grievances" element={<ProtectedRoute><GrievancesPage /></ProtectedRoute>} />
       <Route path="/grievances/:grievanceId" element={<ProtectedRoute><GrievanceDetailPage /></ProtectedRoute>} />
+
+      {/* Unified Platform Intelligence & Governance Routes */}
+      <Route path="/revital" element={<ProtectedRoute><AiWorkbenchPage /></ProtectedRoute>} />
+      <Route path="/revital/:caseId" element={<ProtectedRoute><AiWorkbenchPage /></ProtectedRoute>} />
+      <Route path="/digicore" element={<ProtectedRoute><PolicyListPage /></ProtectedRoute>} />
+      <Route path="/digicore/policies/:id" element={<ProtectedRoute><PolicyDetailPage /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><GovernanceReportsPage /></ProtectedRoute>} />
+      <Route path="/qualitron" element={<ProtectedRoute><GapAnalysisPage /></ProtectedRoute>} />
+      <Route path="/qualitron/measures" element={<ProtectedRoute><MeasurePerformancePage /></ProtectedRoute>} />
+      <Route path="/qualitron/gaps/:id" element={<ProtectedRoute><GapDetailPage /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute><AnalyticsApp /></ProtectedRoute>} />
+      <Route path="/ai-ops" element={<ProtectedRoute><AiOpsApp /></ProtectedRoute>} />
+      <Route path="/saas-admin" element={<ProtectedRoute><SaasAdminApp /></ProtectedRoute>} />
+      <Route path="/support" element={<ProtectedRoute><SupportConsoleApp /></ProtectedRoute>} />
     </Routes>
   )
 }

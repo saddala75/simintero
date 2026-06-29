@@ -14,7 +14,7 @@ class FhirClient:
     def __init__(self, base_url: str) -> None:
         self._base = base_url.rstrip("/")
 
-    async def documents(self, case_id: str, tenant_id: str) -> list[dict]:
+    async def documents(self, case_id: str, tenant_id: str, bearer: str) -> list[dict]:
         """Fetch DocumentReference resources by case-id extension.
 
         Returns a list of mapped dicts (internal representation).
@@ -25,19 +25,19 @@ class FhirClient:
             resp = await client.get(
                 f"{self._base}/DocumentReference",
                 params={"case-id": case_id},
-                headers={"X-Tenant-Id": tenant_id},
+                headers={"X-Tenant-Id": tenant_id, "Authorization": f"Bearer {bearer}"},
             )
             resp.raise_for_status()
         bundle = resp.json()
         entries = bundle.get("entry") or []
         return [_map_doc(e["resource"]) for e in entries if "resource" in e]
 
-    async def document_by_id(self, doc_id: str, tenant_id: str) -> dict:
+    async def document_by_id(self, doc_id: str, tenant_id: str, bearer: str) -> dict:
         """Fetch a single DocumentReference by id."""
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 f"{self._base}/DocumentReference/{doc_id}",
-                headers={"X-Tenant-Id": tenant_id},
+                headers={"X-Tenant-Id": tenant_id, "Authorization": f"Bearer {bearer}"},
             )
             resp.raise_for_status()
         return resp.json()

@@ -198,7 +198,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["reviewer", "medical_director", "appeals_coordinator", "grievance_coordinator"]
+      "realmRoles": ["reviewer", "clinical-reviewer", "medical_director", "appeals_coordinator", "grievance_coordinator"]
     },
     {
       "id": "33333333-3333-3333-3333-333333333333",

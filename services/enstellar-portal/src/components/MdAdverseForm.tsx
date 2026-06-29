@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { submitAdverseDecision, getCriteria } from '../api/client'
 import type { AdverseOutcome, CriterionItem, FindingSection } from '../types'
+import { useAuth } from '../auth/AuthContext'
 
 export type MdFormReadiness = {
   criteriaLoaded: boolean
@@ -55,7 +56,8 @@ export function MdAdverseForm({
   const [citations, setCitations] = useState<string[]>([])
   const [citationInput, setCitationInput] = useState('')
   const [rationale, setRationale] = useState('')
-  const [clinicianId, setClinicianId] = useState('')
+  const auth = useAuth()
+  const [clinicianId] = useState(auth.sub)
   const [confirmed, setConfirmed] = useState(false)
 
   const mut = useMutation({
@@ -284,16 +286,16 @@ export function MdAdverseForm({
       {/* Clinician ID */}
       <div className="en-field" style={{ marginTop: 10 }}>
         <label htmlFor="md-clinician-id">
-          Clinician ID (NPI or internal) <span style={{ color: 'var(--red)' }}>*</span>
+          Clinician ID <span style={{ color: 'var(--ink-mut)', fontWeight: 400, fontSize: 11 }}>(authenticated user)</span>
         </label>
         <input
           id="md-clinician-id"
           type="text"
           value={clinicianId}
-          onChange={e => setClinicianId(e.target.value)}
-          placeholder="e.g. 1234567890"
+          readOnly
           data-testid="md-clinician-id"
           className="en-input"
+          style={{ opacity: 0.7, cursor: 'default' }}
         />
       </div>
 

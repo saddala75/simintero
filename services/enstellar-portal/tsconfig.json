@@ -11,7 +11,14 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@sim/design-system": ["../../packages/design-system/src/index.ts"]
+      "@sim/design-system": ["../../packages/design-system/src/index.ts"],
+      "@sim/reviewer-workspace/*": ["../../apps/web/reviewer-workspace/src/*"],
+      "@sim/digicore-console/*": ["../../apps/web/digicore-console/src/*"],
+      "@sim/quality-console/*": ["../../apps/web/quality-console/src/*"],
+      "@sim/analytics-console/*": ["../../apps/web/analytics-console/src/*"],
+      "@sim/ai-ops-console/*": ["../../apps/web/ai-ops-console/src/*"],
+      "@sim/saas-admin/*": ["../../apps/web/saas-admin/src/*"],
+      "@sim/support-console/*": ["../../apps/web/support-console/src/*"]
     },
     "isolatedModules": true,
     "noEmit": true,
@@ -21,6 +28,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src", "../../apps/web/*/src/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

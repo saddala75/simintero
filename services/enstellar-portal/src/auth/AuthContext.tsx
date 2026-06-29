@@ -34,7 +34,7 @@ function mkState(authd: boolean): AuthState {
   return {
     ready: true,
     authenticated: authd,
-    roles: (t?.realm_access?.roles as string[]) ?? [],
+    roles: (t?.realm_access?.roles as string[]) ?? (t?.roles as string[]) ?? [],
     sub: t?.sub ?? '',
     tenantId: t?.tenant_id ?? '',
     displayName: t?.name ?? t?.preferred_username ?? '',
@@ -56,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .init({
           onLoad: 'check-sso',
           pkceMethod: 'S256',
+          checkLoginIframe: false,
           silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
         })
         .then((authd) => {

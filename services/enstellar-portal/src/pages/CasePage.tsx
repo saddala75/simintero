@@ -1639,6 +1639,7 @@ export function CasePage() {
     queryKey: ['case', caseId],
     queryFn: () => getCase(caseId!),
     enabled: !!caseId,
+    staleTime: 30_000,
   })
 
   const { data: mdCriteria = [] } = useQuery({

@@ -212,8 +212,8 @@ async def get_documents(
     Security invariant: the url field is always the BFF proxy path —
     no raw HAPI or MinIO URLs are returned to the browser.
     """
-    ctx, _bearer = auth
-    raw_docs = await fhir_client.documents(case_id, ctx.tenant_id)
+    ctx, bearer = auth
+    raw_docs = await fhir_client.documents(case_id, ctx.tenant_id, bearer)
     return [
         DocumentItem(
             id=d["id"],
@@ -239,8 +239,8 @@ async def proxy_document_content(
     this endpoint fetches the DocumentReference from HAPI and issues a
     redirect to the attachment URL (e.g., MinIO presigned URL).
     """
-    ctx, _bearer = auth
-    resource = await fhir_client.document_by_id(doc_id, ctx.tenant_id)
+    ctx, bearer = auth
+    resource = await fhir_client.document_by_id(doc_id, ctx.tenant_id, bearer)
     content = (resource.get("content") or [{}])[0]
     attachment_url = (content.get("attachment") or {}).get("url")
     if not attachment_url:
