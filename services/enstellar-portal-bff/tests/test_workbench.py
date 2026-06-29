@@ -154,3 +154,93 @@ async def test_workbench_fhir_failure_degrades_gracefully() -> None:
 
     assert r.status_code == 200
     assert r.json()["documentUrl"] is None
+
+
+ENTITY_ID = str(uuid.uuid4())
+SUGGESTION_ID = str(uuid.uuid4())
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_patch_entity_maps_disputed_to_gap() -> None:
+    respx.patch(
+        f"http://workflow-engine:8000/cases/{CASE_ID}/criteria/{ENTITY_ID}"
+    ).mock(return_value=Response(200, json={"status": "gap"}))
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.patch(
+            f"/bff/cases/{CASE_ID}/entities/{ENTITY_ID}",
+            json={"status": "disputed"},
+        )
+
+    assert r.status_code == 200
+    import json as _json
+    assert _json.loads(respx.calls.last.request.content) == {"status": "gap"}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_patch_entity_accepted_maps_to_met() -> None:
+    respx.patch(
+        f"http://workflow-engine:8000/cases/{CASE_ID}/criteria/{ENTITY_ID}"
+    ).mock(return_value=Response(200, json={"status": "met"}))
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.patch(
+            f"/bff/cases/{CASE_ID}/entities/{ENTITY_ID}",
+            json={"status": "accepted"},
+        )
+
+    assert r.status_code == 200
+    import json as _json
+    assert _json.loads(respx.calls.last.request.content) == {"status": "met"}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_post_determination_accept_calls_suggestion_action() -> None:
+    respx.get(f"http://workflow-engine:8000/cases/{CASE_ID}/suggestions").mock(
+        return_value=Response(200, json=[{**_suggestion(), "id": SUGGESTION_ID}])
+    )
+    respx.post(
+        f"http://workflow-engine:8000/cases/{CASE_ID}/suggestions/{SUGGESTION_ID}/action"
+    ).mock(return_value=Response(200, json={"status": "accepted"}))
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            f"/bff/cases/{CASE_ID}/determination",
+            json={"decision": "accept"},
+        )
+
+    assert r.status_code == 200
+    assert r.json()["status"] == "accept"
+    action_body = respx.calls.last.request
+    import json as _json
+    sent = _json.loads(action_body.content)
+    assert sent["action"] == "accepted"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_post_determination_no_suggestions_returns_gracefully() -> None:
+    respx.get(f"http://workflow-engine:8000/cases/{CASE_ID}/suggestions").mock(
+        return_value=Response(200, json=[])
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.post(
+            f"/bff/cases/{CASE_ID}/determination",
+            json={"decision": "adverse"},
+        )
+
+    assert r.status_code == 200
+    assert r.json()["status"] == "adverse"
+

@@ -163,6 +163,21 @@ class WorkflowClient:
         r.raise_for_status()
         return r.json()
 
+    async def update_criterion(
+        self,
+        case_id: str,
+        criterion_id: str,
+        status: str,
+        bearer_token: str,
+    ) -> dict:
+        resp = await self._http.patch(
+            f"/cases/{case_id}/criteria/{criterion_id}",
+            json={"status": status},
+            headers=self._auth(bearer_token),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     # --- Appeals ---
     async def file_appeal(self, case_id, bearer_token, *, filed_by, reason=None):
         r = await self._http.post(

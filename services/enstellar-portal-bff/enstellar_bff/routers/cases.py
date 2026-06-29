@@ -21,7 +21,9 @@ from enstellar_bff.models import (
     CompletenessItem,
     CriterionItem,
     DecisionSubmission,
+    DeterminationRequest,
     DocumentItem,
+    EntityStatusUpdate,
     GroundednessMetric,
     RfiRequest,
     SuggestionActionRequest,
@@ -33,6 +35,7 @@ from enstellar_bff.models import (
 ADVERSE_STATES = frozenset({"denied", "partially_denied", "adverse_modification"})
 
 _STATUS_TO_ENTITY: dict[str, str] = {"met": "accepted", "gap": "disputed", "unknown": "pending"}
+_ENTITY_TO_CRITERION: dict[str, str] = {"accepted": "met", "disputed": "gap", "pending": "unknown"}
 _STATUS_TO_CONF: dict[str, float] = {"met": 1.0, "gap": 0.0, "unknown": 0.5}
 
 
@@ -402,3 +405,50 @@ async def post_suggestion_action(
         if exc.response.status_code == 404:
             raise HTTPException(status_code=404, detail="Suggestion not found")
         raise HTTPException(status_code=502, detail="Upstream error")
+
+
+@router.patch("/cases/{case_id}/entities/{entity_id}")
+async def update_entity_status(
+    case_id: UUID,
+    entity_id: UUID,
+    body: EntityStatusUpdate,
+    auth: tuple = Depends(require_reviewer),
+) -> dict:
+    """Translate Revital entity status (accepted/disputed/pending) → criterion status (met/gap/unknown)
+    and persist via the workflow engine."""
+    _ctx, bearer = auth
+    try:
+        return await workflow_client.update_criterion(
+            str(case_id), str(entity_id), _ENTITY_TO_CRITERION[body.status], bearer
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Entity not found")
+        raise HTTPException(status_code=502, detail="Upstream error")
+
+
+@router.post("/cases/{case_id}/determination")
+async def post_determination(
+    case_id: UUID,
+    body: DeterminationRequest,
+    auth: tuple = Depends(require_reviewer),
+) -> dict:
+    """Record the reviewer's AI advisory decision (accept/adverse).
+
+    For 'accept': marks the primary suggestion as accepted.
+    For 'adverse': marks the primary suggestion as rejected; the actual adverse
+    determination is completed via the portal's /cases/{id}/adverse-decision endpoint.
+    If no suggestion exists the decision is still recorded in the response.
+    """
+    ctx, bearer = auth
+    suggestions = await workflow_client.suggestions(str(case_id), bearer)
+    if suggestions:
+        action = "accepted" if body.decision == "accept" else "rejected"
+        await workflow_client.suggestion_action(
+            case_id=str(case_id),
+            suggestion_id=suggestions[0]["id"],
+            bearer_token=bearer,
+            action=action,
+            reviewer_id=ctx.sub,
+        )
+    return {"status": body.decision}
