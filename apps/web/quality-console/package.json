@@ -25,5 +25,10 @@
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
     "vitest": "^1.6.0"
+  },
+  "exports": {
+    ".": "./src/App.tsx",
+    "./App": "./src/App.tsx",
+    "./pages/*": "./src/pages/*"
   }
 }

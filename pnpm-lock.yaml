@@ -1574,9 +1574,30 @@ importers:
 
   services/enstellar-portal:
     dependencies:
+      '@sim/ai-ops-console':
+        specifier: workspace:*
+        version: link:../../apps/web/ai-ops-console
+      '@sim/analytics-console':
+        specifier: workspace:*
+        version: link:../../apps/web/analytics-console
       '@sim/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
+      '@sim/digicore-console':
+        specifier: workspace:*
+        version: link:../../apps/web/digicore-console
+      '@sim/quality-console':
+        specifier: workspace:*
+        version: link:../../apps/web/quality-console
+      '@sim/reviewer-workspace':
+        specifier: workspace:*
+        version: link:../../apps/web/reviewer-workspace
+      '@sim/saas-admin':
+        specifier: workspace:*
+        version: link:../../apps/web/saas-admin
+      '@sim/support-console':
+        specifier: workspace:*
+        version: link:../../apps/web/support-console
       '@tanstack/react-query':
         specifier: ^5.101.0
         version: 5.101.0(react@19.2.7)

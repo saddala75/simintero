@@ -12,6 +12,13 @@
   },
   "dependencies": {
     "@sim/design-system": "workspace:*",
+    "@sim/reviewer-workspace": "workspace:*",
+    "@sim/digicore-console": "workspace:*",
+    "@sim/quality-console": "workspace:*",
+    "@sim/analytics-console": "workspace:*",
+    "@sim/ai-ops-console": "workspace:*",
+    "@sim/saas-admin": "workspace:*",
+    "@sim/support-console": "workspace:*",
     "@tanstack/react-query": "^5.101.0",
     "keycloak-js": "^26.2.4",
     "react": "^19.2.6",
