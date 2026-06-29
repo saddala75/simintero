@@ -1,9 +1,11 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getWorklist, type WorklistItem } from '../api/client'
 
 export function CaseSelectorPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const routePrefix = location.pathname.startsWith('/revital') ? '/revital' : '/ai-workbench'
   const { data: items = [], isLoading, isError } = useQuery({
     queryKey: ['revital-worklist'],
     queryFn: getWorklist,
@@ -32,7 +34,7 @@ export function CaseSelectorPage() {
         {items.map((item: WorklistItem) => (
           <button
             key={item.case_id}
-            onClick={() => navigate(`/ai-workbench/${item.case_id}`)}
+            onClick={() => navigate(`${routePrefix}/${item.case_id}`)}
             style={{
               display: 'flex',
               alignItems: 'center',

@@ -16,9 +16,10 @@ export function AiWorkbenchPage() {
   const [determinationResult, setDeterminationResult] = useState<string | null>(null)
   const [entityError, setEntityError] = useState<string | null>(null)
 
-  const { data: workbenchCase, isLoading } = useQuery({
+  const { data: workbenchCase, isLoading, isError } = useQuery({
     queryKey: ['workbench-case', caseId],
     queryFn: () => getWorkbenchCase(caseId),
+    retry: 1,
   })
 
   const entityStatusMut = useMutation({
@@ -42,8 +43,25 @@ export function AiWorkbenchPage() {
     },
   })
 
-  if (isLoading || !workbenchCase) {
+  if (isLoading) {
     return <div className="p-8 text-center text-slate-500">Loading AI review workbench telemetry…</div>
+  }
+
+  if (isError || !workbenchCase) {
+    return (
+      <div className="p-12 text-center max-w-lg mx-auto space-y-4">
+        <h2 className="text-xl font-bold text-slate-800">No Case in Context</h2>
+        <p className="text-sm text-slate-600">
+          Please select an active case from the worklist to open the Revital AI review workbench.
+        </p>
+        <button
+          onClick={() => navigate('/revital')}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium text-sm hover:bg-blue-700"
+        >
+          Select Case from Worklist
+        </button>
+      </div>
+    )
   }
 
   return (

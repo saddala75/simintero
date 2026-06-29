@@ -14,6 +14,7 @@ import { IntakeChannelsPage } from './pages/IntakeChannelsPage'
 
 // Real Console Apps & Pages
 import { AiWorkbenchPage } from '@sim/reviewer-workspace/pages/AiWorkbenchPage'
+import { CaseSelectorPage } from '@sim/reviewer-workspace/pages/CaseSelectorPage'
 import { PolicyListPage } from '@sim/digicore-console/pages/PolicyListPage'
 import { PolicyDetailPage } from '@sim/digicore-console/pages/PolicyDetailPage'
 import { GovernanceReportsPage } from '@sim/digicore-console/pages/GovernanceReportsPage'
@@ -42,8 +43,9 @@ export default function App() {
       <Route path="/grievances/:grievanceId" element={<ProtectedRoute><GrievanceDetailPage /></ProtectedRoute>} />
 
       {/* Unified Platform Intelligence & Governance Routes */}
-      <Route path="/revital" element={<ProtectedRoute><AiWorkbenchPage /></ProtectedRoute>} />
+      <Route path="/revital" element={<ProtectedRoute><CaseSelectorPage /></ProtectedRoute>} />
       <Route path="/revital/:caseId" element={<ProtectedRoute><AiWorkbenchPage /></ProtectedRoute>} />
+      <Route path="/ai-workbench/:caseId" element={<ProtectedRoute><AiWorkbenchPage /></ProtectedRoute>} />
       <Route path="/digicore" element={<ProtectedRoute><PolicyListPage /></ProtectedRoute>} />
       <Route path="/digicore/policies/:id" element={<ProtectedRoute><PolicyDetailPage /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><GovernanceReportsPage /></ProtectedRoute>} />
