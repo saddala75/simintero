@@ -12,7 +12,7 @@ import { GrievanceDetailPage } from './pages/GrievanceDetailPage'
 import { RegulatoryClocksPage } from './pages/RegulatoryClocksPage'
 import { IntakeChannelsPage } from './pages/IntakeChannelsPage'
 
-// Console Apps & Pages
+// Real Console Apps & Pages
 import { AiWorkbenchPage } from '@sim/reviewer-workspace/pages/AiWorkbenchPage'
 import { PolicyListPage } from '@sim/digicore-console/pages/PolicyListPage'
 import { PolicyDetailPage } from '@sim/digicore-console/pages/PolicyDetailPage'
