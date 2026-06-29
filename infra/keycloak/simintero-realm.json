@@ -22,7 +22,11 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": ["http://localhost:3000/*", "http://localhost:5173/*"],
-      "webOrigins": ["+"],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "${PORTAL_ORIGIN}"
+      ],
       "protocol": "openid-connect",
       "defaultClientScopes": ["openid", "profile", "email", "fhir_scopes"],
       "optionalClientScopes": ["offline_access"]

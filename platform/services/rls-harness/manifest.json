@@ -7,6 +7,7 @@
     { "schema": "docs",       "table": "document",           "tenant_column": "tenant_id" },
     { "schema": "docs",       "table": "redaction_view",     "tenant_column": "tenant_id" },
     { "schema": "ens",        "table": "case",               "tenant_column": "tenant_id" },
+    { "schema": "ens",        "table": "decision_audit_log", "tenant_column": "tenant_id" },
     { "schema": "fabric",     "table": "resource",           "tenant_column": "tenant_id" },
     { "schema": "market",     "table": "bundle",             "tenant_column": "tenant_id" },
     { "schema": "market",     "table": "bundle_artifact",    "tenant_column": "tenant_id" },

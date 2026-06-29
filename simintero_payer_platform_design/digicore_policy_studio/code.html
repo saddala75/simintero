@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Digicore Policy Registry | Simintero OS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#131b2e",
+                    "tertiary-fixed": "#d8e2ff",
+                    "outline-variant": "#c6c6cd",
+                    "surface": "#f7f9fb",
+                    "error": "#ba1a1a",
+                    "tertiary": "#000000",
+                    "inverse-surface": "#2d3133",
+                    "secondary-fixed-dim": "#4edea3",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "tertiary-container": "#001a42",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#bec6e0",
+                    "background": "#f7f9fb",
+                    "surface-container-high": "#e6e8ea",
+                    "on-surface": "#191c1e",
+                    "surface-container-highest": "#e0e3e5",
+                    "primary": "#000000",
+                    "surface-variant": "#e0e3e5",
+                    "surface-bright": "#f7f9fb",
+                    "on-tertiary-container": "#3980f4",
+                    "surface-tint": "#565e74",
+                    "on-tertiary-fixed": "#001a42",
+                    "on-error-container": "#93000a",
+                    "on-primary-container": "#7c839b",
+                    "outline": "#76777d",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#005236",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "secondary-fixed": "#6ffbbe",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-low": "#f2f4f6",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed": "#131b2e",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "on-primary": "#ffffff",
+                    "primary-fixed": "#dae2fd",
+                    "secondary": "#006c49",
+                    "surface-dim": "#d8dadc",
+                    "on-surface-variant": "#45464d",
+                    "on-secondary-fixed": "#002113",
+                    "on-secondary-container": "#00714d",
+                    "surface-container": "#eceef0",
+                    "on-background": "#191c1e",
+                    "secondary-container": "#6cf8bb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "margin-desktop": "32px",
+                    "container-max": "1440px",
+                    "margin-mobile": "16px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "label-md": ["JetBrains Mono"],
+                    "headline-lg-mobile": ["Inter"],
+                    "display": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "headline-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-sm": ["10px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+        
+        .cql-syntax {
+            counter-reset: line;
+        }
+        .cql-line::before {
+            counter-increment: line;
+            content: counter(line);
+            display: inline-block;
+            width: 2rem;
+            margin-right: 1rem;
+            color: #94a3b8;
+            text-align: right;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body-md text-on-surface">
+<!-- Shell Structure -->
+<div class="flex h-screen overflow-hidden">
+<!-- SideNavBar (Updated Category Structure) -->
+<aside class="fixed left-0 top-0 h-full w-64 flex flex-col p-4 border-r border-outline-variant bg-surface-container-lowest z-40">
+<div class="px-2 py-4 mb-4">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary">Simintero OS</h1>
+<p class="text-on-primary-container font-label-md text-label-md uppercase tracking-widest mt-1">Healthcare Payer Platform</p>
+</div>
+<div class="flex-1 overflow-y-auto space-y-6">
+<!-- Category: Utilization Mgmt -->
+<div>
+<h3 class="px-4 mb-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Utilization Mgmt</h3>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="clinical_notes">clinical_notes</span>
+<span class="font-body-md text-body-md">Review queue</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="settings_input_component">settings_input_component</span>
+<span class="font-body-md text-body-md">Intake &amp; channels</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="schedule">schedule</span>
+<span class="font-body-md text-body-md">Regulatory clocks</span>
+</a>
+</nav>
+</div>
+<!-- Category: Intelligence -->
+<div>
+<h3 class="px-4 mb-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Intelligence</h3>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+<span class="font-body-md text-body-md">AI review - Revital</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 bg-tertiary-container text-on-tertiary-container font-semibold rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="architecture">architecture</span>
+<span class="font-body-md text-body-md">Policy studio - Digicore</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="fact_check">fact_check</span>
+<span class="font-body-md text-body-md">Quality &amp; gaps - Qualitron</span>
+</a>
+</nav>
+</div>
+<!-- Category: Governance -->
+<div>
+<h3 class="px-4 mb-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Governance</h3>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="font-body-md text-body-md">Determinations &amp; appeals</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="history_edu">history_edu</span>
+<span class="font-body-md text-body-md">Audit &amp; traceability</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-body-md text-body-md">Reports</span>
+</a>
+</nav>
+</div>
+</div>
+<footer class="mt-auto border-t border-outline-variant pt-4 space-y-2">
+<div class="px-4 py-2 bg-secondary-container/10 text-on-secondary-container rounded-lg border border-secondary/10 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-label-md text-label-md">System Status: Active</span>
+</div>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<div class="mt-4 flex items-center gap-3 px-2">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-xs">CD</div>
+<div class="flex-1 overflow-hidden">
+<p class="font-body-md text-body-md font-semibold truncate">Clinical Director</p>
+<p class="text-xs text-on-surface-variant truncate">ID: 8842-X</p>
+</div>
+</div>
+</footer>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-64 flex flex-col overflow-hidden">
+<!-- Header -->
+<header class="h-16 flex items-center justify-between px-8 bg-surface-container-lowest border-b border-outline-variant sticky top-0 z-30">
+<div class="flex items-center gap-6">
+<h2 class="font-headline-md text-headline-md font-black tracking-tight text-primary">Policy Intelligence Engine</h2>
+<div class="relative w-96 group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-on-tertiary-container transition-colors" data-icon="search">search</span>
+<input class="w-full bg-surface-container border border-outline-variant rounded-full py-1.5 pl-10 pr-4 text-body-md focus:outline-none focus:ring-2 focus:ring-on-tertiary-container transition-all" placeholder="Search NCD, LCD, or Payer Policies..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<button class="bg-primary text-on-primary px-5 py-2 rounded-lg font-label-md text-label-md hover:bg-opacity-90 active:opacity-80 transition-all flex items-center gap-2">
+<span>Execute Rule</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="play_arrow">play_arrow</span>
+</button>
+</div>
+</header>
+<!-- Dashboard Body -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Center Section: Registry List & Simulation -->
+<section class="flex-1 flex flex-col p-6 space-y-6 overflow-y-auto">
+<!-- Stats / Quick Insight Bar -->
+<div class="grid grid-cols-4 gap-4">
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant flex flex-col">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Total Active Policies</span>
+<span class="text-display font-display mt-1">1,482</span>
+<div class="mt-2 flex items-center gap-1 text-on-secondary-container">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+<span class="text-xs">+12 this month</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant flex flex-col">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">ELM Compliance</span>
+<span class="text-display font-display mt-1">99.8%</span>
+<div class="mt-2 flex items-center gap-1 text-on-secondary-container">
+<span class="material-symbols-outlined text-sm" data-icon="verified">verified</span>
+<span class="text-xs text-secondary">Validated</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant flex flex-col">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Pending Sandbox</span>
+<span class="text-display font-display mt-1">24</span>
+<div class="mt-2 flex items-center gap-1 text-tertiary-container">
+<span class="material-symbols-outlined text-sm" data-icon="hourglass_empty">hourglass_empty</span>
+<span class="text-xs text-on-tertiary-container">Awaiting SIM</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant flex flex-col">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Impact Simulations</span>
+<span class="text-display font-display mt-1">8,102</span>
+<div class="mt-2 flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="dataset">dataset</span>
+<span class="text-xs">DIG-SIM Repository</span>
+</div>
+</div>
+</div>
+<!-- Policy Table -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl overflow-hidden flex flex-col flex-1 shadow-sm">
+<div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="table_chart">table_chart</span>
+                                Policy Registry
+                            </h3>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 border border-outline-variant rounded-lg font-label-md text-label-md hover:bg-surface-container transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]" data-icon="filter_list">filter_list</span> Filter
+                                </button>
+<button class="px-3 py-1.5 border border-outline-variant rounded-lg font-label-md text-label-md hover:bg-surface-container transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span> Export
+                                </button>
+</div>
+</div>
+<div class="overflow-auto flex-1">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-lowest sticky top-0">
+<tr class="text-on-surface-variant font-label-md text-label-md border-b border-outline-variant">
+<th class="px-6 py-4 font-semibold uppercase tracking-wider">Policy Identifier / Name</th>
+<th class="px-6 py-4 font-semibold uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 font-semibold uppercase tracking-wider">Version</th>
+<th class="px-6 py-4 font-semibold uppercase tracking-wider">Last Tested</th>
+<th class="px-6 py-4 font-semibold uppercase tracking-wider">Source</th>
+<th class="px-6 py-4"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/50">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer group">
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-bold text-primary">Knee Arthroplasty Criteria</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">CMS-LCD-33612</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm border border-secondary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+                                                Production
+                                            </span>
+</td>
+<td class="px-6 py-4 font-label-md text-label-md">ELM 2.4.1</td>
+<td class="px-6 py-4 text-on-surface-variant text-body-md">2023-11-28 14:02</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-surface-container rounded font-label-sm text-label-sm border border-outline-variant">CMS NCD</span>
+</td>
+<td class="px-6 py-4 text-right">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="chevron_right">chevron_right</span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="bg-surface-container-low/20 hover:bg-surface-container-low transition-colors cursor-pointer group border-l-4 border-on-tertiary-container">
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-bold text-primary">Continuous Glucose Monitor Coverage</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">PAYER-POL-042</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-container text-on-tertiary-container font-label-sm text-label-sm border border-on-tertiary-container/20">
+                                                Sandbox
+                                            </span>
+</td>
+<td class="px-6 py-4 font-label-md text-label-md">ELM 3.0.0-beta</td>
+<td class="px-6 py-4 text-on-surface-variant text-body-md">2023-12-01 09:15</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-surface-container rounded font-label-sm text-label-sm border border-outline-variant">Internal</span>
+</td>
+<td class="px-6 py-4 text-right">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="chevron_right">chevron_right</span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer group">
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-bold text-primary">Spinal Fusion Authorization</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">CMS-LCD-4491</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm border border-secondary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                                Production
+                                            </span>
+</td>
+<td class="px-6 py-4 font-label-md text-label-md">ELM 2.4.1</td>
+<td class="px-6 py-4 text-on-surface-variant text-body-md">2023-11-15 16:45</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-surface-container rounded font-label-sm text-label-sm border border-outline-variant">CMS LCD</span>
+</td>
+<td class="px-6 py-4 text-right">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="chevron_right">chevron_right</span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer group">
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-bold text-primary">Sleep Apnea Diagnostic Studies</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">PAYER-POL-091</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm border border-secondary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                                Production
+                                            </span>
+</td>
+<td class="px-6 py-4 font-label-md text-label-md">ELM 2.2.0</td>
+<td class="px-6 py-4 text-on-surface-variant text-body-md">2023-10-30 11:22</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-surface-container rounded font-label-sm text-label-sm border border-outline-variant">Internal</span>
+</td>
+<td class="px-6 py-4 text-right">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="chevron_right">chevron_right</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Impact Analysis (Simulation) Section -->
+<div class="bg-primary-container text-white rounded-2xl p-6 relative overflow-hidden flex items-center gap-8 border border-white/10">
+<div class="relative z-10 flex-1">
+<h3 class="font-headline-md text-headline-md font-bold mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="science">science</span>
+                                DIG-SIM Impact Analysis
+                            </h3>
+<p class="text-on-primary-container text-body-lg max-w-2xl">
+                                Test draft policies against 150k+ historical case sets to predict approval rate shifts and financial variance before deployment to production.
+                            </p>
+</div>
+<div class="relative z-10">
+<button class="bg-secondary-container text-on-secondary-container px-8 py-4 rounded-xl font-headline-md text-headline-md font-bold shadow-lg shadow-black/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3">
+<span>Run Simulation</span>
+<span class="material-symbols-outlined font-black" data-icon="bolt">bolt</span>
+</button>
+</div>
+<!-- Background Pattern -->
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<div class="w-full h-full" style="background-image: radial-gradient(#6cf8bb 1px, transparent 1px); background-size: 20px 20px;"></div>
+</div>
+</div>
+</section>
+<!-- Right Section: Logic Preview Panel -->
+<aside class="w-96 border-l border-outline-variant bg-surface flex flex-col overflow-hidden">
+<div class="p-4 border-b border-outline-variant bg-surface-container flex items-center justify-between">
+<span class="font-label-md text-label-md font-bold uppercase text-on-surface-variant">Logic Preview (CQL)</span>
+<div class="flex gap-2">
+<button class="material-symbols-outlined text-on-surface-variant text-[20px] hover:text-primary" data-icon="fullscreen">fullscreen</button>
+<button class="material-symbols-outlined text-on-surface-variant text-[20px] hover:text-primary" data-icon="content_copy">content_copy</button>
+</div>
+</div>
+<div class="flex-1 bg-[#1e293b] p-4 font-label-md text-label-md text-blue-100 overflow-auto cql-syntax">
+<div class="cql-line mb-1"><span class="text-purple-400">library</span> CGM_Coverage_Payer <span class="text-blue-300">version</span> '3.0.0'</div>
+<div class="cql-line mb-1"><span class="text-purple-400">using</span> FHIR <span class="text-blue-300">version</span> '4.0.1'</div>
+<div class="cql-line mb-1"><span class="text-purple-400">include</span> FHIRHelpers <span class="text-blue-300">version</span> '4.0.1'</div>
+<div class="cql-line mb-1"></div>
+<div class="cql-line mb-1 text-slate-500">// Diagnosis check for Type 1 or 2 Diabetes</div>
+<div class="cql-line mb-1"><span class="text-purple-400">define</span> <span class="text-yellow-200">"HasDiabetesDiagnosis"</span>:</div>
+<div class="cql-line mb-1 pl-4 flex flex-col">
+<span>[Condition: "Diabetes"] C</span>
+<span>where C.clinicalStatus ~ "active"</span>
+</div>
+<div class="cql-line mb-1"></div>
+<div class="cql-line mb-1 text-slate-500">// Clinical criteria for CGM eligibility</div>
+<div class="cql-line mb-1"><span class="text-purple-400">define</span> <span class="text-yellow-200">"IsEligible"</span>:</div>
+<div class="cql-line mb-1 pl-4 flex flex-col">
+<span>"HasDiabetesDiagnosis" <span class="text-blue-300">and</span></span>
+<span>"InsulinRequirementMet" <span class="text-blue-300">and</span></span>
+<span>"FrequentTestingMet"</span>
+</div>
+<div class="cql-line mb-1"></div>
+<div class="cql-line mb-1"><span class="text-purple-400">define</span> <span class="text-yellow-200">"PolicyResult"</span>:</div>
+<div class="cql-line mb-1 pl-4 flex flex-col">
+<span><span class="text-blue-300">if</span> "IsEligible" <span class="text-blue-300">then</span> 'Approve'</span>
+<span><span class="text-blue-300">else</span> 'Refer to Manual Review'</span>
+</div>
+<div class="cql-line mb-1"></div>
+<div class="cql-line mb-1 text-emerald-400">// end of logic segment</div>
+</div>
+<div class="p-6 bg-surface-container-low border-t border-outline-variant space-y-4">
+<div class="flex items-center justify-between text-label-md font-bold uppercase text-on-surface-variant mb-2">
+<span>Audit &amp; Source</span>
+<span class="text-secondary">Verified</span>
+</div>
+<div class="p-4 bg-white border border-outline-variant rounded-xl text-body-md">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-secondary" data-icon="assignment_turned_in" style="font-variation-settings: 'FILL' 1;">assignment_turned_in</span>
+<span class="font-bold">System of Record Integrity</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+                                This rule is mapped to internal standard <strong>POL-8821</strong>. Any changes require clinical analyst signature and 24h bake-in time in Sandbox.
+                            </p>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<button class="bg-surface-container-high py-2 rounded-lg font-label-md text-label-md hover:bg-outline-variant transition-colors">View Trace</button>
+<button class="bg-surface-container-high py-2 rounded-lg font-label-md text-label-md hover:bg-outline-variant transition-colors">Ref Evidence</button>
+</div>
+</div>
+</aside>
+</div>
+</main>
+</div>
+<!-- Micro-interaction Scripts -->
+<script>
+        // Simple logic for row selection highlighting
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', () => {
+                document.querySelectorAll('tbody tr').forEach(r => {
+                    r.classList.remove('bg-surface-container-low', 'border-l-4', 'border-on-tertiary-container');
+                });
+                row.classList.add('bg-surface-container-low', 'border-l-4', 'border-on-tertiary-container');
+            });
+        });
+
+        // Hover effect for Simulation button
+        const simBtn = document.querySelector('.bg-secondary-container');
+        if(simBtn) {
+            simBtn.addEventListener('mouseenter', () => {
+                simBtn.querySelector('.material-symbols-outlined').style.transform = 'translateY(-2px)';
+            });
+            simBtn.addEventListener('mouseleave', () => {
+                simBtn.querySelector('.material-symbols-outlined').style.transform = 'translateY(0)';
+            });
+        }
+    </script>
+</body></html>

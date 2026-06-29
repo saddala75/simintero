@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Simintero OS - Enstellar Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#131b2e",
+                    "tertiary-fixed": "#d8e2ff",
+                    "outline-variant": "#c6c6cd",
+                    "surface": "#f7f9fb",
+                    "error": "#ba1a1a",
+                    "tertiary": "#000000",
+                    "inverse-surface": "#2d3133",
+                    "secondary-fixed-dim": "#4edea3",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "tertiary-container": "#001a42",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#bec6e0",
+                    "background": "#f7f9fb",
+                    "surface-container-high": "#e6e8ea",
+                    "on-surface": "#191c1e",
+                    "surface-container-highest": "#e0e3e5",
+                    "primary": "#000000",
+                    "surface-variant": "#e0e3e5",
+                    "surface-bright": "#f7f9fb",
+                    "on-tertiary-container": "#3980f4",
+                    "surface-tint": "#565e74",
+                    "on-tertiary-fixed": "#001a42",
+                    "on-error-container": "#93000a",
+                    "on-primary-container": "#7c839b",
+                    "outline": "#76777d",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#005236",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "secondary-fixed": "#6ffbbe",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-low": "#f2f4f6",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed": "#131b2e",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "on-primary": "#ffffff",
+                    "primary-fixed": "#dae2fd",
+                    "secondary": "#006c49",
+                    "surface-dim": "#d8dadc",
+                    "on-surface-variant": "#45464d",
+                    "on-secondary-fixed": "#002113",
+                    "on-secondary-container": "#00714d",
+                    "surface-container": "#eceef0",
+                    "on-background": "#191c1e",
+                    "secondary-container": "#6cf8bb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "margin-desktop": "32px",
+                    "container-max": "1440px",
+                    "margin-mobile": "16px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "label-md": ["JetBrains Mono"],
+                    "headline-lg-mobile": ["Inter"],
+                    "display": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "headline-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-sm": ["10px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #f7f9fb;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .highlight-text { background-color: rgba(57, 128, 244, 0.1); border-left: 2px solid #3980f4; padding-left: 4px; }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- SideNavBar (Updated as per COMPONENTS_17) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 w-64 bg-surface-container-lowest border-r border-outline-variant overflow-y-auto p-4 custom-scrollbar">
+<div class="mb-8 px-2">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary">Simintero OS</h1>
+<p class="text-on-primary-container font-body-md text-body-md mt-1">Healthcare Payer Platform</p>
+</div>
+<div class="flex-grow space-y-6">
+<!-- Utilization Mgmt - Enstellar -->
+<section>
+<h2 class="px-4 mb-2 text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Utilization Mgmt</h2>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 bg-tertiary-container text-on-tertiary-container font-semibold rounded-lg opacity-90 transition-opacity" href="#">
+<span class="material-symbols-outlined text-xl">clinical_notes</span>
+<span class="font-body-md text-body-md">Review queue</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">settings_input_component</span>
+<span class="font-body-md text-body-md">Intake &amp; channels</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">schedule</span>
+<span class="font-body-md text-body-md">Regulatory clocks</span>
+</a>
+</div>
+</section>
+<!-- Intelligence -->
+<section>
+<h2 class="px-4 mb-2 text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Intelligence</h2>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">psychology</span>
+<span class="font-body-md text-body-md">AI review - Revital</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">architecture</span>
+<span class="font-body-md text-body-md">Policy studio - Digicore</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">fact_check</span>
+<span class="font-body-md text-body-md">Quality &amp; gaps - Qualitron</span>
+</a>
+</div>
+</section>
+<!-- Governance -->
+<section>
+<h2 class="px-4 mb-2 text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Governance</h2>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">gavel</span>
+<span class="font-body-md text-body-md">Determinations &amp; appeals</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">history_edu</span>
+<span class="font-body-md text-body-md">Audit &amp; traceability</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">description</span>
+<span class="font-body-md text-body-md">Reports</span>
+</a>
+</div>
+</section>
+</div>
+<div class="mt-auto pt-6 border-t border-outline-variant">
+<div class="px-4 py-2 bg-surface-container rounded-lg mb-4">
+<span class="font-label-sm text-label-sm text-secondary font-bold flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                    System Status: Active
+                </span>
+</div>
+<button class="w-full bg-primary-container text-white py-3 rounded-lg font-body-md mb-2 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm">add</span>
+                New Case
+            </button>
+</div>
+</aside>
+<!-- TopAppBar (Shared Component) -->
+<header class="fixed top-0 right-0 left-64 h-16 z-50 bg-surface-container-lowest flex items-center justify-between px-8 border-b border-outline-variant">
+<div class="flex items-center gap-8">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-on-tertiary-container" placeholder="Search claims or codes..." type="text"/>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-primary border-b-2 border-primary pb-2 font-label-md text-label-md" href="#">Cases</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md" href="#">Providers</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md" href="#">Claims</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md" href="#">Reporting</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary-container text-white px-4 py-2 rounded-lg font-label-md text-label-md flex items-center gap-2">
+                Execute Rule
+            </button>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+<div class="w-8 h-8 rounded-full bg-slate-200 overflow-hidden ml-2 border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a clinical director with a neutral background, high-key studio lighting, dressed in modern medical administrative attire, conveying a sense of authority and precision for a healthcare dashboard interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCG3Twaph0VxUonzC4g0QV7mG640eFsBNmcEPv2hnt6z-3vc1PALIv0PHMawYDG0ctqoreQh7zmT1WuH_fG0WWHt8hPt21420xQZSnvkMqSz5Z4b8R1lxHsvCYNUPcavQtYETqzEAt1u8yBHd5XcSORZ9baAlKL19-0G5ijjvdYRqCQZS-yryClQarMj9lX9qrW67Nbva7fzKpOlwe6Yf01iciT88rxCepwux4exBrgHof19vaRBfVxskAay7PBhV_GR9roidbtw8c"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-64 pt-24 px-8 pb-32">
+<!-- Case Summary Header -->
+<section class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+<div>
+<div class="flex items-center gap-3 mb-1">
+<span class="bg-primary-container text-white font-label-md text-label-md px-2 py-0.5 rounded">Case #PA-8821</span>
+<span class="font-label-md text-label-md text-on-surface-variant">|</span>
+<h2 class="font-headline-md text-headline-md font-bold">Sarah Jenkins</h2>
+</div>
+<p class="text-on-surface-variant font-body-md">DOB: 11/04/1972 • Member ID: 992-110-332 • Plan: BlueLink Gold Elite</p>
+</div>
+<div class="bg-white border border-outline-variant p-4 rounded-xl shadow-sm flex items-center gap-4">
+<div class="w-12 h-12 rounded-full border-4 border-error/20 border-t-error animate-spin" style="animation-duration: 3s"></div>
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-lg">timer</span>
+<span class="font-headline-md text-headline-md font-bold text-error">32 hours remaining</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Compliance Reference: CMS-0057-F</span>
+</div>
+</div>
+</section>
+<!-- Main Layout: 3 Columns -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Left Column: Universal Case Timeline -->
+<div class="col-span-12 lg:col-span-3 space-y-6">
+<div class="bg-white border border-outline-variant rounded-xl p-6 h-full">
+<div class="flex items-center justify-between mb-8">
+<h3 class="font-headline-md text-headline-md font-bold">Case Lifecycle</h3>
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</div>
+<div class="relative space-y-12 pl-6">
+<!-- Timeline Line -->
+<div class="absolute left-2.5 top-2 bottom-2 w-0.5 bg-outline-variant"></div>
+<!-- Intake -->
+<div class="relative group cursor-pointer">
+<div class="absolute -left-6 top-1 w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center z-10 border-4 border-white">
+<span class="material-symbols-outlined text-sm font-bold text-on-secondary-container">check</span>
+</div>
+<div class="space-y-1">
+<span class="font-label-sm text-label-sm text-secondary uppercase font-bold">Phase 1</span>
+<h4 class="font-body-lg font-bold">Intake</h4>
+<p class="text-on-surface-variant font-body-md">Completed Mar 12, 09:15 AM</p>
+</div>
+</div>
+<!-- Coverage Discovery -->
+<div class="relative group cursor-pointer">
+<div class="absolute -left-6 top-1 w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center z-10 border-4 border-white">
+<span class="material-symbols-outlined text-sm font-bold text-on-secondary-container">check</span>
+</div>
+<div class="space-y-1">
+<span class="font-label-sm text-label-sm text-secondary uppercase font-bold">Phase 2</span>
+<h4 class="font-body-lg font-bold">Coverage Discovery</h4>
+<p class="text-on-surface-variant font-body-md">Verified Mar 12, 11:30 AM</p>
+</div>
+</div>
+<!-- Document Gathering (Active) -->
+<div class="relative group cursor-pointer">
+<div class="absolute -left-6 top-1 w-6 h-6 rounded-full bg-on-tertiary-container flex items-center justify-center z-10 border-4 border-white ring-4 ring-on-tertiary-container/10">
+<span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+</div>
+<div class="space-y-1">
+<span class="font-label-sm text-label-sm text-on-tertiary-container uppercase font-bold">Phase 3</span>
+<h4 class="font-body-lg font-bold text-on-tertiary-container">Document Gathering</h4>
+<p class="text-on-surface-variant font-body-md italic">Awaiting Fax #4412-A</p>
+<div class="mt-2 bg-surface-container p-2 rounded-lg border border-dashed border-outline-variant">
+<span class="font-label-sm text-label-sm">4/5 Files Collected</span>
+<div class="w-full bg-white h-1 rounded-full mt-1">
+<div class="bg-on-tertiary-container h-full w-[80%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Clinical Review -->
+<div class="relative opacity-40">
+<div class="absolute -left-6 top-1 w-6 h-6 rounded-full bg-outline-variant flex items-center justify-center z-10 border-4 border-white"></div>
+<div class="space-y-1">
+<span class="font-label-sm text-label-sm uppercase font-bold">Phase 4</span>
+<h4 class="font-body-lg font-bold">Clinical Review</h4>
+<p class="text-on-surface-variant font-body-md">Pending previous steps</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Center Column: Review Workspace -->
+<div class="col-span-12 lg:col-span-6 space-y-6">
+<div class="bg-white border border-outline-variant rounded-xl flex flex-col h-[700px]">
+<div class="p-4 border-b border-outline-variant flex items-center justify-between bg-surface-container-low rounded-t-xl">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant">description</span>
+<div>
+<h3 class="font-body-lg font-bold">Clinical_Notes_Orthopedic_240312.fhir</h3>
+<p class="text-xs text-on-surface-variant">Source: St. Jude Medical Center • Last Sync: 2h ago</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-surface-container rounded-lg"><span class="material-symbols-outlined text-sm">zoom_in</span></button>
+<button class="p-2 hover:bg-surface-container rounded-lg"><span class="material-symbols-outlined text-sm">print</span></button>
+</div>
+</div>
+<div class="flex-grow overflow-y-auto p-8 font-body-md custom-scrollbar leading-relaxed">
+<div class="max-w-none prose prose-slate">
+<div class="mb-8 border-l-4 border-primary-container pl-4 bg-surface-container-lowest p-4">
+<span class="font-label-sm text-label-sm uppercase text-primary-container font-bold">Patient Encounter Context</span>
+<p class="mt-1">Patient presents for follow-up regarding chronic radiculopathy symptoms refractory to conservative management. Symptoms persisted after 12 weeks of physical therapy.</p>
+</div>
+<h4 class="font-bold text-lg mb-4 underline decoration-on-tertiary-container/30 decoration-2">Subjective Assessment</h4>
+<p class="mb-4">"The pain in my lower back has become unbearable. I can no longer walk more than 50 feet without significant numbness in my right leg." <span class="highlight-text">[Note 03/12]</span> Patient reports no improvement with previous steroid injections.</p>
+<h4 class="font-bold text-lg mb-4 underline decoration-on-tertiary-container/30 decoration-2">Objective Findings</h4>
+<p class="mb-4">MRI (L4-L5) conducted 02/28 reveals <span class="highlight-text">significant stenosis</span> and disc herniation with impingement of the right nerve root. Physical exam shows positive straight leg raise test on right side at 30 degrees. 4/5 strength in distal right lower extremity.</p>
+<h4 class="font-bold text-lg mb-4 underline decoration-on-tertiary-container/30 decoration-2">Clinical Assessment</h4>
+<p class="mb-4">Evidence of severe lumbar stenosis. Conservative measures have been exhausted as per ENS-WF-5 protocol. <span class="bg-secondary-container/30 px-1 border-b-2 border-secondary font-medium">Surgical intervention (Laminectomy) indicated</span> based on radiographic and clinical correlation.</p>
+<div class="mt-12 p-4 bg-tertiary-container/5 border border-tertiary-container/20 rounded-lg">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-on-tertiary-container text-sm">info</span>
+<span class="font-label-md text-label-md text-on-tertiary-container">FHIR Meta-Tag Mapping</span>
+</div>
+<code class="text-xs font-label-sm text-on-tertiary-container/70 block">
+                                    { "resource": "ClinicalImpression", "status": "completed", "code": "395029000" }
+                                </code>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Revital AI Advisor -->
+<div class="col-span-12 lg:col-span-3 space-y-6">
+<div class="bg-primary-container text-white rounded-xl p-6 shadow-xl relative overflow-hidden h-full">
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-secondary-fixed">bolt</span>
+<h3 class="font-headline-md text-headline-md font-bold">Revital AI Advisor</h3>
+</div>
+<div class="space-y-6">
+<div class="flex items-center gap-2">
+<span class="bg-secondary text-white font-label-sm text-label-sm px-2 py-0.5 rounded-full">High Confidence (98%)</span>
+<span class="font-label-sm text-label-sm text-on-primary-container">Grounding: 12 Documents</span>
+</div>
+<div class="p-4 bg-on-primary-container/10 border border-on-primary-container/20 rounded-lg">
+<p class="font-body-md leading-relaxed text-on-primary-fixed-dim">
+                                    Clinical necessity for Laminectomy is <strong>strongly supported</strong> by documented failure of conservative PT <span class="text-secondary-fixed cursor-pointer">[Source: Note 03/12]</span> and positive MRI findings of severe nerve impingement.
+                                </p>
+</div>
+<div class="space-y-4">
+<h4 class="font-label-md text-label-md uppercase text-on-primary-container font-bold">Compliance Checklist</h4>
+<ul class="space-y-3">
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-secondary-fixed text-sm">check_circle</span>
+<span class="font-body-md text-sm">12 Weeks PT Evidence</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-secondary-fixed text-sm">check_circle</span>
+<span class="font-body-md text-sm">MRI Results Integrated</span>
+</li>
+<li class="flex items-start gap-2 text-on-primary-container">
+<span class="material-symbols-outlined text-sm">error</span>
+<span class="font-body-md text-sm">Clinician Sign-off Required (ENS-WF-5)</span>
+</li>
+</ul>
+</div>
+<div class="pt-6 border-t border-on-primary-container/20">
+<button class="w-full bg-on-tertiary-container hover:bg-on-tertiary-container/80 text-white py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">psychology</span>
+                                    Ask Advisor
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Fixed Action Bar -->
+<footer class="fixed bottom-0 right-0 left-64 bg-white border-t border-outline-variant h-20 px-8 flex items-center justify-between z-40">
+<div class="flex items-center gap-4">
+<button class="px-6 py-2 rounded-lg border border-outline text-on-surface hover:bg-surface-container-low transition-colors font-bold font-body-md">
+                Request Information
+            </button>
+<div class="h-8 w-px bg-outline-variant mx-2"></div>
+<div class="flex flex-col">
+<span class="text-[10px] uppercase font-bold text-on-surface-variant mb-1">Active Policy</span>
+<span class="font-label-md text-label-md bg-surface-container p-1 rounded">LCD-33421-ORTHO</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2 rounded-lg text-error hover:bg-error-container transition-colors font-bold font-body-md flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">cancel</span>
+                Clinical Denial
+            </button>
+<button class="px-8 py-2 rounded-lg bg-primary-container text-white hover:bg-primary-container/90 transition-all shadow-lg font-bold font-body-md flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">check_circle</span>
+                Approve Case
+            </button>
+</div>
+</footer>
+<script>
+        document.querySelectorAll('.highlight-text').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                el.style.backgroundColor = 'rgba(57, 128, 244, 0.2)';
+                el.style.cursor = 'help';
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.backgroundColor = 'rgba(57, 128, 244, 0.1)';
+            });
+        });
+    </script>
+</body></html>

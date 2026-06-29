@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Qualitron Quality Dashboard | Simintero OS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#131b2e",
+                    "tertiary-fixed": "#d8e2ff",
+                    "outline-variant": "#c6c6cd",
+                    "surface": "#f7f9fb",
+                    "error": "#ba1a1a",
+                    "tertiary": "#000000",
+                    "inverse-surface": "#2d3133",
+                    "secondary-fixed-dim": "#4edea3",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "tertiary-container": "#001a42",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#bec6e0",
+                    "background": "#f7f9fb",
+                    "surface-container-high": "#e6e8ea",
+                    "on-surface": "#191c1e",
+                    "surface-container-highest": "#e0e3e5",
+                    "primary": "#000000",
+                    "surface-variant": "#e0e3e5",
+                    "surface-bright": "#f7f9fb",
+                    "on-tertiary-container": "#3980f4",
+                    "surface-tint": "#565e74",
+                    "on-tertiary-fixed": "#001a42",
+                    "on-error-container": "#93000a",
+                    "on-primary-container": "#7c839b",
+                    "outline": "#76777d",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#005236",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "secondary-fixed": "#6ffbbe",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-low": "#f2f4f6",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed": "#131b2e",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "on-primary": "#ffffff",
+                    "primary-fixed": "#dae2fd",
+                    "secondary": "#006c49",
+                    "surface-dim": "#d8dadc",
+                    "on-surface-variant": "#45464d",
+                    "on-secondary-fixed": "#002113",
+                    "on-secondary-container": "#00714d",
+                    "surface-container": "#eceef0",
+                    "on-background": "#191c1e",
+                    "secondary-container": "#6cf8bb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "margin-desktop": "32px",
+                    "container-max": "1440px",
+                    "margin-mobile": "16px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "label-md": ["JetBrains Mono"],
+                    "headline-lg-mobile": ["Inter"],
+                    "display": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "headline-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-sm": ["10px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .compliance-green { color: #006c49; }
+        .intelligence-blue { color: #3980f4; }
+        .bg-intelligence-blue { background-color: #3980f4; }
+        .border-intelligence-blue { border-color: #3980f4; }
+        .evidence-line { background: repeating-linear-gradient(90deg, #3980f4 0px, #3980f4 4px, transparent 4px, transparent 8px); }
+        .sidebar-scrollbar::-webkit-scrollbar { width: 4px; }
+        .sidebar-scrollbar::-webkit-scrollbar-thumb { background: #e0e3e5; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-secondary-container">
+<!-- SideNavBar (Shared Component Shell) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 h-screen w-64 border-r border-outline-variant bg-surface-container-lowest p-4 overflow-y-auto sidebar-scrollbar">
+<div class="mb-6 px-2">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary">Simintero OS</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Healthcare Payer Platform</p>
+</div>
+<nav class="flex-1 space-y-6">
+<!-- Category: Utilization Mgmt -->
+<div>
+<p class="px-3 mb-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Utilization Mgmt</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">clinical_notes</span>
+<span class="font-body-md text-body-md">Review queue</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">settings_input_component</span>
+<span class="font-body-md text-body-md">Intake &amp; channels</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">schedule</span>
+<span class="font-body-md text-body-md">Regulatory clocks</span>
+</a>
+</div>
+</div>
+<!-- Category: Intelligence -->
+<div>
+<p class="px-3 mb-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Intelligence</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+<span class="font-body-md text-body-md">AI review - Revital</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">architecture</span>
+<span class="font-body-md text-body-md">Policy studio - Digicore</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-tertiary-container text-on-tertiary-container font-semibold rounded-lg opacity-90 transition-opacity" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">fact_check</span>
+<span class="font-body-md text-body-md">Quality &amp; gaps - Qualitron</span>
+</a>
+</div>
+</div>
+<!-- Category: Governance -->
+<div>
+<p class="px-3 mb-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Governance</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">gavel</span>
+<span class="font-body-md text-body-md">Determinations &amp; appeals</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">history_edu</span>
+<span class="font-body-md text-body-md">Audit &amp; traceability</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">description</span>
+<span class="font-body-md text-body-md">Reports</span>
+</a>
+</div>
+</div>
+</nav>
+<div class="mt-8 border-t border-outline-variant pt-6 space-y-4">
+<div class="px-3 py-2 bg-surface-container-high rounded-lg">
+<p class="font-label-sm text-label-sm text-secondary font-bold flex items-center gap-2">
+<span class="w-2 h-2 bg-secondary rounded-full"></span>
+                    System Status: Active
+                </p>
+</div>
+<div class="flex items-center gap-3 px-2">
+<img alt="User profile" class="w-10 h-10 rounded-full bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDE3lr1VXClU6FshamnJaSdqSzAHO7-EyeUhd4rVi7GCBBoXV2YxUK7m_HaelLA8XxNajiGg7_ZfHO4Wufo4K0ohaBq9JTAcKci3OSwzZZqgxR8k5vil6ip2JuU9RYlg50YTynOz1YkQDoHzyoCeI_RzwDHrGkO3dV_3_R92SRb_Zbhsyal5emmH8Fvf_8ebJYL6AQsBaXaNJ-mbY43B_0bAO_npWazmX5ZzcKh00scawywT8pf7fvm30bLsdHy9uP3E1g_se2TMAE"/>
+<div class="overflow-hidden">
+<p class="font-body-md text-body-md font-bold truncate">Clinical Director</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant truncate">Quality Operations</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen">
+<!-- TopAppBar (Simulated Integration) -->
+<header class="sticky top-0 right-0 w-full flex items-center justify-between px-margin-desktop h-16 z-30 bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-8">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-surface-container-low border-outline-variant rounded-full text-body-md w-80 focus:ring-2 focus:ring-on-tertiary-container focus:outline-none" placeholder="Search members or measures..." type="text"/>
+</div>
+<nav class="hidden md:flex gap-6">
+<a class="font-label-md text-label-md text-primary border-b-2 border-primary pb-1" href="#">Performance</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary" href="#">Registry</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary" href="#">Submission</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary" href="#">Audit Log</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-surface-container rounded-full">history</button>
+<button class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-surface-container rounded-full relative">
+                    notifications
+                    <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="px-4 py-1.5 bg-primary text-on-primary rounded-lg font-label-md">Execute Rule</button>
+</div>
+</header>
+<div class="p-margin-desktop max-w-container-max mx-auto space-y-8">
+<!-- Header Section -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-display text-display text-primary">Qualitron Quality Dashboard</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Real-time HEDIS gap closure and NCQA Star Rating optimization.</p>
+</div>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full font-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">sync</span> Live Substrate Sync
+                    </span>
+</div>
+</div>
+<!-- Metric Overview (QUAL-LOGIC) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Star Rating -->
+<div class="bg-surface-container-lowest border border-outline-variant p-6 rounded-xl shadow-sm flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Star Rating (Projected)</span>
+<span class="material-symbols-outlined intelligence-blue">auto_awesome</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display text-display">4.2</span>
+<span class="font-body-md text-on-secondary-container bg-secondary-container px-2 py-0.5 rounded-full">+0.3 MoM</span>
+</div>
+<div class="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 84%;"></div>
+</div>
+</div>
+<!-- HEDIS Gap Closure -->
+<div class="bg-surface-container-lowest border border-outline-variant p-6 rounded-xl shadow-sm flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">HEDIS Gap Closure Rate</span>
+<span class="material-symbols-outlined compliance-green">task_alt</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display text-display">68.4%</span>
+<span class="font-label-md text-on-surface-variant">Goal: 72%</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex -space-x-2">
+<div class="w-6 h-6 rounded-full border-2 border-surface bg-blue-100"></div>
+<div class="w-6 h-6 rounded-full border-2 border-surface bg-green-100"></div>
+<div class="w-6 h-6 rounded-full border-2 border-surface bg-slate-100"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">+124 closures today</span>
+</div>
+</div>
+<!-- Digital Measure Coverage -->
+<div class="bg-primary-container p-6 rounded-xl shadow-sm flex flex-col justify-between h-40 text-on-primary">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-primary-container uppercase tracking-wider">Digital Measure Coverage</span>
+<div class="px-2 py-0.5 bg-intelligence-blue rounded font-label-sm text-white">QUAL-LOGIC</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display text-display text-white">91.2%</span>
+<span class="material-symbols-outlined text-secondary-fixed">trending_up</span>
+</div>
+<p class="font-label-sm text-label-sm text-on-primary-container">Substrate-linked automated validation</p>
+</div>
+</section>
+<!-- Main Workspace Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Care Gap List (Prioritized) -->
+<div class="lg:col-span-5 space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md">High-Priority Gaps</h3>
+<button class="font-label-md text-intelligence-blue flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">filter_list</span> Filter
+                        </button>
+</div>
+<div class="space-y-3">
+<!-- Priority Card 1 (Selected) -->
+<div class="bg-surface-container-lowest border-2 border-intelligence-blue p-4 rounded-xl cursor-pointer relative shadow-md">
+<div class="flex justify-between mb-2">
+<span class="px-2 py-0.5 bg-error-container text-on-error-container rounded font-label-sm">URGENT</span>
+<span class="font-label-md text-label-md text-on-surface-variant">#COL-4921</span>
+</div>
+<div class="flex gap-4">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div>
+<h4 class="font-body-md text-body-md font-bold">Elena Rodriguez</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Colorectal Cancer Screening</p>
+</div>
+</div>
+<div class="mt-4 flex justify-between items-center border-t border-outline-variant pt-3">
+<span class="font-label-sm text-label-sm text-on-surface-variant italic">Pending manual validation</span>
+<span class="material-symbols-outlined text-intelligence-blue">chevron_right</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl hover:border-on-surface-variant transition-colors cursor-pointer">
+<div class="flex justify-between mb-2">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant rounded font-label-sm">ROUTINE</span>
+<span class="font-label-md text-label-md text-on-surface-variant">#BCS-1024</span>
+</div>
+<div class="flex gap-4">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<h4 class="font-body-md text-body-md font-bold">Marcus Chen</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Breast Cancer Screening</p>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl hover:border-on-surface-variant transition-colors cursor-pointer">
+<div class="flex justify-between mb-2">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant rounded font-label-sm">ROUTINE</span>
+<span class="font-label-md text-label-md text-on-surface-variant">#HBA-3381</span>
+</div>
+<div class="flex gap-4">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<h4 class="font-body-md text-body-md font-bold">Sarah Jenkins</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">HbA1c Poor Control (&gt;9.0%)</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Evidence Trace: Shared Substrate Advantage -->
+<div class="lg:col-span-7">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl overflow-hidden shadow-sm flex flex-col h-full">
+<div class="p-6 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<div>
+<h3 class="font-headline-md text-headline-md">Shared Substrate Advantage</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Cross-system evidence lineage for Elena Rodriguez</p>
+</div>
+<div class="px-3 py-1 bg-primary text-on-primary rounded font-label-sm">QUAL-CLO ACTIVE</div>
+</div>
+<div class="p-8 flex-1 space-y-12 relative">
+<!-- Visual Evidence Trace Flow -->
+<div class="absolute left-[59px] top-8 bottom-8 w-1 evidence-line opacity-20"></div>
+<!-- Step 1: Enstellar -->
+<div class="flex gap-6 relative z-10">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest border-4 border-surface-container-lowest flex items-center justify-center ring-2 ring-outline-variant shadow-sm">
+<span class="material-symbols-outlined text-primary">workflow</span>
+</div>
+<div class="flex-1 bg-surface border border-outline-variant p-4 rounded-xl">
+<div class="flex justify-between items-center mb-1">
+<span class="font-label-md text-label-md font-bold">Enstellar Case: #ENC-9082</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">14 Oct, 09:22 AM</span>
+</div>
+<p class="font-body-md text-body-md">Clinical review initiated for Prior Authorization. Member provided comprehensive history via digital intake.</p>
+<div class="mt-2 flex gap-2">
+<span class="px-2 py-0.5 border border-outline text-label-sm rounded bg-white">HCPCS: C9725</span>
+</div>
+</div>
+</div>
+<!-- Step 2: Revital Intelligence -->
+<div class="flex gap-6 relative z-10 translate-x-4">
+<div class="w-12 h-12 rounded-full bg-primary-container border-4 border-surface-container-lowest flex items-center justify-center ring-2 ring-intelligence-blue shadow-lg">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<div class="flex-1 bg-white border-2 border-intelligence-blue p-4 rounded-xl shadow-md">
+<div class="flex justify-between items-center mb-1">
+<span class="font-label-md text-label-md font-bold intelligence-blue">Revital Fact Extraction</span>
+<span class="px-2 py-0.5 bg-intelligence-blue text-white rounded font-label-sm">HIGH CONFIDENCE</span>
+</div>
+<p class="font-body-md text-body-md font-medium">Extracted clinical fact from Enstellar substrate: <strong>"FIT-DNA test performed on 08/12/2023. Results negative."</strong></p>
+<div class="mt-3 p-2 bg-surface-container-low rounded font-label-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">link</span> Source: clinical_notes_v4.pdf (p.12)
+                                    </div>
+</div>
+</div>
+<!-- Step 3: Qualitron Validation -->
+<div class="flex gap-6 relative z-10">
+<div class="w-12 h-12 rounded-full bg-secondary-container border-4 border-surface-container-lowest flex items-center justify-center ring-2 ring-secondary shadow-sm">
+<span class="material-symbols-outlined text-on-secondary-container">verified</span>
+</div>
+<div class="flex-1 bg-surface border border-outline-variant p-4 rounded-xl">
+<div class="flex justify-between items-center mb-1">
+<span class="font-label-md text-label-md font-bold">Qualitron Rule Logic</span>
+<div class="flex gap-1">
+<span class="px-2 py-0.5 bg-secondary text-white rounded font-label-sm">GAP CLOSED</span>
+</div>
+</div>
+<p class="font-body-md text-body-md">HEDIS COL measure criteria met via secondary extraction. Overwriting pending gap status.</p>
+<div class="mt-2 font-label-sm text-label-sm text-secondary font-bold font-label-md">JETBRAINS MONO: RULE_NCQA_HEDIS_COL_2024_01</div>
+</div>
+</div>
+</div>
+<!-- Action Footer -->
+<div class="p-6 bg-surface-container-high border-t border-outline-variant flex items-center justify-between">
+<p class="font-body-md text-body-md max-w-[60%]">Verify and push this closure to the core member record and notify population health.</p>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 bg-white border border-outline-variant rounded-xl font-label-md hover:bg-surface transition-colors">Discard Fact</button>
+<button class="px-6 py-2.5 bg-primary text-on-primary rounded-xl font-label-md flex items-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">publish</span>
+                                    Push Gap to Enstellar
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Evidence Cards / Bento Lower Section -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="md:col-span-1 bg-surface-container-low p-5 rounded-xl border border-outline-variant">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-on-surface-variant">history_edu</span>
+<h4 class="font-label-md text-label-md font-bold uppercase">Regulatory Context</h4>
+</div>
+<div class="space-y-3">
+<div class="p-3 bg-white rounded-lg border border-outline-variant">
+<span class="font-label-sm text-label-sm text-on-surface-variant">NCQA 2024 V1</span>
+<p class="font-body-md text-body-md mt-1">Updated screening intervals for colorectal cancer (Age 45-75).</p>
+</div>
+<div class="p-3 bg-white rounded-lg border border-outline-variant">
+<span class="font-label-sm text-label-sm text-on-surface-variant">CMS STAR C14</span>
+<p class="font-body-md text-body-md mt-1">Medication Reconciliation Post-Discharge weighting increased.</p>
+</div>
+</div>
+</div>
+<div class="md:col-span-3 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 relative overflow-hidden">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h4 class="font-headline-md text-headline-md">Population Health Map</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Geographic concentration of open Star gaps.</p>
+</div>
+<div class="flex gap-2">
+<div class="flex items-center gap-1">
+<span class="w-3 h-3 rounded-full bg-error"></span>
+<span class="font-label-sm text-label-sm">Critical</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-3 h-3 rounded-full bg-intelligence-blue"></span>
+<span class="font-label-sm text-label-sm">Closing</span>
+</div>
+</div>
+</div>
+<div class="h-64 bg-surface-container-high rounded-xl relative overflow-hidden">
+<div class="absolute inset-0 grayscale opacity-40" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBGXNtxP4zGwGrjUZx6DIui1QexvQtapQlzfXU6rNPzqSggEVMG-gllgAqZ6L2JKu3YFzQGFYtL0sJ_4NxU9SEjCyn-plPDSkzzau_GZhnMhcF3-4MW8kApR7TRbc3l-ECHZX8FCqAPcWJ-zpDL17fafqkaUEi9LX2i_gJMAenGanxcm2eUzi2UK6PzK8s4j4Ihk-okf6msZqv9h7qczeceUgfO0kzWIcMwWVBlU032l4qK9bXRuI9VlDlCbjAnPyV_56TAggC_lMM')"></div>
+<!-- Simulated Data Overlays -->
+<div class="absolute top-1/4 left-1/3 w-32 h-32 bg-error/10 border border-error rounded-full animate-pulse flex items-center justify-center">
+<span class="font-label-sm text-error font-bold">HIGH RISK</span>
+</div>
+<div class="absolute bottom-1/4 right-1/4 w-24 h-24 bg-intelligence-blue/10 border border-intelligence-blue rounded-full flex items-center justify-center">
+<span class="font-label-sm text-intelligence-blue font-bold">78% CLOSED</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<script>
+        // Micro-interactions and subtle state management
+        document.addEventListener('DOMContentLoaded', () => {
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('mousedown', () => {
+                    button.classList.add('scale-95');
+                });
+                button.addEventListener('mouseup', () => {
+                    button.classList.remove('scale-95');
+                });
+            });
+        });
+    </script>
+</body></html>

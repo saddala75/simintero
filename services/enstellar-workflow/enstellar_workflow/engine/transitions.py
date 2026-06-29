@@ -6,6 +6,7 @@ transaction rolls back and nothing is persisted.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import uuid
@@ -216,6 +217,24 @@ class TransitionEngine:
         #     clinician/physician). The auto-determination path is a 'system' actor
         #     that emits its own DECISION_RECORDED (auto_approved=True) — it stays
         #     excluded here, so the notice never double-fires nor mislabels as human.
+        if req.to_state in DETERMINATION_STATES:
+            from ..cases.service import CaseService
+            rule_ids = req.payload.get("rule_ids") or req.payload.get("reason_codes") or []
+            evidence_refs = req.payload.get("evidence_refs") or req.payload.get("citations") or []
+            rationale = str(req.payload.get("reason") or req.payload.get("rationale") or "")
+            ai_advisory_used = bool(req.payload.get("ai_advisory_used", False))
+            await CaseService().record_decision_audit(
+                conn=conn,
+                tenant_id=req.tenant_id,
+                case_id=req.case_id,
+                decided_by=req.actor_id,
+                outcome=req.to_state,
+                rule_ids=rule_ids,
+                ai_advisory_used=ai_advisory_used,
+                evidence_refs=evidence_refs,
+                rationale=rationale,
+            )
+
         if req.to_state in DETERMINATION_STATES and req.actor_type not in {"system", "service"}:
             decision_payload: dict[str, object] = {
                 "case_id": str(req.case_id),

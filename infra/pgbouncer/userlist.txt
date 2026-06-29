@@ -1,0 +1,6 @@
+"sim" "devpassword"
+"sim_app" "devpassword"
+"sim_relay" "devpassword"
+"workflow" "workflow_secret"
+"keycloak" "keycloak_secret"
+"hapi" "hapi_secret"

@@ -1,0 +1,589 @@
+<html class="light" lang="en"><head></head><body class="bg-surface font-body-md text-on-surface selection:bg-secondary-container">```html
+
+
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Enstellar | Regulatory Clock Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-bright": "#f7f9fb",
+                    "tertiary-container": "#001a42",
+                    "on-tertiary-container": "#3980f4",
+                    "surface-container-high": "#e6e8ea",
+                    "surface-container-low": "#f2f4f6",
+                    "secondary-fixed": "#6ffbbe",
+                    "primary": "#000000",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed": "#d8e2ff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-container": "#7c839b",
+                    "inverse-surface": "#2d3133",
+                    "inverse-primary": "#bec6e0",
+                    "on-surface-variant": "#45464d",
+                    "on-background": "#191c1e",
+                    "on-surface": "#191c1e",
+                    "outline": "#76777d",
+                    "on-secondary-fixed": "#002113",
+                    "on-tertiary-fixed": "#001a42",
+                    "primary-fixed": "#dae2fd",
+                    "primary-container": "#131b2e",
+                    "secondary-container": "#6cf8bb",
+                    "surface": "#f7f9fb",
+                    "surface-variant": "#e0e3e5",
+                    "on-primary-fixed": "#131b2e",
+                    "error-container": "#ffdad6",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-secondary-fixed-variant": "#005236",
+                    "on-secondary-container": "#00714d",
+                    "inverse-on-surface": "#eff1f3",
+                    "secondary-fixed-dim": "#4edea3",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "secondary": "#006c49",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#000000",
+                    "surface-container": "#eceef0",
+                    "error": "#ba1a1a",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-tint": "#565e74",
+                    "surface-dim": "#d8dadc",
+                    "outline-variant": "#c6c6cd",
+                    "background": "#f7f9fb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "margin-desktop": "32px",
+                    "container-max": "1440px",
+                    "unit": "4px",
+                    "margin-mobile": "16px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "label-md": ["JetBrains Mono"],
+                    "display": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .clock-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8e0; border-radius: 10px; }
+    </style>
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-screen w-64 flex flex-col z-40 bg-surface-container-lowest border-r border-outline-variant p-4">
+<div class="mb-6 px-2">
+<div class="font-headline-lg text-headline-lg font-bold text-primary">Simintero OS</div>
+<div class="font-body-md text-label-md text-on-primary-container">Healthcare Payer Platform</div>
+</div>
+<nav class="flex-1 space-y-4 overflow-y-auto pr-2">
+<!-- Utilization Mgmt -->
+<div class="space-y-1">
+<div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-outline">Utilization Mgmt</div>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="clinical_notes">clinical_notes</span>
+<span class="font-body-md">Review queue</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings_input_component">settings_input_component</span>
+<span class="font-body-md">Intake &amp; channels</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-tertiary-container text-on-tertiary-container font-semibold rounded-lg opacity-90 transition-opacity group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="schedule">schedule</span>
+<span class="font-body-md">Regulatory clocks</span>
+</a>
+</div>
+<!-- Intelligence -->
+<div class="space-y-1">
+<div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-outline">Intelligence</div>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="psychology">psychology</span>
+<span class="font-body-md">AI review - Revital</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="architecture">architecture</span>
+<span class="font-body-md">Policy studio - Digicore</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="fact_check">fact_check</span>
+<span class="font-body-md">Quality &amp; gaps - Qualitron</span>
+</a>
+</div>
+<!-- Governance -->
+<div class="space-y-1">
+<div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-outline">Governance</div>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="gavel">gavel</span>
+<span class="font-body-md">Determinations &amp; appeals</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="history_edu">history_edu</span>
+<span class="font-body-md">Audit &amp; traceability</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="description">description</span>
+<span class="font-body-md">Reports</span>
+</a>
+</div>
+</nav>
+<div class="mt-auto pt-4 border-t border-outline-variant space-y-1">
+<div class="px-3 py-2 text-[10px] font-bold text-secondary flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-secondary rounded-full"></span>
+    System Status: Active
+</div>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="font-body-md">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="help">help</span>
+<span class="font-body-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- Top App Bar -->
+<header class="sticky top-0 right-0 w-full flex items-center justify-between px-margin-desktop h-16 z-50 bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-8">
+<div class="relative">
+<span class="absolute inset-y-0 left-3 flex items-center text-outline">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full text-sm w-80 focus:ring-2 focus:ring-secondary-container" placeholder="Search regulatory clocks..." type="text"/>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-primary border-b-2 border-primary pb-2 font-label-md" href="#">Cases</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-md" href="#">Providers</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-md" href="#">Claims</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label-md" href="#">Reporting</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-2"></div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-xl font-bold text-sm hover:opacity-80 transition-opacity">
+                    Execute Rule
+                </button>
+<img alt="User profile" class="w-10 h-10 rounded-full border-2 border-surface-container-high object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjNliOqqtERSsYq_O-VSoO-ibKwnYL15VPQC98h_USol3P3wbjjRCyQfOsYLDSNj1jceFR6bewM_wE6Lweh4WV0gV_osHU-k26TVUFRAKlMC2OSnvMtIF0l3pyBraZkHPk42PI7hAOUWhtEs7lCsm9mi4ScEteUnn1Q2YMI2K3q4C_W7u9q6Bpq21G0BY-rkXvpGwtLMcV6QmxIdafiaqanoq54CKHM6yHLUjBVfQAyUN3kcu-bJUPzR2ChtUZyYX0XaJNrOdDz-Y"/>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="p-margin-desktop space-y-8 max-w-container-max mx-auto w-full">
+<!-- Headline Section -->
+<div class="flex justify-between items-end">
+<div>
+<h1 class="font-display text-display text-primary">Regulatory Clock Control</h1>
+<p class="text-on-surface-variant mt-2 font-body-lg">Enstellar Module: Monitoring SLA &amp; CMS-0057-F Compliance</p>
+</div>
+<div class="flex gap-3">
+<div class="flex flex-col items-end">
+<span class="font-label-md text-label-md text-on-primary-container">System Status</span>
+<div class="flex items-center gap-2 text-secondary font-bold">
+<span class="w-2 h-2 bg-secondary rounded-full clock-pulse"></span>
+                            Live Compliance Sync
+                        </div>
+</div>
+</div>
+</div>
+<!-- Bento Grid - KPIs -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<!-- KPI 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-6 rounded-xl flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="text-on-primary-container font-label-md">CMS-0057-F Target</span>
+<span class="material-symbols-outlined text-secondary" data-icon="verified">verified</span>
+</div>
+<div class="mt-4">
+<div class="text-4xl font-bold tracking-tight">98.2<span class="text-xl">%</span></div>
+<p class="text-xs text-on-surface-variant mt-1">Interoperability Readiness</p>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-6 rounded-xl flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="text-on-primary-container font-label-md">Active Clocks</span>
+<span class="material-symbols-outlined text-on-tertiary-container" data-icon="timer">timer</span>
+</div>
+<div class="mt-4">
+<div class="text-4xl font-bold tracking-tight">1,284</div>
+<p class="text-xs text-on-surface-variant mt-1">Across all Lines of Business</p>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-6 rounded-xl flex flex-col justify-between border-l-4 border-l-error">
+<div class="flex justify-between items-start">
+<span class="text-on-primary-container font-label-md">At Risk (SLA &lt; 12h)</span>
+<span class="material-symbols-outlined text-error" data-icon="warning">warning</span>
+</div>
+<div class="mt-4">
+<div class="text-4xl font-bold tracking-tight text-error">14</div>
+<p class="text-xs text-on-surface-variant mt-1">Requires immediate clinical action</p>
+</div>
+</div>
+<!-- KPI 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-6 rounded-xl flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="text-on-primary-container font-label-md">Avg. Clock Pause</span>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="pause_circle">pause_circle</span>
+</div>
+<div class="mt-4">
+<div class="text-4xl font-bold tracking-tight">4.2<span class="text-xl">d</span></div>
+<p class="text-xs text-on-surface-variant mt-1">RFI Response Cycle Time</p>
+</div>
+</div>
+</div>
+<!-- Active Timers Grid -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-md text-headline-md text-primary">Priority Regulatory Clocks</h2>
+<div class="flex gap-2">
+<select class="bg-surface-container-low border-outline-variant rounded-lg text-xs font-label-md px-3 py-1">
+<option>All LOBs</option>
+<option>Medicare</option>
+<option>Medicaid</option>
+<option>Commercial</option>
+</select>
+<select class="bg-surface-container-low border-outline-variant rounded-lg text-xs font-label-md px-3 py-1">
+<option>All States</option>
+<option>California (DMHC)</option>
+<option>New York (DFS)</option>
+<option>Texas (TDI)</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+<!-- Timer Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden group hover:shadow-md transition-shadow">
+<div class="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-primary-container text-primary-fixed text-[10px] font-label-sm rounded uppercase">Medicare</span>
+<span class="font-label-md text-primary">CASE-88291</span>
+</div>
+<div class="font-label-md text-on-surface-variant">CA Mandate</div>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex justify-between items-end">
+<div>
+<div class="text-3xl font-black font-headline-md">14:22:05</div>
+<div class="text-xs text-on-surface-variant uppercase tracking-widest mt-1">Remaining Time</div>
+</div>
+<button class="flex flex-col items-center gap-1 group/btn">
+<div class="w-10 h-10 rounded-full border border-outline-variant flex items-center justify-center group-hover/btn:bg-error-container transition-colors">
+<span class="material-symbols-outlined text-primary group-hover/btn:text-on-error-container" data-icon="pause">pause</span>
+</div>
+<span class="text-[10px] font-label-sm uppercase">Pause Clock</span>
+</button>
+</div>
+<!-- Progress Bar -->
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-label-sm uppercase text-on-surface-variant">
+<span>Standard: 72 Hours</span>
+<span>78% Elapsed</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-error rounded-full" style="width: 78%"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2">
+<div class="p-3 bg-surface-container-low rounded-lg">
+<div class="text-[10px] text-on-surface-variant uppercase font-label-sm">Rule Applied</div>
+<div class="font-label-md text-primary mt-1">CMS-UR-04</div>
+</div>
+<div class="p-3 bg-surface-container-low rounded-lg">
+<div class="text-[10px] text-on-surface-variant uppercase font-label-sm">Subject</div>
+<div class="font-label-md text-primary mt-1">Prior Auth</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Timer Card 2 (Paused) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden opacity-90 grayscale-[0.5]">
+<div class="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-tertiary-container text-on-tertiary-container text-[10px] font-label-sm rounded uppercase">Medicaid</span>
+<span class="font-label-md text-primary">CASE-90112</span>
+</div>
+<div class="font-label-md text-on-surface-variant">NY Mandate</div>
+</div>
+<div class="p-6 space-y-6 relative">
+<div class="absolute inset-0 bg-surface/40 flex items-center justify-center z-10">
+<div class="bg-white border border-outline-variant px-4 py-2 rounded-full flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-on-tertiary-fixed-variant" data-icon="info">info</span>
+<span class="text-xs font-bold">Paused for RFI Cycle</span>
+</div>
+</div>
+<div class="flex justify-between items-end">
+<div>
+<div class="text-3xl font-black font-headline-md text-on-surface-variant">42:10:00</div>
+<div class="text-xs text-on-surface-variant uppercase tracking-widest mt-1">Timer Frozen</div>
+</div>
+<button class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full border border-secondary bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="play_arrow">play_arrow</span>
+</div>
+<span class="text-[10px] font-label-sm uppercase">Resume</span>
+</button>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-label-sm uppercase text-on-surface-variant">
+<span>Standard: 5 Days</span>
+<span>Paused at 18%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 18%"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2">
+<div class="p-3 bg-surface-container-low rounded-lg">
+<div class="text-[10px] text-on-surface-variant uppercase font-label-sm">Rule Applied</div>
+<div class="font-label-md text-primary mt-1">NY-DFS-332</div>
+</div>
+<div class="p-3 bg-surface-container-low rounded-lg">
+<div class="text-[10px] text-on-surface-variant uppercase font-label-sm">RFI Wait</div>
+<div class="font-label-md text-primary mt-1">1.2 Days</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Timer Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden group hover:shadow-md transition-shadow">
+<div class="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container text-[10px] font-label-sm rounded uppercase">Commercial</span>
+<span class="font-label-md text-primary">CASE-87723</span>
+</div>
+<div class="font-label-md text-on-surface-variant">Standard</div>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex justify-between items-end">
+<div>
+<div class="text-3xl font-black font-headline-md">118:55:12</div>
+<div class="text-xs text-on-surface-variant uppercase tracking-widest mt-1">Remaining Time</div>
+</div>
+<button class="flex flex-col items-center gap-1 group/btn">
+<div class="w-10 h-10 rounded-full border border-outline-variant flex items-center justify-center group-hover/btn:bg-error-container transition-colors">
+<span class="material-symbols-outlined text-primary group-hover/btn:text-on-error-container" data-icon="pause">pause</span>
+</div>
+<span class="text-[10px] font-label-sm uppercase">Pause Clock</span>
+</button>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-label-sm uppercase text-on-surface-variant">
+<span>Standard: 15 Days</span>
+<span>32% Elapsed</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 32%"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2">
+<div class="p-3 bg-surface-container-low rounded-lg">
+<div class="text-[10px] text-on-surface-variant uppercase font-label-sm">Rule Applied</div>
+<div class="font-label-md text-primary mt-1">SLA-GL-01</div>
+</div>
+<div class="p-3 bg-surface-container-low rounded-lg">
+<div class="text-[10px] text-on-surface-variant uppercase font-label-sm">Subject</div>
+<div class="font-label-md text-primary mt-1">Appeal</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Evidence / Compliance Log Section -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Compliance Timeline (Evidence Cards) -->
+<div class="lg:col-span-2 space-y-4">
+<h3 class="font-headline-md text-headline-md text-primary">Interoperability &amp; CMS Logs</h3>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant">
+<th class="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider">Timestamp</th>
+<th class="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider">Event / Action</th>
+<th class="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider">Clock Status</th>
+<th class="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider">Reference</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4 font-label-md">10:42 AM</td>
+<td class="px-6 py-4">
+<div class="font-bold">RFI Documentation Requested</div>
+<div class="text-xs text-on-surface-variant">Provider ID: PRV-990-22</div>
+</td>
+<td class="px-6 py-4">
+<span class="flex items-center gap-1.5 text-on-tertiary-fixed-variant font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="pause_circle">pause_circle</span> Paused
+                                        </span>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-surface-container-high rounded font-label-sm">HIPAA-278</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4 font-label-md">09:15 AM</td>
+<td class="px-6 py-4">
+<div class="font-bold">Clock Trigger: State Mandate</div>
+<div class="text-xs text-on-surface-variant">Automated Enstellar ingestion</div>
+</td>
+<td class="px-6 py-4">
+<span class="flex items-center gap-1.5 text-secondary font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="play_circle">play_circle</span> Running
+                                        </span>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-surface-container-high rounded font-label-sm">TX-TDI-02</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4 font-label-md">Yesterday</td>
+<td class="px-6 py-4">
+<div class="font-bold">Manual Clock Override</div>
+<div class="text-xs text-on-surface-variant">Approver: Clinical Director</div>
+</td>
+<td class="px-6 py-4">
+<span class="flex items-center gap-1.5 text-error font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="history">history</span> Adjusted
+                                        </span>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-surface-container-high rounded font-label-sm">CMS-0057</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Clock Controls / State Distribution -->
+<div class="space-y-6">
+<h3 class="font-headline-md text-headline-md text-primary">System Parameters</h3>
+<div class="bg-primary-container text-primary-fixed p-6 rounded-xl space-y-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-on-primary-fixed-variant/20 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary-container" data-icon="settings_input_component">settings_input_component</span>
+</div>
+<div>
+<div class="font-bold">Regulatory Engine</div>
+<div class="text-xs opacity-70">Version 4.2.1-Enstellar</div>
+</div>
+</div>
+<div class="pt-4 border-t border-on-primary-fixed-variant/30 space-y-3">
+<div class="flex justify-between items-center text-sm">
+<span>Auto-Pause on RFI</span>
+<div class="w-10 h-5 bg-secondary-container rounded-full relative">
+<div class="absolute right-1 top-1 w-3 h-3 bg-on-secondary-container rounded-full"></div>
+</div>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span>CMS-0057-F Enforcement</span>
+<div class="w-10 h-5 bg-secondary-container rounded-full relative">
+<div class="absolute right-1 top-1 w-3 h-3 bg-on-secondary-container rounded-full"></div>
+</div>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span>Holiday/Weekend Exclusion</span>
+<div class="w-10 h-5 bg-on-primary-fixed-variant/30 rounded-full relative">
+<div class="absolute left-1 top-1 w-3 h-3 bg-primary-fixed-dim rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-6 rounded-xl">
+<div class="font-label-md text-on-surface-variant uppercase mb-4">Clock Distribution by LOB</div>
+<div class="space-y-4">
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-bold">
+<span>Medicare (Red-Flag Priority)</span>
+<span>42%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-error" style="width: 42%"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-bold">
+<span>Medicaid (State Managed)</span>
+<span>38%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-on-tertiary-container" style="width: 38%"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs font-bold">
+<span>Commercial (SLA Driven)</span>
+<span>20%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 20%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- FAB for New Case or Fast Action -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined" data-icon="add_alarm">add_alarm</span>
+</button>
+<script>
+        // Micro-interactions for clock updates
+        setInterval(() => {
+            const timers = document.querySelectorAll('.font-black.font-headline-md');
+            timers.forEach(timer => {
+                if (!timer.closest('.grayscale')) { // Don't animate paused ones
+                    // Simulate random subtle jitter or update
+                }
+            });
+        }, 1000);
+
+        // Sidebar active state logic
+        document.querySelectorAll('aside nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                document.querySelectorAll('aside nav a').forEach(l => {
+                    l.classList.remove('bg-tertiary-container', 'text-on-tertiary-container', 'font-semibold', 'opacity-90');
+                    l.classList.add('text-on-surface-variant', 'hover:bg-surface-container-high');
+                });
+                link.classList.add('bg-tertiary-container', 'text-on-tertiary-container', 'font-semibold', 'opacity-90');
+                link.classList.remove('text-on-surface-variant', 'hover:bg-surface-container-high');
+            });
+        });
+    </script>
+```</body></html>

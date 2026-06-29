@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Clinical Review Portal | Case Inventory</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#005236",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#45464d",
+                        "on-error-container": "#93000a",
+                        "error-container": "#ffdad6",
+                        "secondary": "#006c49",
+                        "on-primary-fixed": "#131b2e",
+                        "surface-dim": "#d8dadc",
+                        "inverse-surface": "#2d3133",
+                        "on-secondary-container": "#00714d",
+                        "on-tertiary-fixed-variant": "#004395",
+                        "surface-tint": "#565e74",
+                        "inverse-on-surface": "#eff1f3",
+                        "secondary-fixed": "#6ffbbe",
+                        "tertiary": "#000000",
+                        "on-secondary-fixed": "#002113",
+                        "secondary-container": "#6cf8bb",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#4edea3",
+                        "primary": "#000000",
+                        "outline": "#76777d",
+                        "primary-fixed-dim": "#bec6e0",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed": "#d8e2ff",
+                        "surface-container-low": "#f2f4f6",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "surface-bright": "#f7f9fb",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#3980f4",
+                        "surface-container-high": "#e6e8ea",
+                        "on-tertiary-fixed": "#001a42",
+                        "surface-variant": "#e0e3e5",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "surface": "#f7f9fb",
+                        "inverse-primary": "#bec6e0",
+                        "tertiary-container": "#001a42",
+                        "on-primary-container": "#7c839b",
+                        "on-background": "#191c1e",
+                        "tertiary-fixed-dim": "#adc6ff",
+                        "primary-fixed": "#dae2fd",
+                        "primary-container": "#131b2e",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#f7f9fb",
+                        "outline-variant": "#c6c6cd"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "32px",
+                        "container-max": "1440px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["JetBrains Mono"],
+                        "label-md": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "display": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d5d9e2; border-radius: 10px; }
+        .case-row-selected { background-color: #f2f4f6 !important; border-left: 4px solid #131b2e !important; }
+        .transition-sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md overflow-x-hidden">
+<!-- Main Navigation (Shared Component) -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-outline-variant px-10 py-3 bg-surface-container-lowest sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-primary">
+<div class="size-6">
+<svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-on-surface text-lg font-bold leading-tight tracking-[-0.015em]">Clinical Review Portal</h2>
+</div>
+<label class="flex flex-col min-w-40 !h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded h-full">
+<div class="text-on-surface-variant flex border-none bg-surface-container items-center justify-center pl-4 rounded-l border-r-0" data-icon="search" data-size="20px" data-weight="regular">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded text-on-surface focus:outline-0 focus:ring-0 border-none bg-surface-container focus:border-none h-full placeholder:text-on-surface-variant px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal" placeholder="Search cases..." value=""/>
+</div>
+</label>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="flex items-center gap-9">
+<a class="text-on-surface text-sm font-medium leading-normal hover:text-secondary transition-colors" href="#">Dashboard</a>
+<a class="text-secondary text-sm font-bold leading-normal border-b-2 border-secondary h-full flex items-center" href="#">Cases</a>
+<a class="text-on-surface text-sm font-medium leading-normal hover:text-secondary transition-colors" href="#">Resources</a>
+<a class="text-on-surface text-sm font-medium leading-normal hover:text-secondary transition-colors" href="#">Settings</a>
+</div>
+<div class="flex gap-2">
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded h-10 bg-surface-container text-on-surface gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
+<div class="text-on-surface" data-icon="notifications" data-size="20px" data-weight="regular">
+<span class="material-symbols-outlined">notifications</span>
+</div>
+</button>
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded h-10 bg-surface-container text-on-surface gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
+<div class="text-on-surface" data-icon="account_circle" data-size="20px" data-weight="regular">
+<span class="material-symbols-outlined">account_circle</span>
+</div>
+</button>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border border-outline-variant" data-alt="A professional medical headshot of a clinical reviewer in a bright, modern healthcare office. The person is wearing business casual attire, with soft focus medical equipment in the background. The lighting is clean and professional, reflecting a high-trust clinical environment." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA88sLQmLKRiuFsg_Yha0uJIw68WclQzQaGg9UltLGHPBEzCNQnfG_oGSQDgrza2Vf73CQIy-w4a5AGlomYZjpK2KTtNuhjcDVEvvRi3vgBPQb84tmI3qFUi8QvkCrJavE6DgObFHnUhLpNfs_Q0fTkfONivuaW-hR47nhLn4G4ebPiQ1_XnnHqMA4Ozaw6jX_rsKwYJaliIJhh0JrNPMlly2oOtVEcE4VB3G-xMVZ5NG1R6VPPPI7VUgEq2-ZruGWJUApb_70f8LA')">
+</div>
+</div>
+</header>
+<main class="flex h-[calc(100vh-64px)] overflow-hidden">
+<!-- Left Content Area -->
+<div class="flex-1 flex flex-col overflow-y-auto custom-scrollbar bg-surface px-8 pt-6 pb-12">
+<!-- Page Header & Filters -->
+<div class="mb-6">
+<div class="flex justify-between items-end mb-6">
+<div>
+<h1 class="text-on-surface text-3xl font-black leading-tight tracking-tight">Case Inventory</h1>
+<p class="text-on-surface-variant text-base mt-1">Reviewing 24 pending clinical authorizations across your assigned queues.</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary-fixed rounded font-bold text-sm">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                            Export List
+                        </button>
+</div>
+</div>
+<!-- Robust Filtering System -->
+<div class="flex flex-wrap items-center gap-3 py-4 border-y border-outline-variant">
+<div class="flex items-center gap-2 text-on-surface-variant mr-2">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+<span class="text-sm font-bold uppercase tracking-wider">Filters</span>
+</div>
+<div class="relative group">
+<button class="flex h-10 items-center justify-center gap-x-2 rounded bg-surface-container px-4 border border-outline-variant hover:bg-surface-container-high transition-all">
+<p class="text-on-surface text-sm font-medium">Specialty: All</p>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex h-10 items-center justify-center gap-x-2 rounded bg-surface-container px-4 border border-outline-variant hover:bg-surface-container-high transition-all">
+<p class="text-on-surface text-sm font-medium">Urgency: High Only</p>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex h-10 items-center justify-center gap-x-2 rounded bg-surface-container px-4 border border-outline-variant hover:bg-surface-container-high transition-all">
+<p class="text-on-surface text-sm font-medium">SLA Status</p>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<div class="relative group">
+<button class="flex h-10 items-center justify-center gap-x-2 rounded bg-surface-container px-4 border border-outline-variant hover:bg-surface-container-high transition-all">
+<p class="text-on-surface text-sm font-medium">Payer Policy</p>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+<div class="flex-1"></div>
+<button class="text-secondary text-sm font-bold underline px-2">Clear All</button>
+</div>
+</div>
+<!-- Table Container -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="px-6 py-4 text-sm font-bold text-on-surface-variant">Case ID</th>
+<th class="px-6 py-4 text-sm font-bold text-on-surface-variant">Member Name</th>
+<th class="px-6 py-4 text-sm font-bold text-on-surface-variant">Service Type</th>
+<th class="px-6 py-4 text-sm font-bold text-on-surface-variant">Priority</th>
+<th class="px-6 py-4 text-sm font-bold text-on-surface-variant">SLA Countdown</th>
+<th class="px-6 py-4 text-sm font-bold text-on-surface-variant">Revital AI Confidence</th>
+<th class="px-6 py-4 text-sm font-bold text-on-surface-variant text-center">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Case 1 (Selected State) -->
+<tr class="case-row-selected cursor-pointer group transition-colors" onclick="selectCase(this, '99210', 'John Doe')">
+<td class="px-6 py-5 text-sm font-mono text-on-surface">#99210</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold text-xs">JD</div>
+<span class="text-sm font-bold text-on-surface">John Doe</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-surface-container rounded-full text-xs font-bold text-on-surface">Orthopedic Surgery</span>
+</td>
+<td class="px-6 py-5">
+<span class="flex items-center gap-1 text-error font-bold text-xs uppercase tracking-tight">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">priority_high</span>
+                                    High Urgency
+                                </span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-error">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+<span class="text-sm font-bold">02h 15m</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-2 bg-outline-variant rounded-full overflow-hidden min-w-[80px]">
+<div class="h-full bg-secondary" style="width: 88%"></div>
+</div>
+<span class="text-sm font-bold text-on-surface">88%</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="p-2 hover:bg-outline-variant rounded-full transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Case 2 -->
+<tr class="hover:bg-surface-container-low cursor-pointer group transition-colors" onclick="selectCase(this, '99211', 'Jane Smith')">
+<td class="px-6 py-5 text-sm font-mono text-on-surface">#99211</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-full bg-primary-fixed-dim flex items-center justify-center text-on-primary-fixed-variant font-bold text-xs">JS</div>
+<span class="text-sm font-bold text-on-surface">Jane Smith</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-surface-container rounded-full text-xs font-bold text-on-surface">Cardiology</span>
+</td>
+<td class="px-6 py-5">
+<span class="flex items-center gap-1 text-on-surface-variant font-bold text-xs uppercase tracking-tight">
+                                    Routine
+                                </span>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+<span class="text-sm font-medium">14h 45m</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-2 bg-outline-variant rounded-full overflow-hidden min-w-[80px]">
+<div class="h-full bg-secondary" style="width: 92%"></div>
+</div>
+<span class="text-sm font-bold text-on-surface">92%</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="p-2 hover:bg-outline-variant rounded-full transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Case 3 -->
+<tr class="hover:bg-surface-container-low cursor-pointer group transition-colors" onclick="selectCase(this, '99212', 'Robert Brown')">
+<td class="px-6 py-5 text-sm font-mono text-on-surface">#99212</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-full bg-tertiary-fixed-dim flex items-center justify-center text-on-tertiary-fixed font-bold text-xs">RB</div>
+<span class="text-sm font-bold text-on-surface">Robert Brown</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-surface-container rounded-full text-xs font-bold text-on-surface">Neurology</span>
+</td>
+<td class="px-6 py-5">
+<span class="flex items-center gap-1 text-on-tertiary-container font-bold text-xs uppercase tracking-tight">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                    Urgent
+                                </span>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+<span class="text-sm font-medium">05h 30m</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-2 bg-outline-variant rounded-full overflow-hidden min-w-[80px]">
+<div class="h-full bg-on-tertiary-container" style="width: 74%"></div>
+</div>
+<span class="text-sm font-bold text-on-surface">74%</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="p-2 hover:bg-outline-variant rounded-full transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Case 4 -->
+<tr class="hover:bg-surface-container-low cursor-pointer group transition-colors" onclick="selectCase(this, '99214', 'Alice Green')">
+<td class="px-6 py-5 text-sm font-mono text-on-surface">#99214</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-full bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed font-bold text-xs">AG</div>
+<span class="text-sm font-bold text-on-surface">Alice Green</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-surface-container rounded-full text-xs font-bold text-on-surface">Oncology</span>
+</td>
+<td class="px-6 py-5">
+<span class="flex items-center gap-1 text-error font-bold text-xs uppercase tracking-tight">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">priority_high</span>
+                                    High Urgency
+                                </span>
+</td>
+<td class="px-6 py-5 text-error">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+<span class="text-sm font-bold">00h 42m</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="flex-1 h-2 bg-outline-variant rounded-full overflow-hidden min-w-[80px]">
+<div class="h-full bg-secondary" style="width: 95%"></div>
+</div>
+<span class="text-sm font-bold text-on-surface">95%</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="p-2 hover:bg-outline-variant rounded-full transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="px-6 py-4 bg-surface-container-low flex justify-between items-center text-sm font-medium text-on-surface-variant">
+<span>Showing 1-4 of 24 cases</span>
+<div class="flex items-center gap-4">
+<button class="flex items-center text-on-surface-variant opacity-50" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+                            Previous
+                        </button>
+<span class="text-on-surface font-bold">1</span>
+<button class="flex items-center text-on-surface hover:text-secondary">
+                            Next
+                            <span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Preview Sidebar -->
+<aside class="w-[400px] bg-surface-container-lowest border-l border-outline-variant flex flex-col transition-sidebar relative overflow-y-auto custom-scrollbar" id="preview-sidebar">
+<!-- Sticky Header -->
+<div class="p-6 border-b border-outline-variant bg-surface-container-lowest sticky top-0 z-10">
+<div class="flex justify-between items-start mb-4">
+<h2 class="text-lg font-bold text-on-surface">Quick Case Preview</h2>
+<button class="p-1 hover:bg-surface-container rounded-md" onclick="closeSidebar()">
+<span class="material-symbols-outlined text-on-surface-variant">close</span>
+</button>
+</div>
+<div class="flex items-center gap-4">
+<div class="size-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-black text-lg" id="preview-avatar">JD</div>
+<div>
+<p class="text-on-surface text-xl font-black" id="preview-name">John Doe</p>
+<p class="text-on-surface-variant text-sm font-mono" id="preview-id">Case #99210</p>
+</div>
+</div>
+</div>
+<div class="p-6 flex flex-col gap-8">
+<!-- Status & Workflow -->
+<section>
+<h3 class="text-xs font-bold uppercase text-on-surface-variant tracking-widest mb-4">Current Status</h3>
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-3 bg-surface-container p-3 rounded-lg">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<div class="flex-1">
+<p class="text-xs font-bold text-on-surface-variant uppercase">Workflow Phase</p>
+<p class="text-sm font-bold text-on-surface">Clinical Review in Progress</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-secondary-container/30 p-3 rounded-lg border border-secondary/20">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="sparkle">auto_awesome</span>
+<div class="flex-1">
+<p class="text-xs font-bold text-on-secondary-container uppercase">AI Recommendation</p>
+<p class="text-sm font-bold text-on-secondary-container">Approve - Matches Criteria</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Clinical Summary -->
+<section>
+<div class="flex items-center justify-between mb-3">
+<h3 class="text-xs font-bold uppercase text-on-surface-variant tracking-widest">Clinical Summary</h3>
+<span class="text-[10px] bg-secondary text-on-secondary px-1.5 py-0.5 rounded font-bold">AI GENERATED</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg text-sm leading-relaxed text-on-surface">
+<p id="preview-summary">
+                            Patient presents with chronic osteoarthritis of the right knee (M17.11). Conservative treatments including physical therapy (6 months) and corticosteroid injections have failed to provide adequate relief. Surgeon requests Total Knee Arthroplasty (27447).
+                        </p>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-surface-container border border-outline-variant rounded text-[11px] font-medium">ICD-10: M17.11</span>
+<span class="px-2 py-1 bg-surface-container border border-outline-variant rounded text-[11px] font-medium">CPT: 27447</span>
+<span class="px-2 py-1 bg-surface-container border border-outline-variant rounded text-[11px] font-medium">HPI: Chronic Pain</span>
+</div>
+</div>
+</section>
+<!-- Recent Activity -->
+<section>
+<h3 class="text-xs font-bold uppercase text-on-surface-variant tracking-widest mb-4">Medical Records</h3>
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container rounded transition-colors cursor-pointer border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant">description</span>
+<div class="flex-1">
+<p class="text-xs font-bold text-on-surface">Orthopedic Note.pdf</p>
+<p class="text-[10px] text-on-surface-variant">Modified 2 days ago</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">visibility</span>
+</div>
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container rounded transition-colors cursor-pointer border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant">image</span>
+<div class="flex-1">
+<p class="text-xs font-bold text-on-surface">MRI_Right_Knee_Axial.jpg</p>
+<p class="text-[10px] text-on-surface-variant">Uploaded today</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">visibility</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer Action -->
+<div class="mt-auto p-6 bg-surface-container-lowest border-t border-outline-variant">
+<button class="w-full bg-primary py-4 rounded-xl text-on-primary font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                    Open Full Case Review
+                    <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</aside>
+</main>
+<script>
+        function selectCase(row, id, name) {
+            // Remove selection class from all rows
+            document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('case-row-selected', 'bg-surface-container-low'));
+            
+            // Add selection class to clicked row
+            row.classList.add('case-row-selected');
+            
+            // Update sidebar content
+            document.getElementById('preview-name').textContent = name;
+            document.getElementById('preview-id').textContent = 'Case #' + id;
+            
+            const initials = name.split(' ').map(n => n[0]).join('');
+            const avatar = document.getElementById('preview-avatar');
+            avatar.textContent = initials;
+            
+            // Change avatar color based on name for visual variety
+            const colors = ['bg-secondary-container', 'bg-primary-fixed-dim', 'bg-tertiary-fixed-dim', 'bg-secondary-fixed'];
+            const textColors = ['text-on-secondary-container', 'text-on-primary-fixed-variant', 'text-on-tertiary-fixed', 'text-on-secondary-fixed'];
+            const index = name.length % colors.length;
+            
+            avatar.className = `size-12 rounded-full ${colors[index]} flex items-center justify-center ${textColors[index]} font-black text-lg`;
+            
+            // Simulating content update
+            const summaries = {
+                '99210': 'Patient presents with chronic osteoarthritis of the right knee (M17.11). Conservative treatments including physical therapy (6 months) and corticosteroid injections have failed to provide adequate relief. Surgeon requests Total Knee Arthroplasty (27447).',
+                '99211': 'Jane Smith, 54y, referred for unexplained tachycardia and chest pressure during exertion. Stress test scheduled to rule out CAD. History of hypertension, currently controlled with medication.',
+                '99212': 'Robert Brown, 62y, presents with worsening tremor and bradykinesia. Prior neurological evaluation suggests early-onset Parkinson\'s. Requesting DaTscan for diagnostic confirmation.',
+                '99214': 'Alice Green, 48y, follow-up for Stage II breast cancer treatment. Referral for therapeutic radiology planning. Patient is post-operative, margins were clear, starting systemic therapy cycle 1 next week.'
+            };
+            
+            document.getElementById('preview-summary').textContent = summaries[id] || summaries['99210'];
+
+            // Ensure sidebar is open
+            const sidebar = document.getElementById('preview-sidebar');
+            sidebar.style.transform = 'translateX(0)';
+            sidebar.style.opacity = '1';
+            sidebar.style.pointerEvents = 'auto';
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('preview-sidebar');
+            sidebar.style.transform = 'translateX(100%)';
+            sidebar.style.opacity = '0';
+            sidebar.style.pointerEvents = 'none';
+            
+            // Remove highlight
+            document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('case-row-selected'));
+        }
+        
+        // Initial state
+        window.onload = () => {
+            // Sidebar is visible by default on large screens as per UI requirement
+        };
+    </script>
+</body></html>

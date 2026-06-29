@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Audit &amp; Traceability Engine | Simintero OS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#f7f9fb",
+                        "tertiary-container": "#001a42",
+                        "on-tertiary-container": "#3980f4",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-container-low": "#f2f4f6",
+                        "secondary-fixed": "#6ffbbe",
+                        "primary": "#000000",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#d8e2ff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#7c839b",
+                        "inverse-surface": "#2d3133",
+                        "inverse-primary": "#bec6e0",
+                        "on-surface-variant": "#45464d",
+                        "on-background": "#191c1e",
+                        "on-surface": "#191c1e",
+                        "outline": "#76777d",
+                        "on-secondary-fixed": "#002113",
+                        "on-tertiary-fixed": "#001a42",
+                        "primary-fixed": "#dae2fd",
+                        "primary-container": "#131b2e",
+                        "secondary-container": "#6cf8bb",
+                        "surface": "#f7f9fb",
+                        "surface-variant": "#e0e3e5",
+                        "on-primary-fixed": "#131b2e",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-secondary-fixed-variant": "#005236",
+                        "on-secondary-container": "#00714d",
+                        "inverse-on-surface": "#eff1f3",
+                        "secondary-fixed-dim": "#4edea3",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-tertiary-fixed-variant": "#004395",
+                        "secondary": "#006c49",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#adc6ff",
+                        "on-primary": "#ffffff",
+                        "tertiary": "#000000",
+                        "surface-container": "#eceef0",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-tint": "#565e74",
+                        "surface-dim": "#d8dadc",
+                        "outline-variant": "#c6c6cd",
+                        "background": "#f7f9fb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "margin-desktop": "32px",
+                        "container-max": "1440px",
+                        "unit": "4px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "label-sm": ["JetBrains Mono"],
+                        "label-md": ["JetBrains Mono"],
+                        "display": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["10px", {"lineHeight": "14px", "fontWeight": "500"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .evidence-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+        .evidence-card:hover {
+            box-shadow: 0px 4px 12px rgba(15, 23, 42, 0.05);
+        }
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 19px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #e2e8f0;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+        }
+        .rule-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 2px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- SideNav Anchor -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 w-64 border-r border-outline-variant bg-surface-container-lowest overflow-y-auto">
+<div class="p-6">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary">Simintero OS</h1>
+<p class="font-label-md text-label-md text-on-primary-container">Healthcare Payer Platform</p>
+</div>
+<div class="flex-1 px-3 space-y-4">
+<!-- Category: Utilization Mgmt -->
+<div>
+<p class="px-4 mb-2 font-label-sm text-on-surface-variant/50 uppercase tracking-wider">Utilization Mgmt</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">clinical_notes</span>
+<span class="font-body-md text-body-md">Review queue</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">settings_input_component</span>
+<span class="font-body-md text-body-md">Intake &amp; channels</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">schedule</span>
+<span class="font-body-md text-body-md">Regulatory clocks</span>
+</a>
+</div>
+</div>
+<!-- Category: Intelligence -->
+<div>
+<p class="px-4 mb-2 font-label-sm text-on-surface-variant/50 uppercase tracking-wider">Intelligence</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-body-md text-body-md">AI review - Revital</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">architecture</span>
+<span class="font-body-md text-body-md">Policy studio - Digicore</span>
+</a>
+</div>
+</div>
+<!-- Category: Governance -->
+<div>
+<p class="px-4 mb-2 font-label-sm text-on-surface-variant/50 uppercase tracking-wider">Governance</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-body-md text-body-md">Quality &amp; gaps - Qualitron</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">gavel</span>
+<span class="font-body-md text-body-md">Determinations &amp; appeals</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 bg-tertiary-container text-on-tertiary-container font-semibold rounded-xl opacity-90 transition-opacity" href="#">
+<span class="material-symbols-outlined">history_edu</span>
+<span class="font-body-md text-body-md">Audit &amp; traceability</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md text-body-md">Reports</span>
+</a>
+</div>
+</div>
+</div>
+<div class="px-6 py-4 border-t border-outline-variant">
+<div class="font-label-md text-label-md text-on-surface-variant">System Status: Active</div>
+</div>
+<div class="p-3 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- TopAppBar Anchor -->
+<header class="sticky top-0 right-0 w-full flex items-center justify-between px-margin-desktop h-16 z-50 bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-8">
+<span class="font-headline-md text-headline-md font-black tracking-tight text-primary">Simintero OS</span>
+<nav class="hidden md:flex gap-6">
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Cases</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Providers</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Claims</a>
+<a class="font-label-md text-label-md text-primary border-b-2 border-primary pb-1" href="#">Reporting</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant"></div>
+<button class="px-4 py-2 bg-primary text-on-primary font-label-md text-label-md rounded-lg">
+                Execute Rule
+            </button>
+<img class="w-8 h-8 rounded-full border border-outline-variant object-cover" data-alt="A professional headshot of a clinical director, 40s, with a neutral and confident expression. The background is a soft-focus modern clinical office with blue and slate grey tones. Lighting is bright and even, conveying high-trust healthcare authority and professionalism." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHQlJ1V6O5C2VQsqbJypJ8DpxaCmSOLLnCFztjl6mJ88csHKtiCNY7QdID57Hxk9CsUIMbG5ba3fwl_RfF4i2ClxBCqqqBrEUXlgIJvOLTPXsh_1GrQFUfCdOx2MMjDt_40WMWnXNNm8h3BuHEfXIq8cG2N36ks1yR_SSMQnn_4DfGJqYaYcoN02tcZwghoWylUIfVMRI2QoSRnwOyBCFVDGV_90-KOftC71mLRNhwxsDpxIahhY41qz3RG2IjzwvME17wmIiP6jY"/>
+</div>
+</header>
+<!-- Audit Dashboard Content -->
+<div class="p-margin-desktop max-w-container-max mx-auto">
+<div class="mb-8 flex justify-between items-end">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Audit &amp; Traceability Engine</h2>
+<p class="font-body-md text-on-surface-variant mt-1">Immutable forensic log of platform interactions and regulatory compliance nodes.</p>
+</div>
+<div class="flex gap-3">
+<div class="flex items-center bg-surface-container-low border border-outline-variant px-3 py-2 rounded-lg gap-2">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 18px;">calendar_today</span>
+<span class="font-label-md text-label-md">Last 24 Hours</span>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg font-label-md">
+<span class="material-symbols-outlined" style="font-size: 18px;">download</span>
+                    Export Report
+                </button>
+</div>
+</div>
+<div class="bento-grid">
+<!-- Traceability Summary Cards -->
+<div class="col-span-12 md:col-span-3 evidence-card p-4 rounded-xl">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">TOTAL EVENTS</span>
+<span class="material-symbols-outlined text-primary" style="font-size: 16px;">database</span>
+</div>
+<div class="font-display text-display">12,842</div>
+<div class="mt-2 flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined" style="font-size: 14px;">check_circle</span>
+<span class="font-label-sm text-label-sm">Integrity Verified</span>
+</div>
+</div>
+<div class="col-span-12 md:col-span-3 evidence-card p-4 rounded-xl">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">CLINICAL DETERMINATIONS</span>
+<span class="material-symbols-outlined text-on-tertiary-container" style="font-size: 16px;">health_and_safety</span>
+</div>
+<div class="font-display text-display">849</div>
+<div class="mt-2 font-label-sm text-label-sm text-on-surface-variant">100% Provenance Capture</div>
+</div>
+<div class="col-span-12 md:col-span-3 evidence-card p-4 rounded-xl border-l-4 border-l-secondary-container">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">COMPLIANCE UPTIME</span>
+<span class="material-symbols-outlined text-secondary" style="font-size: 16px;">verified_user</span>
+</div>
+<div class="font-display text-display">99.99<span class="text-xl">%</span></div>
+<div class="mt-2 font-label-sm text-label-sm text-secondary">HIPAA / SOC2 Compliant</div>
+</div>
+<div class="col-span-12 md:col-span-3 evidence-card p-4 rounded-xl">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">PENDING REVIEWS</span>
+<span class="material-symbols-outlined text-error" style="font-size: 16px;">warning</span>
+</div>
+<div class="font-display text-display">0</div>
+<div class="mt-2 font-label-sm text-label-sm text-on-surface-variant">Zero unresolved anomalies</div>
+</div>
+<!-- Forensic Timeline View -->
+<div class="col-span-12 md:col-span-8 evidence-card rounded-xl overflow-hidden flex flex-col">
+<div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-headline-md text-headline-md">Immutable Activity Feed</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2 px-2 py-1 bg-surface-container border border-outline-variant rounded">
+<span class="material-symbols-outlined" style="font-size: 14px;">search</span>
+<input class="bg-transparent border-none focus:ring-0 font-label-md text-label-md w-48 p-0" placeholder="Filter by User or Action..." type="text"/>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-6 timeline-line relative">
+<!-- Timeline Item 1 -->
+<div class="relative pl-10 pb-8">
+<div class="absolute left-0 top-1 w-10 h-10 flex items-center justify-center bg-white border border-outline-variant rounded-full z-10 shadow-sm">
+<span class="material-symbols-outlined text-primary" style="font-size: 20px;">account_circle</span>
+</div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-md text-label-md text-primary font-bold">dr_smith_oncology</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant mono">14:22:15.004 UTC</span>
+</div>
+<div class="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
+<div class="flex items-center gap-2 mb-2">
+<span class="rule-badge bg-primary-container text-primary-fixed">ACTION_AUTH_SUCCESS</span>
+<span class="rule-badge bg-secondary-container text-on-secondary-container">CMS-1500_REVIEW</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface">Initiated final clinical review for Claim ID: <span class="mono font-bold">#CLM-992-XA</span>. Access granted via MFA-Verified biometric token.</p>
+<div class="mt-3 flex gap-4 pt-3 border-t border-outline-variant/50">
+<button class="text-on-tertiary-container font-label-md flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined" style="font-size: 14px;">link</span>
+                                    View Clinical Context
+                                </button>
+<button class="text-on-surface-variant font-label-md flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined" style="font-size: 14px;">key</span>
+                                    Verify Hash
+                                </button>
+</div>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="relative pl-10 pb-8">
+<div class="absolute left-0 top-1 w-10 h-10 flex items-center justify-center bg-white border border-outline-variant rounded-full z-10 shadow-sm">
+<span class="material-symbols-outlined text-on-tertiary-container" style="font-size: 20px;">bolt</span>
+</div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-md text-label-md text-primary font-bold">SYSTEM_ENGINE_CORE</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant mono">14:18:02.891 UTC</span>
+</div>
+<div class="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
+<div class="flex items-center gap-2 mb-2">
+<span class="rule-badge bg-primary-container text-primary-fixed">ENGINE_DETERMINATION</span>
+<span class="rule-badge bg-surface-variant text-on-surface-variant">AUTO_DENY_NON_COMPLIANT</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface">Automated decision trigger: Denial recommended for Claim ID: <span class="mono font-bold">#CLM-817-YJ</span> based on exclusionary logic in RuleSet <span class="mono underline cursor-pointer">HIPAA-TR-402</span>.</p>
+<div class="mt-2 p-2 bg-white rounded border border-outline-variant mono text-[11px] text-on-surface-variant">
+                                SHA-256: 8f3c...b9a1 | Block: 4,112,094 | Provenance: HL7-FHIR-V4
+                            </div>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-10 h-10 flex items-center justify-center bg-white border border-outline-variant rounded-full z-10 shadow-sm">
+<span class="material-symbols-outlined text-secondary" style="font-size: 20px;">security</span>
+</div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-md text-label-md text-primary font-bold">compliance_officer_01</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant mono">13:55:44.210 UTC</span>
+</div>
+<div class="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
+<div class="flex items-center gap-2 mb-2">
+<span class="rule-badge bg-secondary-container text-on-secondary-container">POLICY_UPDATE</span>
+<span class="rule-badge bg-primary text-white">IMPACT_CRITICAL</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface">Updated adjudication threshold for <span class="font-bold">Prior Authorization Rule 04-A</span>. Applied globally to the Northeast clinical region.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Evidence & Proof side panel -->
+<div class="col-span-12 md:col-span-4 space-y-4">
+<!-- Regulatory Readiness Card -->
+<div class="evidence-card rounded-xl p-5">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary">gavel</span>
+<h4 class="font-headline-md text-headline-md">Regulatory Snapshot</h4>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="font-body-md text-on-surface">HIPAA Audit Trail</span>
+<span class="material-symbols-outlined text-secondary">check_circle</span>
+</div>
+<div class="w-full bg-surface-container-high h-1 rounded-full">
+<div class="bg-secondary h-1 rounded-full" style="width: 100%;"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-md text-on-surface">SOC2 Integrity Log</span>
+<span class="material-symbols-outlined text-secondary">check_circle</span>
+</div>
+<div class="w-full bg-surface-container-high h-1 rounded-full">
+<div class="bg-secondary h-1 rounded-full" style="width: 100%;"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-md text-on-surface">NIST Traceability</span>
+<span class="material-symbols-outlined text-on-surface-variant">pending</span>
+</div>
+<div class="w-full bg-surface-container-high h-1 rounded-full">
+<div class="bg-primary h-1 rounded-full" style="width: 85%;"></div>
+</div>
+</div>
+<button class="w-full mt-6 py-2 text-primary border border-primary rounded-lg font-label-md hover:bg-surface-container-high transition-colors">
+                        Generate Audit Bundle
+                    </button>
+</div>
+<!-- Clinical Provenance Metadata -->
+<div class="evidence-card rounded-xl p-5 bg-primary-container text-on-primary-container">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined">description</span>
+<h4 class="font-headline-md text-headline-md text-white">System Integrity</h4>
+</div>
+<div class="space-y-3">
+<div class="flex flex-col gap-1">
+<span class="font-label-sm text-label-sm text-on-primary-container">CURRENT BLOCK HASH</span>
+<span class="mono text-[11px] truncate">0x9f8b7c6d5e4a3b2a1f0e9d8c7b6a5f4e3d2c1b0a</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="font-label-sm text-label-sm text-on-primary-container">GLOBAL CONSENSUS</span>
+<span class="font-body-md text-white">Verified by 6 Distributed Nodes</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="font-label-sm text-label-sm text-on-primary-container">ENCRYPTION STANDARD</span>
+<span class="font-body-md text-white">AES-256-GCM / Post-Quantum Ready</span>
+</div>
+</div>
+</div>
+<!-- Atmospheric Abstract Visualization -->
+<div class="rounded-xl overflow-hidden relative h-48 border border-outline-variant">
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-4">
+<span class="font-label-sm text-label-sm text-white/70 uppercase tracking-widest">Network Pulse</span>
+<span class="font-body-md text-white">Monitoring 1,200+ microservices for data drift and provenance leakage.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual Floating Panel -->
+<div class="hidden fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-[60] border-l border-outline-variant p-6 translate-x-full transition-transform duration-300" id="evidence-flyout">
+<div class="flex justify-between items-center mb-6">
+<h5 class="font-headline-md text-headline-md">Evidence Detail</h5>
+<button class="material-symbols-outlined p-2 hover:bg-surface-container rounded-full" onclick="toggleFlyout()">close</button>
+</div>
+<div class="space-y-6">
+<div class="p-4 bg-surface-container rounded-lg">
+<span class="font-label-sm text-on-surface-variant block mb-1">REFERENCE CODE</span>
+<span class="font-headline-md text-primary mono">HIPAA-TR-402</span>
+</div>
+<div>
+<span class="font-label-sm text-on-surface-variant block mb-2">SOURCE MATERIAL</span>
+<div class="border border-outline-variant rounded-lg overflow-hidden">
+<img class="w-full h-32 object-cover" data-alt="A macro photograph of a high-resolution medical document display on a professional monitor. The image shows complex clinical text with 'ADJUDICATED' stamps and regulatory markings in a dark mode digital interface. Soft light reflects off the screen, emphasizing technical precision and document integrity in a healthcare setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXmleJUniNZIOGh3QYWqxkkTuFYqO7l13ioR5nAeoMzZGjf-vX_wRzu0W3UBODJxAcId7FNzSt0FtaGX33M3SmbNeJzmBl_yxKnpqfVY35mujmBFBFeXW-a4tl0Kdr-yFF1gVYXMPSGNfvdt8zpidEHwQ-FHi5AJNg7Uitu9t4BQZ1e33QGDAnX635k_h1GvOsVmtV-1EEFauDppjLou9TZocHlu9FNA3fUwTG8ZggqbySZQctJGdi9cukceqF_uCGs_CKRpkz4OE"/>
+<div class="p-3">
+<p class="font-body-md text-on-surface">Electronic Health Record Extract - Patient ID: #PX-0012</p>
+</div>
+</div>
+</div>
+<div>
+<span class="font-label-sm text-on-surface-variant block mb-2">CHAIN OF CUSTODY</span>
+<ul class="space-y-3">
+<li class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="font-body-md">Ingested from LabCorp Portal (13:10 UTC)</span>
+</li>
+<li class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="font-body-md">Normalized by Enstellar OCR (13:11 UTC)</span>
+</li>
+<li class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+<span class="font-body-md font-bold">Locked in Audit Vault (13:12 UTC)</span>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<script>
+    function toggleFlyout() {
+        const flyout = document.getElementById('evidence-flyout');
+        if (flyout.classList.contains('hidden')) {
+            flyout.classList.remove('hidden');
+            setTimeout(() => flyout.classList.remove('translate-x-full'), 10);
+        } else {
+            flyout.classList.add('translate-x-full');
+            setTimeout(() => flyout.classList.add('hidden'), 300);
+        }
+    }
+
+    document.querySelectorAll('button').forEach(btn => {
+        if (btn.innerText.includes('Context')) {
+            btn.onclick = toggleFlyout;
+        }
+    });
+</script>
+</body></html>

@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 class IdempotentKafkaConsumer(ABC):
     max_retries: int = 3
+    MAX_TENANT_CONSECUTIVE_FAILURES: int = 5
 
     def __init__(
         self, pool: asyncpg.Pool, topics: list[str], group_id: str | None = None
@@ -37,6 +38,7 @@ class IdempotentKafkaConsumer(ABC):
         self._group_id = group_id or settings.kafka_consumer_group
         self._running = False
         self._producer: "KafkaProducer | None" = None  # set by main.py after construction
+        self._tenant_failure_counts: dict[str, int] = {}
 
     async def run(self) -> None:
         settings = get_settings()
@@ -57,9 +59,26 @@ class IdempotentKafkaConsumer(ABC):
                     if await self._is_processed(event):
                         await consumer.commit()
                         continue
+
+                    tenant_id = event.tenant.tenant_id
+                    tenant_failures = self._tenant_failure_counts.get(tenant_id, 0)
+                    if tenant_failures >= self.MAX_TENANT_CONSECUTIVE_FAILURES:
+                        logger.error(
+                            "tenant_circuit_open tenant_id=%s group=%s failures=%d",
+                            tenant_id, self._group_id, tenant_failures,
+                        )
+                        await self._send_to_dlq(
+                            event, msg.topic, Exception(f"tenant circuit open after {tenant_failures} failures")
+                        )
+                        await self._mark_processed(event)
+                        await consumer.commit()
+                        continue
+
                     try:
                         await self.handle(event)
+                        self._tenant_failure_counts[tenant_id] = 0
                     except Exception as exc:
+                        self._tenant_failure_counts[tenant_id] = tenant_failures + 1
                         attempt = await self._record_failure(event, exc)
                         if attempt >= self.max_retries:
                             await self._send_to_dlq(event, msg.topic, exc)

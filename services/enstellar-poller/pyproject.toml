@@ -1,0 +1,23 @@
+[project]
+name = "enstellar-poller"
+version = "0.1.0"
+description = "Enstellar single-instance background SLA poller service"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.29",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.3",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "enstellar-workflow",
+]
+
+[tool.uv.sources]
+enstellar-workflow = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["enstellar_poller"]

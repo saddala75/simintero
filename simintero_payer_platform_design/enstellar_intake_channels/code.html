@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Enstellar | Multi-Channel Intake Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .rule-badge-shadow {
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+        }
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-pulse-soft {
+            animation: pulse-soft 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .data-grid-pattern {
+            background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px);
+            background-size: 12px 12px;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-bright": "#f7f9fb",
+                    "tertiary-container": "#001a42",
+                    "on-tertiary-container": "#3980f4",
+                    "surface-container-high": "#e6e8ea",
+                    "surface-container-low": "#f2f4f6",
+                    "secondary-fixed": "#6ffbbe",
+                    "primary": "#000000",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed": "#d8e2ff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-container": "#7c839b",
+                    "inverse-surface": "#2d3133",
+                    "inverse-primary": "#bec6e0",
+                    "on-surface-variant": "#45464d",
+                    "on-background": "#191c1e",
+                    "on-surface": "#191c1e",
+                    "outline": "#76777d",
+                    "on-secondary-fixed": "#002113",
+                    "on-tertiary-fixed": "#001a42",
+                    "primary-fixed": "#dae2fd",
+                    "primary-container": "#131b2e",
+                    "secondary-container": "#6cf8bb",
+                    "surface": "#f7f9fb",
+                    "surface-variant": "#e0e3e5",
+                    "on-primary-fixed": "#131b2e",
+                    "error-container": "#ffdad6",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-secondary-fixed-variant": "#005236",
+                    "on-secondary-container": "#00714d",
+                    "inverse-on-surface": "#eff1f3",
+                    "secondary-fixed-dim": "#4edea3",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "secondary": "#006c49",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#000000",
+                    "surface-container": "#eceef0",
+                    "error": "#ba1a1a",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-tint": "#565e74",
+                    "surface-dim": "#d8dadc",
+                    "outline-variant": "#c6c6cd",
+                    "background": "#f7f9fb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "margin-desktop": "32px",
+                    "container-max": "1440px",
+                    "unit": "4px",
+                    "margin-mobile": "16px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "label-md": ["JetBrains Mono"],
+                    "display": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-sm": ["10px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased">
+<!-- Sidebar Navigation Shell -->
+<aside class="fixed left-0 top-0 h-full w-64 flex flex-col border-r border-outline-variant bg-surface-container-lowest overflow-y-auto p-4 z-40">
+<div class="mb-6 px-2">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary">Simintero OS</h1>
+<p class="font-label-md text-label-md text-on-primary-container uppercase tracking-widest mt-1">Healthcare Payer Platform</p>
+</div>
+<nav class="flex-1 space-y-6">
+<!-- Utilization Mgmt Category -->
+<div>
+<p class="px-3 mb-2 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant/60">Utilization Mgmt</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">clinical_notes</span>
+<span class="font-body-md">Review queue</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-tertiary-container text-on-tertiary-container font-semibold rounded-lg opacity-90 transition-opacity" href="#">
+<span class="material-symbols-outlined text-xl">settings_input_component</span>
+<span class="font-body-md">Intake &amp; channels</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">schedule</span>
+<span class="font-body-md">Regulatory clocks</span>
+</a>
+</div>
+</div>
+<!-- Intelligence Category -->
+<div>
+<p class="px-3 mb-2 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant/60">Intelligence</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">psychology</span>
+<span class="font-body-md">AI review - Revital</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">architecture</span>
+<span class="font-body-md">Policy studio - Digicore</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">fact_check</span>
+<span class="font-body-md">Quality &amp; gaps - Qualitron</span>
+</a>
+</div>
+</div>
+<!-- Governance Category -->
+<div>
+<p class="px-3 mb-2 font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant/60">Governance</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">gavel</span>
+<span class="font-body-md">Determinations &amp; appeals</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">history_edu</span>
+<span class="font-body-md">Audit &amp; traceability</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-xl">description</span>
+<span class="font-body-md">Reports</span>
+</a>
+</div>
+</div>
+</nav>
+<div class="pt-4 border-t border-outline-variant space-y-4">
+<button class="w-full py-3 bg-primary text-on-primary rounded-lg font-headline-md text-headline-md flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+            New Case
+        </button>
+<div class="flex items-center gap-2 px-3 py-2 text-secondary font-label-md text-label-md">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+            System Status: Active
+        </div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- Top App Bar -->
+<header class="sticky top-0 right-0 w-full flex items-center justify-between px-margin-desktop h-16 z-30 bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-8">
+<div class="relative group">
+<span class="absolute inset-y-0 left-3 flex items-center text-on-surface-variant">
+<span class="material-symbols-outlined">search</span>
+</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-lg text-body-md focus:ring-2 focus:ring-on-tertiary-container w-64 transition-all" placeholder="Search intake records..." type="text"/>
+</div>
+<nav class="hidden md:flex gap-6">
+<a class="font-label-md text-label-md text-primary border-b-2 border-primary pb-1" href="#">Cases</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Providers</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Claims</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Reporting</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg font-label-md text-label-md flex items-center gap-2">
+                Execute Rule
+            </button>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full border-2 border-surface-container-lowest"></span>
+</button>
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+<div class="h-8 w-8 rounded-full bg-surface-variant border border-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional clinical director headshot for a healthcare technology dashboard, styled as a minimalist portrait with soft, high-key lighting. The background is a clean, neutral slate gray. The lighting is sophisticated, emphasizing competence and trust. High-fidelity photography style with a corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtXdKj9dGvmb0c76xzop8wiXqnKp_hUK4TrjIdvvRp81XY0UiZD8TxyDMdeCBJ6HdJym1bBZEkvCxmkFN4RE9UbwntwppsZ2OfctK0CSoCnRUOc8n4oVzt_osZzxTXlGk01K4cjoybHv5bzm6qdStLGskTSZphC0azseR_y47vBIsNJwSQZ6XWvlvpkmQnn-svpKqwJpwGH_1UWqohsYLqZQguPrZsmN1LYTVi9jiZklupxPTqID5k7BR2iSY6vQ3QHKgYaszNl0U"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-margin-desktop space-y-gutter">
+<!-- Header Section -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-display text-display text-primary">Enstellar Multi-Channel Intake</h2>
+<p class="text-body-lg text-on-surface-variant mt-1">Real-time normalization and validation engine for clinical transactions.</p>
+</div>
+<div class="flex gap-2">
+<div class="flex items-center gap-2 bg-secondary-container/20 px-3 py-1.5 rounded-lg border border-secondary-container">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-label-md text-label-md text-on-secondary-container">System Live: 99.98% Uptime</span>
+</div>
+</div>
+</div>
+<!-- Dashboard Grid -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Intake Volume (Bento Style) -->
+<div class="col-span-12 lg:col-span-8 grid grid-cols-4 gap-gutter">
+<!-- FHIR PAS -->
+<div class="col-span-2 md:col-span-1 bg-surface-container-lowest p-5 border border-outline-variant rounded-xl flex flex-col justify-between hover:shadow-md transition-shadow">
+<div>
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">FHIR PAS</span>
+<span class="material-symbols-outlined text-on-tertiary-container" data-icon="api">api</span>
+</div>
+<div class="mt-4">
+<span class="font-display text-display block">12,402</span>
+<span class="text-secondary font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">arrow_upward</span> +14.2%
+                            </span>
+</div>
+</div>
+<div class="mt-4 h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-on-tertiary-container w-[78%]"></div>
+</div>
+</div>
+<!-- X12 278 -->
+<div class="col-span-2 md:col-span-1 bg-surface-container-lowest p-5 border border-outline-variant rounded-xl flex flex-col justify-between hover:shadow-md transition-shadow">
+<div>
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">X12 278</span>
+<span class="material-symbols-outlined text-primary" data-icon="sync_alt">sync_alt</span>
+</div>
+<div class="mt-4">
+<span class="font-display text-display block">8,914</span>
+<span class="text-on-surface-variant font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">remove</span> 0.0%
+                            </span>
+</div>
+</div>
+<div class="mt-4 h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[45%]"></div>
+</div>
+</div>
+<!-- Fax/OCR -->
+<div class="col-span-2 md:col-span-1 bg-surface-container-lowest p-5 border border-outline-variant rounded-xl flex flex-col justify-between hover:shadow-md transition-shadow">
+<div>
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">Fax/OCR</span>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="description">description</span>
+</div>
+<div class="mt-4">
+<span class="font-display text-display block">2,105</span>
+<span class="text-error font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">arrow_downward</span> -4.1%
+                            </span>
+</div>
+</div>
+<div class="mt-4 h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-on-surface-variant w-[22%]"></div>
+</div>
+</div>
+<!-- Provider Portal -->
+<div class="col-span-2 md:col-span-1 bg-surface-container-lowest p-5 border border-outline-variant rounded-xl flex flex-col justify-between hover:shadow-md transition-shadow">
+<div>
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-on-surface-variant">Portal</span>
+<span class="material-symbols-outlined text-secondary" data-icon="language">language</span>
+</div>
+<div class="mt-4">
+<span class="font-display text-display block">15,670</span>
+<span class="text-secondary font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">arrow_upward</span> +22.8%
+                            </span>
+</div>
+</div>
+<div class="mt-4 h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[92%]"></div>
+</div>
+</div>
+<!-- Normalization Status Chart Area -->
+<div class="col-span-4 bg-surface-container-lowest p-6 border border-outline-variant rounded-xl">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-md text-headline-md">Data Normalization Velocity</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-sm bg-on-tertiary-container"></span>
+<span class="font-label-sm text-label-sm uppercase">Standardized</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-sm bg-outline-variant"></span>
+<span class="font-label-sm text-label-sm uppercase">Awaiting Mapping</span>
+</div>
+</div>
+</div>
+<div class="h-48 flex items-end justify-between gap-2 px-2 data-grid-pattern border-b border-l border-outline-variant">
+<div class="w-full bg-on-tertiary-container/10 rounded-t-sm relative group h-[60%]">
+<div class="absolute bottom-0 w-full bg-on-tertiary-container rounded-t-sm h-[80%] transition-all group-hover:brightness-110"></div>
+</div>
+<div class="w-full bg-on-tertiary-container/10 rounded-t-sm relative group h-[70%]">
+<div class="absolute bottom-0 w-full bg-on-tertiary-container rounded-t-sm h-[85%] transition-all group-hover:brightness-110"></div>
+</div>
+<div class="w-full bg-on-tertiary-container/10 rounded-t-sm relative group h-[65%]">
+<div class="absolute bottom-0 w-full bg-on-tertiary-container rounded-t-sm h-[75%] transition-all group-hover:brightness-110"></div>
+</div>
+<div class="w-full bg-on-tertiary-container/10 rounded-t-sm relative group h-[85%]">
+<div class="absolute bottom-0 w-full bg-on-tertiary-container rounded-t-sm h-[92%] transition-all group-hover:brightness-110"></div>
+</div>
+<div class="w-full bg-on-tertiary-container/10 rounded-t-sm relative group h-[80%]">
+<div class="absolute bottom-0 w-full bg-on-tertiary-container rounded-t-sm h-[88%] transition-all group-hover:brightness-110"></div>
+</div>
+<div class="w-full bg-on-tertiary-container/10 rounded-t-sm relative group h-[90%]">
+<div class="absolute bottom-0 w-full bg-on-tertiary-container rounded-t-sm h-[96%] transition-all group-hover:brightness-110"></div>
+</div>
+<div class="w-full bg-on-tertiary-container/10 rounded-t-sm relative group h-[95%]">
+<div class="absolute bottom-0 w-full bg-on-tertiary-container rounded-t-sm h-[98%] transition-all group-hover:brightness-110"></div>
+</div>
+</div>
+<div class="flex justify-between mt-2 px-2 text-on-surface-variant font-label-sm text-label-sm">
+<span>00:00</span>
+<span>04:00</span>
+<span>08:00</span>
+<span>12:00</span>
+<span>16:00</span>
+<span>20:00</span>
+<span>NOW</span>
+</div>
+</div>
+</div>
+<!-- Completeness Validation Rules -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="p-6 border-b border-outline-variant bg-surface-container-low">
+<h3 class="font-headline-md text-headline-md">Active Validation Rules</h3>
+<p class="text-body-md text-on-surface-variant">Real-time guardrails for incoming clinical data.</p>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-3">
+<!-- Evidence Card 1 -->
+<div class="p-4 border border-outline-variant rounded-lg bg-surface-container-lowest">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-primary text-on-primary font-label-sm text-label-sm px-2 py-0.5 rounded uppercase rule-badge-shadow">HIPAA-278-VAL</span>
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<p class="font-body-md font-semibold">Subscriber Identity Verification</p>
+<p class="text-body-md text-on-surface-variant mt-1">Cross-references inbound MemberID against Core System of Record.</p>
+<div class="mt-3 flex items-center justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">history</span> Last: 2ms ago
+                            </span>
+<button class="text-on-tertiary-container font-label-md text-label-md hover:underline">View Logic</button>
+</div>
+</div>
+<!-- Evidence Card 2 -->
+<div class="p-4 border border-outline-variant rounded-lg bg-surface-container-lowest">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-primary text-on-primary font-label-sm text-label-sm px-2 py-0.5 rounded uppercase rule-badge-shadow">HL7-FHIR-R4</span>
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<p class="font-body-md font-semibold">Schema Conformance</p>
+<p class="text-body-md text-on-surface-variant mt-1">Enforces strict R4 resource integrity for MedicationRequest entities.</p>
+<div class="mt-3 flex items-center justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">history</span> Last: 800ms ago
+                            </span>
+<button class="text-on-tertiary-container font-label-md text-label-md hover:underline">View Logic</button>
+</div>
+</div>
+<!-- Evidence Card 3 -->
+<div class="p-4 border border-outline-variant rounded-lg bg-surface-container-lowest opacity-75">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-primary text-on-primary font-label-sm text-label-sm px-2 py-0.5 rounded uppercase rule-badge-shadow">NLP-OCR-CONF</span>
+<span class="material-symbols-outlined text-on-tertiary-container animate-pulse-soft">hourglass_empty</span>
+</div>
+<p class="font-body-md font-semibold">Clinical Text Extraction</p>
+<p class="text-body-md text-on-surface-variant mt-1">AI-driven extraction of CPT codes from unstructured fax images.</p>
+<div class="mt-3 flex items-center justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">history</span> Pending Validation
+                            </span>
+<button class="text-on-tertiary-container font-label-md text-label-md hover:underline">View Model</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Real-Time Monitor Table -->
+<div class="col-span-12 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<div class="p-6 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<div>
+<h3 class="font-headline-md text-headline-md">Inbound Clinical Monitor</h3>
+<p class="text-body-md text-on-surface-variant">Live stream of transactional evidence and routing status.</p>
+</div>
+<div class="flex gap-2">
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+<tr>
+<th class="px-6 py-4 border-b border-outline-variant">Transaction ID</th>
+<th class="px-6 py-4 border-b border-outline-variant">Source Channel</th>
+<th class="px-6 py-4 border-b border-outline-variant">Entity</th>
+<th class="px-6 py-4 border-b border-outline-variant">Status</th>
+<th class="px-6 py-4 border-b border-outline-variant">Evidence Strength</th>
+<th class="px-6 py-4 border-b border-outline-variant">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<span class="font-label-md text-label-md text-primary">TXN-4921-X90</span>
+<div class="text-xs text-on-surface-variant">14:22:01.442</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-tertiary-container text-lg">api</span>
+<span class="font-body-md">FHIR Endpoint B</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="font-body-md">Northwest Clinical Center</div>
+<div class="text-xs text-on-surface-variant">Provider ID: 99210-A</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Normalized
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-24 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[98%]"></div>
+</div>
+<span class="font-label-sm text-label-sm">98%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-container rounded-lg">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<span class="font-label-md text-label-md text-primary">TXN-4921-P12</span>
+<div class="text-xs text-on-surface-variant">14:21:55.120</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-lg">language</span>
+<span class="font-body-md">Direct Portal</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="font-body-md">Summit Health Partners</div>
+<div class="text-xs text-on-surface-variant">Provider ID: 88412-C</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Normalized
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-24 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[94%]"></div>
+</div>
+<span class="font-label-sm text-label-sm">94%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-container rounded-lg">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<span class="font-label-md text-label-md text-primary">TXN-4921-F04</span>
+<div class="text-xs text-on-surface-variant">14:21:44.001</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-lg">description</span>
+<span class="font-body-md">Fax Gateway 04</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="font-body-md">Mercy Childrens Hospital</div>
+<div class="text-xs text-on-surface-variant">Provider ID: 10221-X</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm animate-pulse">
+<span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span> Processing NLP
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-24 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-on-tertiary-container w-[42%] transition-all duration-1000"></div>
+</div>
+<span class="font-label-sm text-label-sm">42%</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-container rounded-lg">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- System Intelligence Footer (Pinned) -->
+<footer class="mt-auto border-t border-outline-variant bg-surface-container-low px-margin-desktop py-4 flex items-center justify-between">
+<div class="flex gap-8">
+<div class="flex items-center gap-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Engine Latency</span>
+<span class="font-label-md text-label-md text-secondary">4ms avg</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Auto-Correction</span>
+<span class="font-label-md text-label-md text-secondary">Active</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Rule Coverage</span>
+<span class="font-label-md text-label-md text-primary">100% HIPAA Compliance</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Last Rule Sync: 3 minutes ago</span>
+<button class="text-on-tertiary-container font-label-md text-label-md flex items-center gap-1 hover:brightness-90">
+<span class="material-symbols-outlined text-sm">refresh</span>
+                Force Re-Sync
+            </button>
+</div>
+</footer>
+</main>
+<!-- Micro-interaction Script for Real-time feel -->
+<script>
+    // Simple mock for "live" data changes
+    setInterval(() => {
+        const bars = document.querySelectorAll('.data-grid-pattern .absolute');
+        bars.forEach(bar => {
+            const currentHeight = parseInt(bar.style.height || '80');
+            const delta = Math.floor(Math.random() * 5) - 2;
+            const newHeight = Math.min(Math.max(currentHeight + delta, 60), 98);
+            bar.style.height = newHeight + '%';
+        });
+    }, 3000);
+</script>
+</body></html>
