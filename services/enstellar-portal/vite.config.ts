@@ -13,6 +13,7 @@ export default defineConfig({
       '@sim/design-system': path.resolve(__dirname, '../../packages/design-system/src/index.ts'),
       // reviewer-workspace
       '@sim/reviewer-workspace/pages/AiWorkbenchPage': web('reviewer-workspace', 'pages/AiWorkbenchPage.tsx'),
+      '@sim/reviewer-workspace/pages/CaseSelectorPage': web('reviewer-workspace', 'pages/CaseSelectorPage.tsx'),
       // digicore-console
       '@sim/digicore-console/pages/PolicyListPage':      web('digicore-console', 'pages/PolicyListPage.tsx'),
       '@sim/digicore-console/pages/PolicyDetailPage':    web('digicore-console', 'pages/PolicyDetailPage.tsx'),

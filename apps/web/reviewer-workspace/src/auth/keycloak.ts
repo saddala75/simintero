@@ -16,6 +16,10 @@ export const keycloak = new Keycloak({
 })
 
 export function currentBearer(): string | null {
+  if (typeof window !== 'undefined' && (window as any).__SIM_BEARER__) {
+    return (window as any).__SIM_BEARER__
+  }
+  if (keycloak.token) return keycloak.token
   if (IS_MOCK) return MOCK_BEARER
-  return keycloak.token ?? null
+  return null
 }

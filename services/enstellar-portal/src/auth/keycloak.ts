@@ -26,6 +26,13 @@ export const keycloak = new Keycloak({
 
 /** Live bearer for apiFetch: the KC token, or the fixed mock bearer in mock mode. */
 export function currentBearer(): string | null {
-  if (IS_MOCK) return MOCK_BEARER
-  return keycloak.token ?? null
+  if (IS_MOCK) {
+    if (typeof window !== 'undefined') (window as any).__SIM_BEARER__ = MOCK_BEARER
+    return MOCK_BEARER
+  }
+  const token = keycloak.token ?? null
+  if (typeof window !== 'undefined' && token) {
+    ;(window as any).__SIM_BEARER__ = token
+  }
+  return token
 }
