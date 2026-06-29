@@ -145,7 +145,7 @@ export default function App() {
               <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Subscription Plan Tier</label>
               <select
                 value={newPlan}
-                onChange={(e) => setNewPlan(e.target.value as any)}
+                onChange={(e) => setNewPlan(e.target.value as typeof newPlan)}
                 className="w-full px-4 py-2 border border-slate-300 rounded-md text-sm bg-white"
               >
                 <option value="enterprise">Enterprise Plan (Unlimited)</option>
@@ -201,7 +201,7 @@ export default function App() {
                 />
                 <select
                   value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value as any)}
+                  onChange={(e) => setNewUserRole(e.target.value as typeof newUserRole)}
                   className="px-3 py-2 border border-slate-300 rounded text-xs bg-white font-semibold"
                 >
                   <option value="reviewer">Reviewer</option>
