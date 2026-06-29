@@ -1,4 +1,5 @@
 packages:
+  - "packages/*"
   - "platform/libs/*"
   - "platform/libs/*/*"
   - "platform/services/*"

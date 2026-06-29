@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@sim/design-system": "workspace:*",
     "@tanstack/react-query": "^5.101.0",
     "keycloak-js": "^26.2.4",
     "react": "^19.2.6",

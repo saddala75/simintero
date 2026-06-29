@@ -1,0 +1,60 @@
+/* packages/design-system/src/tokens.css
+   Canonical Design System Tokens for Simintero Healthcare Payer Platform
+   Source of Truth: simintero_payer_platform_design/DESIGN.md
+*/
+
+:root {
+  /* Color Palette — Primary Brand & Product Colors */
+  --sim-deep-navy:         #000000;
+  --sim-compliance-green:  #006C49;
+  --sim-intelligence-blue: #3980F4;
+
+  /* Color Palette — Neutral Surfaces & Hierarchy */
+  --sim-surface:           #F7F9FB;
+  --sim-surface-low:       #F2F4F6;
+  --sim-surface-mid:       #ECEEF0;
+  --sim-surface-high:      #E6E8EA;
+  --sim-surface-highest:   #E0E3E5;
+  --sim-surface-card:      #FFFFFF;
+
+  /* Color Palette — Semantic Feedback */
+  --sim-error:             #BA1A1A;
+  --sim-warning:           #B5780E;
+  --sim-success:           #006C49;
+  --sim-info:              #3980F4;
+
+  /* Legacy CSS Variable Compatibility Aliases */
+  --pine:                  var(--sim-compliance-green);
+  --pine-deep:             #093A33;
+  --teal:                  #1C9C86;
+  --aqua:                  #74DBC8;
+  --amber:                 var(--sim-warning);
+  --red:                   var(--sim-error);
+  --ok:                    #0F7A5A;
+  --bg:                    var(--sim-surface);
+  --panel:                 var(--sim-surface-card);
+  --ink:                   #14141A;
+  --ink-mut:               #5A5A66;
+
+  /* Typography System */
+  --font-primary:          'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono:             'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Border Radius Tokens */
+  --radius-sm:             2px;
+  --radius-md:             4px;
+  --radius-card:           8px;
+  --radius-full:           9999px;
+
+  /* Spacing Scale (4px Base Unit) */
+  --space-1:               4px;
+  --space-2:               8px;
+  --space-3:               12px;
+  --space-4:               16px;
+  --space-6:               24px;
+  --space-8:               32px;
+
+  /* Elevation & Shadows */
+  --shadow-card:           0px 4px 12px rgba(15, 23, 42, 0.05);
+  --shadow-dropdown:       0px 8px 24px rgba(15, 23, 42, 0.12);
+}
