@@ -152,3 +152,59 @@ class CrdCard(BaseModel):
     indicator: str
     detail: str | None = None
     links: list[CrdCardLink] | None = None
+
+
+# ── Revital AI Workbench ─────────────────────────────────────────────────────
+
+class CitationSpan(BaseModel):
+    id: str
+    page: int
+    text: str
+    bbox: str
+
+
+class ClinicalEntity(BaseModel):
+    id: str
+    type: Literal["condition", "procedure", "observation"]
+    name: str
+    code: str
+    system: str
+    confidence: float
+    provenance: str
+    status: Literal["accepted", "disputed", "pending"]
+    citationId: str | None = None
+
+
+class GroundednessMetric(BaseModel):
+    score: float
+    citationsCount: int
+    gapsCount: int
+    conflictsCount: int
+
+
+class CompletenessItem(BaseModel):
+    criteria: str
+    satisfied: bool
+    note: str
+
+
+class WorkbenchCaseDetail(BaseModel):
+    caseId: str
+    memberName: str
+    memberDob: str
+    serviceRequested: str
+    documentUrl: str | None
+    entities: list[ClinicalEntity]
+    citations: list[CitationSpan]
+    groundedness: GroundednessMetric
+    summary: str
+    completeness: list[CompletenessItem]
+
+
+class EntityStatusUpdate(BaseModel):
+    status: Literal["accepted", "disputed", "pending"]
+
+
+class DeterminationRequest(BaseModel):
+    decision: Literal["accept", "adverse"]
+

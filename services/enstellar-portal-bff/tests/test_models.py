@@ -52,3 +52,17 @@ def test_case_detail_parse() -> None:
     case = CaseDetail(**raw)
     assert str(case.case_id) == "00000000-0000-0000-0000-000000000001"
     assert case.tenant_id == "tenant-abc"
+
+
+def test_workbench_models_importable() -> None:
+    from enstellar_bff.models import (
+        CitationSpan,
+        ClinicalEntity,
+        GroundednessMetric,
+        CompletenessItem,
+        WorkbenchCaseDetail,
+        EntityStatusUpdate,
+        DeterminationRequest,
+    )
+    assert WorkbenchCaseDetail.model_fields
+
