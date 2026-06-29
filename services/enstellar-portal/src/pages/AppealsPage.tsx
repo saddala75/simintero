@@ -5,51 +5,8 @@ import { getAssignedAppeals, getOpenAppeals } from '../api/client'
 import { AppShell } from '../components/AppShell'
 import { AppealFilingModal } from '../components/AppealFilingModal'
 import { useAuth, hasRole } from '../auth/AuthContext'
-import type { AppealItem, AppealStatus } from '../types'
-
-const STATUS_COLOR: Record<AppealStatus, string> = {
-  filed: 'var(--amber)',
-  assigned: 'var(--teal)',
-  under_review: 'var(--teal)',
-  decided: 'var(--pine)',
-}
-
-function AppealRow({
-  item,
-  navigate,
-}: {
-  item: AppealItem
-  navigate: (path: string) => void
-}) {
-  const href = `/cases/${item.case_id}/appeals/${item.appeal_id}`
-  return (
-    <tr
-      data-testid={`appeal-row-${item.appeal_id}`}
-      onClick={() => navigate(href)}
-      tabIndex={0}
-      onKeyDown={e => { if (e.key === 'Enter') navigate(href) }}
-    >
-      <td>{item.member_name}</td>
-      <td>
-        <span className="en-cid">{item.case_id.slice(0, 8).toUpperCase()}</span>
-      </td>
-      <td>
-        <span className="en-stbadge info">{item.category.replace(/_/g, ' ')}</span>
-      </td>
-      <td>{item.requested_outcome.replace(/_/g, ' ')}</td>
-      <td>
-        <span
-          className="en-stbadge"
-          style={{ backgroundColor: STATUS_COLOR[item.status], color: '#fff' }}
-        >
-          {item.status.replace(/_/g, ' ')}
-        </span>
-      </td>
-      <td>{item.days_open}d</td>
-      <td className="en-go">→</td>
-    </tr>
-  )
-}
+import type { AppealItem } from '../types'
+import { DataTable, Badge, Button, Card, type Column } from '@sim/design-system'
 
 export function AppealsPage() {
   const auth = useAuth()
@@ -58,11 +15,11 @@ export function AppealsPage() {
   const activeTab = searchParams.get('tab') ?? 'assigned'
   const [filingOpen, setFilingOpen] = useState(false)
 
-  const { data: assigned = [], isLoading } = useQuery({
+  const { data: assigned = [], isLoading: loadingAssigned, refetch: refetchAssigned } = useQuery({
     queryKey: ['appeals', 'assigned'],
     queryFn: getAssignedAppeals,
   })
-  const { data: open = [] } = useQuery({
+  const { data: open = [], isLoading: loadingOpen, refetch: refetchOpen } = useQuery({
     queryKey: ['appeals', 'open'],
     queryFn: getOpenAppeals,
   })
@@ -70,88 +27,120 @@ export function AppealsPage() {
   if (!hasRole(auth, 'appeals_coordinator')) {
     return (
       <AppShell breadcrumb={<b>Appeals</b>}>
-        <div className="en-wrap">
-          <p style={{ color: 'var(--ink-mut)', padding: '32px 0' }}>
+        <div className="max-w-[1320px] mx-auto px-6 py-12">
+          <Card className="p-8 text-center text-slate-500">
             You do not have the appeals_coordinator role.
-          </p>
+          </Card>
         </div>
       </AppShell>
     )
   }
 
+  const isLoading = activeTab === 'assigned' ? loadingAssigned : loadingOpen
   const items = activeTab === 'assigned' ? assigned : open
+
+  const columns: Column<AppealItem>[] = [
+    {
+      key: 'member_name',
+      header: 'Member',
+      render: (row: AppealItem) => <span className="font-semibold text-slate-900">{row.member_name}</span>,
+    },
+    {
+      key: 'case_id',
+      header: 'Case ID',
+      render: (row: AppealItem) => (
+        <span className="font-mono text-xs font-bold text-slate-700">
+          {row.case_id.slice(0, 8).toUpperCase()}
+        </span>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (row: AppealItem) => <Badge variant="rule" label={row.category.replace(/_/g, ' ').toUpperCase()} />,
+    },
+    {
+      key: 'requested_outcome',
+      header: 'Requested Outcome',
+      render: (row: AppealItem) => (
+        <span className="capitalize text-slate-700 font-medium">
+          {row.requested_outcome.replace(/_/g, ' ')}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row: AppealItem) => {
+        const mapped: 'approved' | 'pending' | 'in_review' = row.status === 'filed' ? 'pending' : row.status === 'decided' ? 'approved' : 'in_review'
+        return <Badge variant="status" status={mapped} label={row.status.replace(/_/g, ' ')} />
+      },
+    },
+    {
+      key: 'days_open',
+      header: 'Days Open',
+      render: (row: AppealItem) => <span className="font-mono text-xs font-bold text-slate-600">{row.days_open}d</span>,
+    },
+    {
+      key: 'action',
+      header: '',
+      render: () => <span className="text-slate-400 font-bold">→</span>,
+    },
+  ]
 
   return (
     <AppShell breadcrumb={<b>Appeals</b>}>
-      <div className="en-wrap">
-        <div className="en-page-h">
+      <div className="max-w-[1320px] mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1>Appeals</h1>
-            <div className="sub">Appeal review · coordinator worklist</div>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Appeals & Grievances</h1>
+            <p className="text-sm text-slate-500 mt-1">Appeal review · coordinator worklist</p>
           </div>
+          <Button variant="primary" onClick={() => setFilingOpen(true)} data-testid="btn-file-appeal-worklist">
+            File Appeal
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-lg w-fit mb-6">
           <button
-            className="en-act primary"
-            onClick={() => setFilingOpen(true)}
-            data-testid="btn-file-appeal-worklist"
+            onClick={() => setSearchParams({ tab: 'assigned' })}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              activeTab === 'assigned' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
-            File appeal
+            Assigned to Me ({assigned.length})
+          </button>
+          <button
+            onClick={() => setSearchParams({ tab: 'open' })}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              activeTab === 'open' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Open ({open.length})
           </button>
         </div>
 
-        <div className="en-queue">
-          <div className="en-queue-h">
-            {[
-              { id: 'assigned', label: 'Assigned to me', count: assigned.length },
-              { id: 'open', label: 'All open', count: open.length },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                className={`en-tab${activeTab === tab.id ? ' active' : ''}`}
-                onClick={() => setSearchParams({ tab: tab.id })}
-              >
-                {tab.label} <span className="c">{tab.count}</span>
-              </button>
-            ))}
-          </div>
-
-          {isLoading && (
-            <div style={{ padding: '32px 16px', color: 'var(--ink-mut)', fontSize: 13 }}>
-              Loading appeals…
-            </div>
-          )}
-          {!isLoading && items.length === 0 && (
-            <div style={{ padding: '32px 16px', color: 'var(--ink-mut)', fontSize: 13 }}>
-              No appeals in this view.
-            </div>
-          )}
-          {!isLoading && items.length > 0 && (
-            <table>
-              <thead>
-                <tr>
-                  <th>Member</th>
-                  <th>Case</th>
-                  <th>Category</th>
-                  <th>Requested outcome</th>
-                  <th>Status</th>
-                  <th>Age</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map(item => (
-                  <AppealRow key={item.appeal_id} item={item} navigate={navigate} />
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {isLoading ? (
+          <div className="p-8 text-center text-slate-500 text-sm">Loading appeals…</div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={items}
+            keyExtractor={(row: AppealItem) => row.appeal_id}
+            onRowClick={(row: AppealItem) => navigate(`/cases/${row.case_id}/appeals/${row.appeal_id}`)}
+          />
+        )}
 
         {filingOpen && (
           <AppealFilingModal
             onClose={() => setFilingOpen(false)}
             onFiled={(cid, aid) => {
               setFilingOpen(false)
-              navigate(`/cases/${cid}/appeals/${aid}`)
+              refetchAssigned()
+              refetchOpen()
+              if (cid && aid) {
+                navigate(`/cases/${cid}/appeals/${aid}`)
+              }
             }}
           />
         )}

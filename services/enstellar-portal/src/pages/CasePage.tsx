@@ -10,6 +10,7 @@ import { DecisionForm } from '../components/DecisionForm'
 import { MdAdverseForm, type MdFormReadiness } from '../components/MdAdverseForm'
 import { AppealFilingModal } from '../components/AppealFilingModal'
 import { GrievanceFilingModal } from '../components/GrievanceFilingModal'
+import { EvidenceCard } from '@sim/design-system'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -810,50 +811,14 @@ function AiColumn({ caseId }: { caseId: string }) {
             {sugItems.map((s: SuggestionItem) => {
               const isDone = s.status !== 'pending' || pendingAction?.sid === s.id
               return (
-                <div key={s.id} className={`en-sg${isDone ? ' done' : ''}`}>
-                  <span className="sgi">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path
-                        d="M8 2L14 13H2L8 2z"
-                        stroke="var(--amber)"
-                        strokeWidth="1.4"
-                        strokeLinejoin="round"
-                      />
-                      <line
-                        x1="8"
-                        y1="7"
-                        x2="8"
-                        y2="9.5"
-                        stroke="var(--amber)"
-                        strokeWidth="1.4"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="8" cy="11.5" r=".7" fill="var(--amber)" />
-                    </svg>
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="sgt">{s.title}</div>
-                    <div className="sgm">{s.body}</div>
-                    <div className="conf">
-                      Confidence {(s.confidence * 100).toFixed(0)}%
-                      {s.citations.length > 0 ? ` · ${s.citations.join(', ')}` : ''}
-                    </div>
-                    <div className="en-sg-acts">
-                      <button
-                        className="go"
-                        disabled={isDone}
-                        onClick={() => recordAction({ sid: s.id, action: 'accepted' })}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        disabled={isDone}
-                        onClick={() => recordAction({ sid: s.id, action: 'rejected' })}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
+                <div key={s.id} className={`my-2 ${isDone ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <EvidenceCard
+                    title={s.title}
+                    confidence={s.confidence}
+                    citationCount={s.citations.length}
+                    onAccept={isDone ? undefined : () => recordAction({ sid: s.id, action: 'accepted' })}
+                    onReject={isDone ? undefined : () => recordAction({ sid: s.id, action: 'rejected' })}
+                  />
                 </div>
               )
             })}

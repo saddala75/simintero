@@ -9,13 +9,18 @@ import { AppealsPage } from './pages/AppealsPage'
 import { AppealDetailPage } from './pages/AppealDetailPage'
 import { GrievancesPage } from './pages/GrievancesPage'
 import { GrievanceDetailPage } from './pages/GrievanceDetailPage'
+import { RegulatoryClocksPage } from './pages/RegulatoryClocksPage'
+import { IntakeChannelsPage } from './pages/IntakeChannelsPage'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/worklist" element={<ProtectedRoute><WorklistPage /></ProtectedRoute>} />
       <Route path="/queues/:queueId/worklist" element={<ProtectedRoute><WorklistPage /></ProtectedRoute>} />
       <Route path="/cases/:caseId" element={<ProtectedRoute><CasePage /></ProtectedRoute>} />
+      <Route path="/regulatory-clocks" element={<ProtectedRoute><RegulatoryClocksPage /></ProtectedRoute>} />
+      <Route path="/intake" element={<ProtectedRoute><IntakeChannelsPage /></ProtectedRoute>} />
       <Route path="/ehr-sim" element={<EhrOrderSimPage />} />
       <Route path="/dtr" element={<DtrFormPage />} />
       <Route path="/appeals" element={<ProtectedRoute><AppealsPage /></ProtectedRoute>} />
