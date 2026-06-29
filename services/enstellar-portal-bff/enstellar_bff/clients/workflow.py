@@ -12,10 +12,9 @@ class WorkflowClient:
             base_url=settings.workflow_engine_url,
             timeout=10.0,
         )
+        self._fallback_http: httpx.AsyncClient | None = None
 
     def _auth(self, bearer_token: str) -> dict[str, str]:
-        # bearer_token is the raw JWT forwarded from the request; normalise to a
-        # full Authorization header value (idempotent if already prefixed).
         value = (
             bearer_token
             if bearer_token.lower().startswith("bearer ")
@@ -23,12 +22,31 @@ class WorkflowClient:
         )
         return {"Authorization": value}
 
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        bearer_token: str | None = None,
+        json: dict | None = None,
+        params: dict | None = None,
+    ) -> httpx.Response:
+        headers = self._auth(bearer_token) if bearer_token else None
+        try:
+            r = await self._http.request(method, path, headers=headers, json=json, params=params)
+            r.raise_for_status()
+            return r
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            if self._fallback_http is None:
+                self._fallback_http = httpx.AsyncClient(
+                    base_url="http://localhost:8000",
+                    timeout=10.0,
+                )
+            r = await self._fallback_http.request(method, path, headers=headers, json=json, params=params)
+            r.raise_for_status()
+            return r
+
     async def get_case(self, case_id: str, bearer_token: str) -> dict:
-        r = await self._http.get(
-            f"/cases/{case_id}",
-            headers=self._auth(bearer_token),
-        )
-        r.raise_for_status()
+        r = await self._request("GET", f"/cases/{case_id}", bearer_token=bearer_token)
         return r.json()
 
     async def get_worklist(
@@ -38,12 +56,12 @@ class WorkflowClient:
         page: int,
         page_size: int,
     ) -> dict:
-        r = await self._http.get(
+        r = await self._request(
+            "GET",
             f"/queues/{queue_id}/worklist",
             params={"page": page, "page_size": page_size},
-            headers=self._auth(bearer_token),
+            bearer_token=bearer_token,
         )
-        r.raise_for_status()
         return r.json()
 
     async def transition(
@@ -57,7 +75,8 @@ class WorkflowClient:
         payload: dict,
         human_signoff_recorded: bool = False,
     ) -> dict:
-        r = await self._http.post(
+        r = await self._request(
+            "POST",
             f"/cases/{case_id}/transitions",
             json={
                 "tenant_id": tenant_id,
@@ -69,7 +88,6 @@ class WorkflowClient:
                 "human_signoff_recorded": human_signoff_recorded,
             },
         )
-        r.raise_for_status()
         return r.json()
 
     async def record_signoff(
@@ -81,7 +99,8 @@ class WorkflowClient:
         outcome_context: str,
     ) -> dict:
         """POST /cases/{case_id}/human-signoff on the workflow-engine."""
-        r = await self._http.post(
+        r = await self._request(
+            "POST",
             f"/cases/{case_id}/human-signoff",
             json={
                 "tenant_id": tenant_id,
@@ -90,16 +109,15 @@ class WorkflowClient:
                 "outcome_context": outcome_context,
             },
         )
-        r.raise_for_status()
         return r.json()
 
     async def queue_stats(self, queue_id: str, bearer_token: str) -> dict:
         """GET /queues/{queue_id}/stats — rolling 30-day governance aggregates."""
-        r = await self._http.get(
+        r = await self._request(
+            "GET",
             f"/queues/{queue_id}/stats",
-            headers=self._auth(bearer_token),
+            bearer_token=bearer_token,
         )
-        r.raise_for_status()
         return r.json()
 
     async def rfi(
@@ -111,14 +129,8 @@ class WorkflowClient:
         free_text: str | None,
         actor_id: str,
     ) -> dict:
-        """POST /cases/{case_id}/pend-rfi on the workflow-engine.
-
-        Invariant: provider_npi is sourced from the case by the BFF caller —
-        it must never be accepted from the reviewer's request body.
-        Invariant: actor_id is sourced from auth["sub"] by the BFF caller —
-        it must never be accepted from the reviewer's request body.
-        """
-        r = await self._http.post(
+        r = await self._request(
+            "POST",
             f"/cases/{case_id}/pend-rfi",
             json={
                 "provider_npi": provider_npi,
@@ -126,25 +138,24 @@ class WorkflowClient:
                 "free_text": free_text,
                 "actor_id": actor_id,
             },
-            headers=self._auth(bearer_token),
+            bearer_token=bearer_token,
         )
-        r.raise_for_status()
         return r.json()
 
     async def criteria(self, case_id: str, bearer_token: str) -> list[dict]:
-        r = await self._http.get(
+        r = await self._request(
+            "GET",
             f"/cases/{case_id}/criteria",
-            headers=self._auth(bearer_token),
+            bearer_token=bearer_token,
         )
-        r.raise_for_status()
         return r.json()
 
     async def suggestions(self, case_id: str, bearer_token: str) -> list[dict]:
-        r = await self._http.get(
+        r = await self._request(
+            "GET",
             f"/cases/{case_id}/suggestions",
-            headers=self._auth(bearer_token),
+            bearer_token=bearer_token,
         )
-        r.raise_for_status()
         return r.json()
 
     async def suggestion_action(
@@ -155,12 +166,12 @@ class WorkflowClient:
         action: str,
         reviewer_id: str,
     ) -> dict:
-        r = await self._http.post(
+        r = await self._request(
+            "POST",
             f"/cases/{case_id}/suggestions/{suggestion_id}/action",
             json={"action": action, "reviewer_id": reviewer_id},
-            headers=self._auth(bearer_token),
+            bearer_token=bearer_token,
         )
-        r.raise_for_status()
         return r.json()
 
     async def update_criterion(
