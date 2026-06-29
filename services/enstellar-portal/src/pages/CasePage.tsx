@@ -1782,6 +1782,19 @@ export function CasePage() {
             )}
 
             <div className="en-actions">
+              <a
+                href={`http://localhost:3055/ai-workbench/${caseId}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="en-act"
+                style={{
+                  textDecoration: 'none',
+                  color: '#3980f4',
+                  borderColor: '#3980f4',
+                }}
+              >
+                ✦ View in Revital
+              </a>
               {/* Timeline icon */}
               <button
                 className="en-iconbtn"
