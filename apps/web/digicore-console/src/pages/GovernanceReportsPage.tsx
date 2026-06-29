@@ -7,7 +7,15 @@ export function GovernanceReportsPage() {
   const [exportMessage, setExportMessage] = useState<string | null>(null)
 
   const handleExport = (format: 'CSV' | 'PDF') => {
-    setExportMessage(`Generated and exported Governance Compliance Report as ${format}!`)
+    const content = `Digicore Governance Compliance Report (${format})\nGenerated: ${new Date().toISOString()}\nActive Coverage Rules: 48\nRegulatory SLA Compliance: 99.4%`
+    const blob = new Blob([content], { type: format === 'CSV' ? 'text/csv' : 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `governance-report-${new Date().toISOString().slice(0, 10)}.${format.toLowerCase()}`
+    a.click()
+    URL.revokeObjectURL(url)
+    setExportMessage(`Generated and downloaded Governance Compliance Report as ${format}!`)
   }
 
   return (

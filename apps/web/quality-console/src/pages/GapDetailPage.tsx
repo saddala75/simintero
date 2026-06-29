@@ -54,7 +54,7 @@ export function GapDetailPage() {
       },
     },
     {
-      key: 'action',
+      key: 'memberId',
       header: 'Actions',
       render: (row) => (
         <Button

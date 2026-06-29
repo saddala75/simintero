@@ -1,4 +1,5 @@
 // packages/design-system/src/components/Card.tsx
+import React from 'react'
 import { colors, radius, shadows } from '../tokens'
 import { Button } from './Button'
 

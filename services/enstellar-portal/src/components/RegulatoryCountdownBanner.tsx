@@ -13,11 +13,23 @@ export function RegulatoryCountdownBanner({
   shortestSlaHours: propShortest,
   className = '',
 }: RegulatoryCountdownBannerProps) {
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['worklist', 'default', 1],
     queryFn: () => getWorklist('default', 1),
     staleTime: 15_000,
   })
+
+  if (isLoading && propUrgent === undefined && propShortest === undefined) {
+    return (
+      <div className={`bg-slate-900 text-white px-4 py-2.5 text-xs flex items-center justify-between border-b border-slate-800 animate-pulse ${className}`}>
+        <div className="flex items-center gap-3">
+          <div className="h-3 w-40 bg-slate-800 rounded" />
+          <div className="h-3 w-64 bg-slate-800 rounded" />
+        </div>
+        <div className="h-4 w-32 bg-slate-800 rounded" />
+      </div>
+    )
+  }
 
   const items = data?.items ?? []
   const activeSlas = items

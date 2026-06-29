@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getTenants, toggleTenantStatus, provisionTenant, getUsers, inviteUser, type Tenant, type PlatformUser } from './api/client'
+import { getTenants, toggleTenantStatus, provisionTenant, getUsers, inviteUser, getGlobalUsage, type Tenant, type PlatformUser } from './api/client'
 import { Card, Badge, Button, DataTable, type Column } from '@sim/design-system'
 
 export default function App() {
@@ -16,6 +16,7 @@ export default function App() {
   const [newUserName, setNewUserName] = useState('')
   const [newUserEmail, setNewUserEmail] = useState('')
   const [newUserRole, setNewUserRole] = useState<'medical_director' | 'reviewer' | 'intake_coordinator' | 'investigator'>('reviewer')
+  const [selectedInviteTenant, setSelectedInviteTenant] = useState<string>('ten-001')
 
   const { data: tenants = [], isLoading: loadingTenants } = useQuery({
     queryKey: ['tenants'],
@@ -25,6 +26,11 @@ export default function App() {
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['users'],
     queryFn: () => getUsers(),
+  })
+
+  const { data: usage, isLoading: loadingUsage } = useQuery({
+    queryKey: ['global-usage'],
+    queryFn: getGlobalUsage,
   })
 
   const statusMut = useMutation({
@@ -46,9 +52,9 @@ export default function App() {
   })
 
   const inviteMut = useMutation({
-    mutationFn: () => inviteUser({ name: newUserName, email: newUserEmail, role: newUserRole, tenantId: 'ten-001' }),
+    mutationFn: () => inviteUser({ name: newUserName, email: newUserEmail, role: newUserRole, tenantId: selectedInviteTenant }),
     onSuccess: () => {
-      setActionMsg(`User "${newUserName}" (${newUserEmail}) successfully invited with role ${newUserRole.toUpperCase()}! Keycloak credential email sent.`)
+      setActionMsg(`User "${newUserName}" (${newUserEmail}) successfully invited to tenant ${selectedInviteTenant} with role ${newUserRole.toUpperCase()}! Keycloak credential email sent.`)
       setNewUserName('')
       setNewUserEmail('')
       queryClient.invalidateQueries({ queryKey: ['users'] })
@@ -164,19 +170,25 @@ export default function App() {
         )}
 
         {activeTab === 'usage' && (
-          <div className="grid grid-cols-3 gap-6">
-            <Card className="p-6">
-              <div className="text-3xl font-black text-slate-900">89,300</div>
-              <div className="text-xs text-slate-500 mt-1">Total System Cases / Month</div>
-            </Card>
-            <Card className="p-6">
-              <div className="text-3xl font-black text-blue-600">86.4%</div>
-              <div className="text-xs text-slate-500 mt-1">Average AI Assist Rate</div>
-            </Card>
-            <Card className="p-6">
-              <div className="text-3xl font-black text-emerald-600">99.98%</div>
-              <div className="text-xs text-slate-500 mt-1">Global SLA Compliance</div>
-            </Card>
+          <div>
+            {loadingUsage || !usage ? (
+              <div className="p-8 text-center text-slate-500">Loading global usage metrics telemetry…</div>
+            ) : (
+              <div className="grid grid-cols-3 gap-6">
+                <Card className="p-6">
+                  <div className="text-3xl font-black text-slate-900">{usage.totalCasesPerMonth.toLocaleString()}</div>
+                  <div className="text-xs text-slate-500 mt-1">Total System Cases / Month</div>
+                </Card>
+                <Card className="p-6">
+                  <div className="text-3xl font-black text-blue-600">{usage.avgAiAssistRate}%</div>
+                  <div className="text-xs text-slate-500 mt-1">Average AI Assist Rate</div>
+                </Card>
+                <Card className="p-6">
+                  <div className="text-3xl font-black text-emerald-600">{usage.globalSlaCompliancePct}%</div>
+                  <div className="text-xs text-slate-500 mt-1">Global SLA Compliance</div>
+                </Card>
+              </div>
+            )}
           </div>
         )}
 
@@ -184,7 +196,7 @@ export default function App() {
           <div className="space-y-6">
             <Card className="p-6 space-y-4">
               <h3 className="font-bold text-base text-slate-900">Invite New Platform User (Keycloak IAM)</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <input
                   type="text"
                   placeholder="Full Name"
@@ -199,6 +211,15 @@ export default function App() {
                   onChange={(e) => setNewUserEmail(e.target.value)}
                   className="px-3 py-2 border border-slate-300 rounded text-xs"
                 />
+                <select
+                  value={selectedInviteTenant}
+                  onChange={(e) => setSelectedInviteTenant(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 rounded text-xs bg-white font-semibold"
+                >
+                  {tenants.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.id})</option>
+                  ))}
+                </select>
                 <select
                   value={newUserRole}
                   onChange={(e) => setNewUserRole(e.target.value as typeof newUserRole)}

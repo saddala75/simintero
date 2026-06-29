@@ -14,10 +14,24 @@ export function AiWorkbenchPage() {
 
   const [selectedCitationId, setSelectedCitationId] = useState<string>('span-1')
   const [determinationResult, setDeterminationResult] = useState<string | null>(null)
+  const [entityError, setEntityError] = useState<string | null>(null)
 
   const { data: workbenchCase, isLoading } = useQuery({
     queryKey: ['workbench-case', caseId],
     queryFn: () => getWorkbenchCase(caseId),
+  })
+
+  const entityStatusMut = useMutation({
+    mutationFn: ({ entityId, status }: { entityId: string; status: 'accepted' | 'disputed' }) =>
+      updateEntityStatus(caseId, entityId, status),
+    onSuccess: () => {
+      setEntityError(null)
+      queryClient.invalidateQueries({ queryKey: ['workbench-case', caseId] })
+    },
+    onError: (err) => {
+      setEntityError(`Failed to update clinical entity status: ${err instanceof Error ? err.message : 'Server error'}`)
+      queryClient.invalidateQueries({ queryKey: ['workbench-case', caseId] })
+    },
   })
 
   const determinationMut = useMutation({
@@ -79,6 +93,13 @@ export function AiWorkbenchPage() {
         </div>
       )}
 
+      {entityError && (
+        <div className="bg-red-600 text-white px-6 py-2.5 text-xs font-bold flex items-center justify-between z-20 border-b border-red-700 shadow-sm shrink-0">
+          <span>✕ {entityError}</span>
+          <button onClick={() => setEntityError(null)} className="hover:opacity-80">✕ Dismiss</button>
+        </div>
+      )}
+
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-hidden">
         <div className="lg:col-span-4 h-full overflow-hidden">
           <CitedDocumentPanel
@@ -94,7 +115,7 @@ export function AiWorkbenchPage() {
             entities={workbenchCase.entities}
             selectedCitationId={selectedCitationId}
             onSelectCitation={setSelectedCitationId}
-            onUpdateStatus={(entId, status) => updateEntityStatus(caseId, entId, status)}
+            onUpdateStatus={(entityId, status) => entityStatusMut.mutate({ entityId, status })}
           />
         </div>
         <div className="lg:col-span-4 h-full overflow-hidden">

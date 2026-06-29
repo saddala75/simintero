@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 import asyncpg
 from aiokafka import AIOKafkaConsumer
+from pydantic import ValidationError
 
 from canonical_model import EventEnvelope
 from ..config import get_settings
@@ -55,7 +56,16 @@ class IdempotentKafkaConsumer(ABC):
                 if not self._running:
                     break
                 try:
-                    event = EventEnvelope.model_validate(json.loads(msg.value))
+                    try:
+                        event = EventEnvelope.model_validate(json.loads(msg.value))
+                    except (json.JSONDecodeError, ValidationError) as parse_err:
+                        logger.error(
+                            "malformed_kafka_event topic=%s group=%s error=%s raw=%r",
+                            msg.topic, self._group_id, parse_err, msg.value[:200] if msg.value else None
+                        )
+                        await consumer.commit()
+                        continue
+
                     if await self._is_processed(event):
                         await consumer.commit()
                         continue

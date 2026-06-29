@@ -161,7 +161,7 @@ function TimelineDrawer({
                 : ''
             const nt = nodeType(evType)
             return (
-              <div key={i} className="en-tl-ev">
+              <div key={typeof ev.id === 'string' ? ev.id : typeof ev.event_id === 'string' ? ev.event_id : `ev-${i}`} className="en-tl-ev">
                 <span className={`en-tl-node${nt ? ` ${nt}` : ''}`} />
                 <div>
                   <div className="te">
@@ -764,9 +764,11 @@ function AiColumn({ caseId }: { caseId: string }) {
         </div>
         <div className="en-ai-card-b">
           <p className="en-ai-sum">
-            Patient meets 2 of 3 imaging criteria (InterQual 2025).
-            Documentation gap: ordering physician attestation missing (C-02).
-            Recommend requesting attestation before advancing to determination.
+            {suggestions.length > 0
+              ? suggestions[0].title
+              : caseDetail?.service_type
+              ? `Prior authorization evaluation for ${caseDetail.service_type}. Patient clinical criteria and medical documentation under active review.`
+              : 'Patient clinical documentation under review.'}
           </p>
 
           {/* Citation chips */}
@@ -778,7 +780,10 @@ function AiColumn({ caseId }: { caseId: string }) {
               marginTop: 10,
             }}
           >
-            {['Policy §4.2.1', 'InterQual 2025', 'Notes 2024-11'].map((c) => (
+            {(caseDetail?.service_type
+              ? [`Plan Policy §4.2`, `${caseDetail.service_type}`, `Clinical Records`]
+              : ['Plan Policy §4.2', 'Clinical Criteria', 'Medical Records']
+            ).map((c) => (
               <span
                 key={c}
                 style={{
@@ -975,8 +980,9 @@ function MdContextColumn({ caseData }: { caseData: CaseDetail }) {
               Escalated for MD determination
             </div>
             <div className="en">
-              Patient meets imaging criteria but lacks required physician
-              attestation (C-02). Escalated per plan policy §4.2.1.
+              {caseDetail?.service_type
+                ? `Case for ${caseDetail.service_type} escalated for Medical Director determination on medical necessity criteria per plan policy §4.2.`
+                : 'Case escalated for Medical Director determination per plan policy §4.2.'}
             </div>
           </div>
         </div>
@@ -1241,9 +1247,9 @@ function MdWorkColumn({
               Escalated by nurse reviewer
             </div>
             <div className="en">
-              Patient meets imaging criteria but lacks required physician
-              attestation (C-02). Escalated for MD determination on medical
-              necessity grounds per plan policy §4.2.1.
+              {caseDetail?.service_type
+                ? `Case for ${caseDetail.service_type} escalated for MD determination on medical necessity grounds per plan policy §4.2.`
+                : 'Escalated for MD determination on medical necessity grounds per plan policy §4.2.'}
             </div>
           </div>
 

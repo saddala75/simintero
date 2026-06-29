@@ -142,9 +142,12 @@ async def lifespan(app: FastAPI):
     rfi_task = asyncio.create_task(rfi_response_consumer.run(), name="rfi-response-consumer")
     logger.info("RfiResponseConsumer started")
 
-    qual_gap_consumer = QualGapClosedConsumer(pool=fabric_pool)
-    qual_gap_task = asyncio.create_task(qual_gap_consumer.run(), name="qual-gap-closed-consumer")
-    logger.info("QualGapClosedConsumer started")
+    qual_gap_consumer = None
+    qual_gap_task = None
+    if fabric_pool is not None:
+        qual_gap_consumer = QualGapClosedConsumer(pool=fabric_pool)
+        qual_gap_task = asyncio.create_task(qual_gap_consumer.run(), name="qual-gap-closed-consumer")
+        logger.info("QualGapClosedConsumer started")
 
     producer = KafkaProducer()
     await producer.start()
@@ -164,7 +167,8 @@ async def lifespan(app: FastAPI):
     intake_consumer._producer = producer
     clinical_review_consumer._producer = producer
     rfi_response_consumer._producer = producer
-    qual_gap_consumer._producer = producer
+    if qual_gap_consumer is not None:
+        qual_gap_consumer._producer = producer
     decision_consumer._producer = producer
 
     delivery_consumer = NotificationDeliveryConsumer(
@@ -208,11 +212,12 @@ async def lifespan(app: FastAPI):
             await rfi_task
         except asyncio.CancelledError:
             pass
-        qual_gap_task.cancel()
-        try:
-            await qual_gap_task
-        except asyncio.CancelledError:
-            pass
+        if qual_gap_task is not None:
+            qual_gap_task.cancel()
+            try:
+                await qual_gap_task
+            except asyncio.CancelledError:
+                pass
         await relay.stop()
         for t in (relay_task, dr_task, delivery_task):
             t.cancel()

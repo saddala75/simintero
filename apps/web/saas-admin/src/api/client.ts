@@ -18,6 +18,12 @@ export interface PlatformUser {
   status: 'active' | 'inactive'
 }
 
+export interface GlobalUsage {
+  totalCasesPerMonth: number
+  avgAiAssistRate: number
+  globalSlaCompliancePct: number
+}
+
 const MOCK_TENANTS: Tenant[] = [
   { id: 'ten-001', name: 'Aetna Commercial', plan: 'enterprise', status: 'active', lobs: ['commercial', 'medicare'], casesPerMonth: 45200, aiAssistRate: 88.4, keycloakGroup: '/tenants/aetna' },
   { id: 'ten-002', name: 'Humana Advantage', plan: 'enterprise', status: 'active', lobs: ['medicare'], casesPerMonth: 32100, aiAssistRate: 91.2, keycloakGroup: '/tenants/humana' },
@@ -29,6 +35,12 @@ const MOCK_USERS: PlatformUser[] = [
   { id: 'usr-102', tenantId: 'ten-001', name: 'Michael Chen', email: 'mchen@aetna.com', role: 'reviewer', status: 'active' },
   { id: 'usr-103', tenantId: 'ten-002', name: 'Evelyn Reed', email: 'ereed@humana.com', role: 'intake_coordinator', status: 'active' },
 ]
+
+const MOCK_USAGE: GlobalUsage = {
+  totalCasesPerMonth: 89300,
+  avgAiAssistRate: 86.4,
+  globalSlaCompliancePct: 99.98,
+}
 
 export async function getTenants(): Promise<Tenant[]> {
   try {
@@ -80,4 +92,12 @@ export async function inviteUser(payload: Partial<PlatformUser>): Promise<{ id: 
     if (res.ok) return await res.json()
   } catch {}
   return { id: `usr-${Math.floor(Math.random() * 900 + 100)}` }
+}
+
+export async function getGlobalUsage(): Promise<GlobalUsage> {
+  try {
+    const res = await fetch('/admin/usage')
+    if (res.ok) return await res.json()
+  } catch {}
+  return MOCK_USAGE
 }

@@ -7,9 +7,9 @@ export default function App() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'registry' | 'eval' | 'drift'>('registry')
   const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [evalResults, setEvalResults] = useState<EvalTestCase[] | null>(null)
 
   const { data: models = [], isLoading: loadingModels } = useQuery({ queryKey: ['model-bindings'], queryFn: getModelBindings })
-  const { data: evals = [], isLoading: loadingEvals } = useQuery({ queryKey: ['eval-suite'], queryFn: () => runEvalSuite('mb-003') })
   const { data: drift = [], isLoading: loadingDrift } = useQuery({ queryKey: ['drift-trends'], queryFn: getDriftTrends })
 
   const canaryMut = useMutation({
@@ -17,6 +17,14 @@ export default function App() {
     onSuccess: (_, id) => {
       setActionMsg(`Candidate model ${id} successfully promoted to 10% Canary traffic! Eval telemetry monitoring active.`)
       queryClient.invalidateQueries({ queryKey: ['model-bindings'] })
+    },
+  })
+
+  const evalMut = useMutation({
+    mutationFn: (modelId: string) => runEvalSuite(modelId),
+    onSuccess: (res) => {
+      setEvalResults(res)
+      setActionMsg(`Benchmark evaluation suite completed for Candidate v4.0.0-exp! All test cases evaluated.`)
     },
   })
 
@@ -93,9 +101,30 @@ export default function App() {
         )}
 
         {activeTab === 'eval' && (
-          <Card className="p-6">
-            <h3 className="font-bold text-base text-slate-900 mb-4">Eval Gate Suite Verification (Candidate v4.0.0-exp)</h3>
-            {loadingEvals ? <div className="p-8 text-center text-slate-500">Running benchmark evaluation test suite…</div> : <DataTable columns={evalColumns} data={evals} keyExtractor={(r) => r.id} />}
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Eval Gate Suite Verification (Candidate v4.0.0-exp)</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Run automated clinical benchmark validation suite before canary promotion</p>
+              </div>
+              <Button
+                variant="ai"
+                size="sm"
+                loading={evalMut.isPending}
+                onClick={() => evalMut.mutate('mb-003')}
+              >
+                ✦ Run Benchmark Eval Suite
+              </Button>
+            </div>
+            {evalMut.isPending ? (
+              <div className="p-8 text-center text-slate-500">Executing benchmark evaluation test suite…</div>
+            ) : evalResults ? (
+              <DataTable columns={evalColumns} data={evalResults} keyExtractor={(r) => r.id} />
+            ) : (
+              <div className="p-8 text-center text-slate-400 text-xs italic bg-slate-50 rounded border border-slate-200">
+                Click "Run Benchmark Eval Suite" to trigger user-initiated evaluation on candidate model binding.
+              </div>
+            )}
           </Card>
         )}
 

@@ -1,4 +1,6 @@
 // packages/design-system/src/components/DataTable.tsx
+import React from 'react'
+
 export interface Column<T> {
   key: string
   header: string
@@ -12,6 +14,8 @@ export interface DataTableProps<T> {
   keyExtractor: (row: T) => string
   emptyMessage?: string
   className?: string
+  testId?: string
+  rowTestId?: (row: T) => string
   onRowClick?: (row: T) => void
 }
 
@@ -21,6 +25,8 @@ export function DataTable<T>({
   keyExtractor,
   emptyMessage = 'No records found.',
   className = '',
+  testId = 'table-row',
+  rowTestId,
   onRowClick,
 }: DataTableProps<T>) {
   return (
@@ -46,7 +52,7 @@ export function DataTable<T>({
             data.map((row) => (
               <tr
                 key={keyExtractor(row)}
-                data-testid="case-row"
+                data-testid={rowTestId ? rowTestId(row) : testId}
                 onClick={() => onRowClick?.(row)}
                 className={`hover:bg-slate-50/80 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
               >
