@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid as uuid_module
 from typing import Any
 from uuid import UUID
@@ -15,16 +16,95 @@ from enstellar_bff.clients.workflow import workflow_client
 from enstellar_bff.models import (
     AdverseDecisionRequest,
     CaseDetail,
+    CitationSpan,
+    ClinicalEntity,
+    CompletenessItem,
     CriterionItem,
     DecisionSubmission,
     DocumentItem,
+    GroundednessMetric,
     RfiRequest,
     SuggestionActionRequest,
     SuggestionItem,
+    WorkbenchCaseDetail,
 )
 
 # Adverse states: BFF never routes to these; T08 guard is the final backstop.
 ADVERSE_STATES = frozenset({"denied", "partially_denied", "adverse_modification"})
+
+_STATUS_TO_ENTITY: dict[str, str] = {"met": "accepted", "gap": "disputed", "unknown": "pending"}
+_STATUS_TO_CONF: dict[str, float] = {"met": 1.0, "gap": 0.0, "unknown": 0.5}
+
+
+def _assemble_workbench(
+    case_id: str,
+    case_data: dict,
+    criteria_data: list[dict],
+    suggestions_data: list[dict],
+    docs_data: list[dict],
+) -> WorkbenchCaseDetail:
+    member = case_data.get("member") or {}
+    service_lines = case_data.get("service_lines") or []
+    service_desc = service_lines[0].get("service_description", "") if service_lines else ""
+
+    entities: list[ClinicalEntity] = []
+    completeness: list[CompletenessItem] = []
+    citations: list[CitationSpan] = []
+    cite_seen: set[str] = set()
+
+    for c in criteria_data:
+        st = c["status"]
+        crit_cites: list[str] = c.get("citations") or []
+        cite_id = f"cite-{c['criterion_id']}"
+        first_cite = crit_cites[0] if crit_cites else None
+
+        entities.append(ClinicalEntity(
+            id=c["id"],
+            type="procedure",
+            name=c["text"],
+            code=c["criterion_id"],
+            system="InterQual",
+            confidence=_STATUS_TO_CONF.get(st, 0.5),
+            provenance=str(c.get("evidence") or ""),
+            status=_STATUS_TO_ENTITY.get(st, "pending"),
+            citationId=cite_id if first_cite else None,
+        ))
+        completeness.append(CompletenessItem(
+            criteria=c["text"],
+            satisfied=(st == "met"),
+            note=f"Status: {st}",
+        ))
+        if first_cite and cite_id not in cite_seen:
+            cite_seen.add(cite_id)
+            citations.append(CitationSpan(id=cite_id, page=1, text=first_cite, bbox=""))
+
+    total = len(criteria_data)
+    met_count = sum(1 for c in criteria_data if c["status"] == "met")
+    gap_count = sum(1 for c in criteria_data if c["status"] == "gap")
+    total_cites = sum(len(c.get("citations") or []) for c in criteria_data)
+
+    doc_url: str | None = None
+    if docs_data:
+        doc_url = f"/bff/cases/{case_id}/documents/{docs_data[0]['id']}/content"
+
+    return WorkbenchCaseDetail(
+        caseId=case_id,
+        memberName=member.get("name", ""),
+        memberDob=member.get("dob", ""),
+        serviceRequested=service_desc,
+        documentUrl=doc_url,
+        entities=entities,
+        citations=citations,
+        groundedness=GroundednessMetric(
+            score=round(met_count / total, 2) if total else 0.0,
+            citationsCount=total_cites,
+            gapsCount=gap_count,
+            conflictsCount=0,
+        ),
+        summary=(suggestions_data[0]["body"] if suggestions_data else ""),
+        completeness=completeness,
+    )
+
 
 router = APIRouter(tags=["cases"])
 
@@ -66,6 +146,30 @@ async def get_case(
         events=data.get("events", []),
         sla=None,
     )
+
+
+@router.get("/cases/{case_id}/workbench", response_model=WorkbenchCaseDetail)
+async def get_workbench(
+    case_id: UUID,
+    auth: tuple = Depends(require_reviewer),
+) -> WorkbenchCaseDetail:
+    ctx, bearer = auth
+    case_res, criteria_res, suggestions_res, docs_res = await asyncio.gather(
+        workflow_client.get_case(str(case_id), bearer),
+        workflow_client.criteria(str(case_id), bearer),
+        workflow_client.suggestions(str(case_id), bearer),
+        fhir_client.documents(str(case_id), ctx.tenant_id, bearer),
+        return_exceptions=True,
+    )
+    if isinstance(case_res, Exception):
+        raise HTTPException(status_code=502, detail="Upstream error fetching case")
+    if isinstance(criteria_res, Exception):
+        criteria_res = []
+    if isinstance(suggestions_res, Exception):
+        suggestions_res = []
+    if isinstance(docs_res, Exception):
+        docs_res = []
+    return _assemble_workbench(str(case_id), case_res, criteria_res, suggestions_res, docs_res)
 
 
 @router.post("/cases/{case_id}/decision")
