@@ -74,6 +74,17 @@ function shortId(caseId: string): string {
   return `PA-${caseId.replace(/-/g, '').slice(0, 8).toUpperCase()}`
 }
 
+function getCaseServiceDesc(cd?: CaseDetail | null): string {
+  if (!cd) return ''
+  if (cd.service_lines && cd.service_lines.length > 0) {
+    const sl = cd.service_lines[0]
+    if (typeof sl.procedure_description === 'string' && sl.procedure_description) {
+      return sl.procedure_description
+    }
+  }
+  return cd.lob ? cd.lob.replace(/_/g, ' ') : ''
+}
+
 // ── SLA countdown hook ────────────────────────────────────────────────────────
 
 function useSlaCountdown(sla: SlaInfo | null): number {
@@ -728,6 +739,12 @@ function AiColumn({ caseId }: { caseId: string }) {
     staleTime: 30_000,
   })
 
+  const { data: caseDetail } = useQuery({
+    queryKey: ['case', caseId],
+    queryFn: () => getCase(caseId),
+    staleTime: 60_000,
+  })
+
   const { mutate: recordAction, variables: pendingAction } = useMutation({
     mutationFn: ({ sid, action }: { sid: string; action: 'accepted' | 'rejected' }) =>
       postSuggestionAction(caseId, sid, action),
@@ -737,6 +754,7 @@ function AiColumn({ caseId }: { caseId: string }) {
   })
 
   const sugItems = suggestions ?? []
+  const serviceDesc = getCaseServiceDesc(caseDetail)
 
   return (
     <aside className="en-col ai" aria-label="Governed AI advisory">
@@ -766,8 +784,8 @@ function AiColumn({ caseId }: { caseId: string }) {
           <p className="en-ai-sum">
             {sugItems.length > 0
               ? sugItems[0].title
-              : caseData.service_description
-              ? `Prior authorization evaluation for ${caseData.service_description}. Patient clinical criteria and medical documentation under active review.`
+              : serviceDesc
+              ? `Prior authorization evaluation for ${serviceDesc}. Patient clinical criteria and medical documentation under active review.`
               : 'Patient clinical documentation under review.'}
           </p>
 
@@ -780,8 +798,8 @@ function AiColumn({ caseId }: { caseId: string }) {
               marginTop: 10,
             }}
           >
-            {(caseData.service_description
-              ? [`Plan Policy §4.2`, `${caseData.service_description}`, `Clinical Records`]
+            {(serviceDesc
+              ? [`Plan Policy §4.2`, `${serviceDesc}`, `Clinical Records`]
               : ['Plan Policy §4.2', 'Clinical Criteria', 'Medical Records']
             ).map((c) => (
               <span
@@ -980,8 +998,8 @@ function MdContextColumn({ caseData }: { caseData: CaseDetail }) {
               Escalated for MD determination
             </div>
             <div className="en">
-              {caseData.service_description
-                ? `Case for ${caseData.service_description} escalated for Medical Director determination on medical necessity criteria per plan policy §4.2.`
+              {getCaseServiceDesc(caseData)
+                ? `Case for ${getCaseServiceDesc(caseData)} escalated for Medical Director determination on medical necessity criteria per plan policy §4.2.`
                 : 'Case escalated for Medical Director determination per plan policy §4.2.'}
             </div>
           </div>
@@ -1247,8 +1265,8 @@ function MdWorkColumn({
               Escalated by nurse reviewer
             </div>
             <div className="en">
-              {caseData.service_description
-                ? `Case for ${caseData.service_description} escalated for MD determination on medical necessity grounds per plan policy §4.2.`
+              {getCaseServiceDesc(caseData)
+                ? `Case for ${getCaseServiceDesc(caseData)} escalated for MD determination on medical necessity grounds per plan policy §4.2.`
                 : 'Escalated for MD determination on medical necessity grounds per plan policy §4.2.'}
             </div>
           </div>
