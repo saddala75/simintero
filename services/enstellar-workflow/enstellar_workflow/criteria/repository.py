@@ -55,3 +55,24 @@ class CriteriaRepository:
             }
             for r in rows
         ]
+
+    async def update_status(
+        self,
+        conn: asyncpg.Connection,
+        criterion_id: uuid.UUID,
+        case_id: uuid.UUID,
+        tenant_id: str,
+        status: str,
+    ) -> bool:
+        """Update criterion status. Returns True if the row was found and updated."""
+        result = await conn.fetchrow(
+            """
+            UPDATE case_criteria
+            SET status = $1
+            WHERE id = $2 AND case_id = $3 AND tenant_id = $4
+            RETURNING id
+            """,
+            status, criterion_id, case_id, tenant_id,
+        )
+        return result is not None
+

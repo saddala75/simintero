@@ -145,3 +145,42 @@ async def test_get_criteria_missing_auth_returns_401(ac: AsyncClient):
     """Omitting Authorization header returns 401 Unauthorized."""
     resp = await ac.get(f"/cases/{uuid.uuid4()}/criteria")
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_patch_criterion_status(ac: AsyncClient, pg_pool: asyncpg.Pool):
+    """PATCH /cases/{id}/criteria/{criterion_id} updates criterion status in database."""
+    case = make_case()
+    resp = await ac.post(
+        "/cases",
+        content=case.model_dump_json(),
+        headers={"Content-Type": "application/json"},
+    )
+    assert resp.status_code == 201
+
+    crit_uuid = uuid.uuid4()
+    async with pg_pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO case_criteria
+                (id, case_id, tenant_id, criterion_id, text, status, evidence, citations)
+            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
+            """,
+            crit_uuid,
+            case.case_id,
+            case.tenant_id,
+            "criterion-500",
+            "Test criterion status update.",
+            "unknown",
+            None,
+            json.dumps([]),
+        )
+
+    patch_resp = await ac.patch(
+        f"/cases/{case.case_id}/criteria/{crit_uuid}",
+        json={"status": "met"},
+        headers={"Authorization": f"Bearer {case.tenant_id}"},
+    )
+    assert patch_resp.status_code == 200
+    assert patch_resp.json() == {"status": "met"}
+
