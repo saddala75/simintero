@@ -2,7 +2,7 @@ import type { CitationSpan } from '../api/client'
 
 interface Props {
   caseId: string
-  documentUrl: string
+  documentUrl: string | null
   citations: CitationSpan[]
   selectedCitationId?: string
   onSelectCitation?: (citationId: string) => void
@@ -18,7 +18,7 @@ export function CitedDocumentPanel({ caseId, documentUrl, citations, selectedCit
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <h3 className="font-bold text-sm text-white">Medical Record Document Viewer</h3>
         </div>
-        <span className="font-mono text-xs text-slate-400 font-semibold">{documentUrl}</span>
+        <span className="font-mono text-xs text-slate-400 font-semibold">{documentUrl || 'No document'}</span>
       </div>
 
       <div className="p-3 bg-slate-800/60 border-b border-slate-800 flex items-center justify-between text-xs text-slate-300">

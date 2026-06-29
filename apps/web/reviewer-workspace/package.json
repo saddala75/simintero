@@ -13,6 +13,7 @@
   "dependencies": {
     "@sim/design-system": "workspace:*",
     "@tanstack/react-query": "^5.40.0",
+    "keycloak-js": "^26.2.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.17.0"

@@ -35,9 +35,9 @@ export function AiWorkbenchPage() {
   })
 
   const determinationMut = useMutation({
-    mutationFn: (decision: 'approved' | 'denied') => submitDetermination(caseId, decision),
+    mutationFn: (decision: 'accept' | 'adverse') => submitDetermination(caseId, decision),
     onSuccess: (res) => {
-      setDeterminationResult(`Prior Authorization Determination successfully recorded as ${res.decision.toUpperCase()}! Compliance audit logged.`)
+      setDeterminationResult(`Prior Authorization Determination successfully recorded as ${res.status.toUpperCase()}! Compliance audit logged.`)
       queryClient.invalidateQueries({ queryKey: ['workbench-case', caseId] })
     },
   })
@@ -48,18 +48,17 @@ export function AiWorkbenchPage() {
 
   return (
     <div className="h-screen flex flex-col bg-[#F7F9FB] overflow-hidden">
-      <header className="h-14 bg-slate-950 text-white px-6 flex items-center justify-between z-20 border-b border-slate-800 shadow-md shrink-0">
-        <div className="flex items-center gap-6">
+      <header className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shadow-md shrink-0">
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/')}
-            className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1.5"
+            onClick={() => navigate('/worklist')}
+            className="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-medium bg-slate-800 px-2.5 py-1.5 rounded border border-slate-700 transition-colors"
           >
             ← Back to Portal Worklist
           </button>
-          <div className="h-4 w-px bg-slate-800" />
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="font-bold text-base text-white">{workbenchCase.caseId} · {workbenchCase.serviceRequested}</h1>
+              <h1 className="font-bold text-lg text-white font-mono">{workbenchCase.caseId} · {workbenchCase.serviceRequested}</h1>
               <Badge variant="status" status="in_review" label="IN CLINICAL REVIEW" />
             </div>
             <p className="text-[11px] text-slate-400 font-mono">Member: {workbenchCase.memberName} (DOB: {workbenchCase.memberDob})</p>
@@ -71,7 +70,7 @@ export function AiWorkbenchPage() {
             variant="ai"
             size="sm"
             loading={determinationMut.isPending}
-            onClick={() => determinationMut.mutate('approved')}
+            onClick={() => determinationMut.mutate('accept')}
           >
             ✦ Accept AI Advisory Determination
           </Button>
@@ -79,7 +78,7 @@ export function AiWorkbenchPage() {
             variant="danger"
             size="sm"
             loading={determinationMut.isPending}
-            onClick={() => determinationMut.mutate('denied')}
+            onClick={() => determinationMut.mutate('adverse')}
           >
             Adverse Determination Signoff
           </Button>

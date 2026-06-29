@@ -5,5 +5,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3055,
+    proxy: {
+      '/bff': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
+    },
   },
 })
