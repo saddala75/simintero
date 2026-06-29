@@ -36,7 +36,7 @@ _TERMINAL_STATES: frozenset[str] = frozenset(
 
 
 class CaseService:
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: asyncpg.Pool | None = None) -> None:
         # Lazy import breaks engine ↔ cases circular dependency at module init time.
         from ..engine.transitions import TransitionEngine
         self._pool = pool
@@ -258,6 +258,36 @@ class CaseService:
             return await svc.record_signoff(
                 conn, str(case_id), tenant_id, actor_id, actor_type, outcome_context
             )
+
+    async def record_decision_audit(
+        self,
+        conn: asyncpg.Connection,
+        tenant_id: str,
+        case_id: uuid.UUID,
+        decided_by: str,
+        outcome: str,
+        rule_ids: list[str] | None = None,
+        ai_advisory_used: bool = False,
+        evidence_refs: list[str] | None = None,
+        rationale: str = "",
+    ) -> None:
+        """Record a clinical decision audit entry in ens.decision_audit_log."""
+        await conn.execute(
+            """
+            INSERT INTO ens.decision_audit_log
+                (tenant_id, case_id, decided_by, outcome, rule_ids, ai_advisory_used, evidence_refs, rationale)
+            VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb, $8)
+            """,
+            tenant_id,
+            case_id,
+            decided_by,
+            outcome,
+            json.dumps(rule_ids or []),
+            ai_advisory_used,
+            json.dumps(evidence_refs or []),
+            rationale or "",
+        )
+
 
     async def get_events(
         self, case_id: uuid.UUID, tenant_id: str

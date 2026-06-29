@@ -12,6 +12,7 @@ resolution-markers = [
 members = [
     "enstellar-bff",
     "enstellar-connectors",
+    "enstellar-poller",
     "enstellar-workflow",
     "simintero-authz",
     "simintero-conformance",
@@ -561,6 +562,29 @@ dev = [
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
     { name = "respx", specifier = ">=0.21" },
+]
+
+[[package]]
+name = "enstellar-poller"
+version = "0.1.0"
+source = { editable = "services/enstellar-poller" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "enstellar-workflow" },
+    { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.29" },
+    { name = "enstellar-workflow", editable = "services/enstellar-workflow" },
+    { name = "fastapi", specifier = ">=0.111" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pydantic-settings", specifier = ">=2.3" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
 [[package]]

@@ -36,6 +36,24 @@ services:
       timeout: 5s
       retries: 5
 
+  pgbouncer:
+    image: pgbouncer/pgbouncer:1.23.1
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./infra/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./infra/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   flyway:
     image: flyway/flyway:10-alpine
     depends_on:
@@ -154,7 +172,7 @@ services:
       context: .
       dockerfile: platform/services/document/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       MINIO_ENDPOINT: minio:9000
@@ -193,7 +211,7 @@ services:
       dockerfile: platform/services/document/Dockerfile
     command: ["node", "dist/worker.js"]
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       MINIO_ENDPOINT: minio:9000
@@ -224,7 +242,7 @@ services:
       context: .
       dockerfile: platform/services/model-gateway/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       OPA_URL: http://opa:8181
@@ -262,7 +280,7 @@ services:
       context: .
       dockerfile: platform/services/vkas/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       PORT: "3040"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
@@ -288,7 +306,7 @@ services:
       context: .
       dockerfile: platform/services/task-service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       PORT: "3021"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
@@ -342,7 +360,7 @@ services:
       context: .
       dockerfile: platform/services/relay/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_relay:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_relay:devpassword@pgbouncer:5432/simintero
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       PORT: "3070"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
@@ -388,7 +406,7 @@ services:
       context: .
       dockerfile: platform/services/control-plane/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       KEYCLOAK_URL: "${KEYCLOAK_URL:-http://keycloak:8080}"
@@ -421,7 +439,7 @@ services:
       context: .
       dockerfile: modules/revital/pipeline/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       MODEL_GATEWAY_URL: http://model-gateway:3011
@@ -458,7 +476,7 @@ services:
       dockerfile: modules/revital/pipeline/Dockerfile
     command: ["node", "dist/worker.js"]
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       MODEL_GATEWAY_URL: http://model-gateway:3011
@@ -484,7 +502,7 @@ services:
       context: .
       dockerfile: modules/qualitron/execution/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       DIGICORE_RUNTIME_URL: http://digicore-runtime:8083
@@ -515,7 +533,7 @@ services:
       context: .
       dockerfile: modules/claims/service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       CLEARINGHOUSE_URL: "${CLEARINGHOUSE_URL:-}"
@@ -547,7 +565,7 @@ services:
       context: .
       dockerfile: services/qualitron-reporting/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       PORT: "4080"
     ports:
       - "4080:4080"
@@ -569,7 +587,7 @@ services:
       context: .
       dockerfile: services/qualitron-aggregation/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       KAFKA_BROKERS: ${KAFKA_BROKERS:-redpanda:9092}
       DIGICORE_SERVICE_URL: ${DIGICORE_SERVICE_URL:-http://digicore-runtime:8083}
       QUALITRON_EXECUTION_URL: ${QUALITRON_EXECUTION_URL:-http://qualitron:3015}
@@ -598,7 +616,7 @@ services:
       context: .
       dockerfile: modules/automation/service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       OPA_URL: http://opa:8181
@@ -628,7 +646,7 @@ services:
       context: .
       dockerfile: modules/market-bundles/service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       NODE_ENV: development
@@ -657,7 +675,7 @@ services:
       context: .
       dockerfile: modules/search/query-api/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       SEARCH_INDEX_SIZE: "10000"
@@ -687,7 +705,7 @@ services:
       context: .
       dockerfile: modules/analytics/service/Dockerfile
     environment:
-      DATABASE_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
       NODE_ENV: development
@@ -789,7 +807,7 @@ services:
     environment:
       PORT: "3053"
       VKAS_BASE_URL: http://vkas:3040
-      GOVERNANCE_DB_URL: postgres://sim_app:devpassword@postgres:5432/simintero
+      GOVERNANCE_DB_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
     ports:
       - "3053:3053"
     depends_on:
@@ -816,8 +834,8 @@ services:
       dockerfile: Dockerfile
     environment:
       SERVER_PORT: "8083"
-      POSTGRES_URL: jdbc:postgresql://postgres:5432/simintero
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/simintero
+      POSTGRES_URL: jdbc:postgresql://pgbouncer:5432/simintero
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pgbouncer:5432/simintero
       SPRING_DATASOURCE_USERNAME: sim_app
       SPRING_DATASOURCE_PASSWORD: devpassword
       VKAS_URL: http://vkas:3040
@@ -849,7 +867,7 @@ services:
     command: start-dev --import-realm
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_URL: jdbc:postgresql://pgbouncer:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak_secret}"
       KEYCLOAK_ADMIN: admin
@@ -949,7 +967,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      spring.datasource.url: jdbc:postgresql://postgres:5432/hapi
+      spring.datasource.url: jdbc:postgresql://pgbouncer:5432/hapi
       spring.datasource.username: hapi
       spring.datasource.password: "${HAPI_DB_PASSWORD:-hapi_secret}"
       spring.datasource.driverClassName: org.postgresql.Driver
@@ -1000,7 +1018,7 @@ services:
       document-service:
         condition: service_healthy
     environment:
-      INTEROP_DB_URL: jdbc:postgresql://postgres:5432/hapi
+      INTEROP_DB_URL: jdbc:postgresql://pgbouncer:5432/hapi
       INTEROP_DB_USER: hapi
       INTEROP_DB_PASSWORD: "${HAPI_DB_PASSWORD:-hapi_secret}"
       DIGICORE_BASE_URL: http://digicore-runtime:8083
@@ -1040,7 +1058,7 @@ services:
     depends_on:
       otel-collector:
         condition: service_healthy
-      postgres:
+      pgbouncer:
         condition: service_healthy
       redpanda:
         condition: service_healthy
@@ -1053,11 +1071,11 @@ services:
       revital-pipeline:
         condition: service_healthy
     environment:
-      WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@postgres:5432/workflow
+      WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@pgbouncer:5432/workflow
       # Second pool target for the fabric bridge: the simintero DB as sim_app
       # (un-prefixed env, read via validation_alias). asyncpg.create_pool opens
       # this raw postgresql:// DSN alongside the workflow pool (app.state.fabric_pool).
-      SIMINTERO_DB_URL: postgresql://sim_app:devpassword@postgres:5432/simintero
+      SIMINTERO_DB_URL: postgresql://sim_app:devpassword@pgbouncer:5432/simintero
       WORKFLOW_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       WORKFLOW_OIDC_ISSUER: http://localhost:8081/realms/simintero
       WORKFLOW_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
@@ -1094,6 +1112,37 @@ services:
       timeout: 5s
       retries: 10
       start_period: 40s
+
+  enstellar-poller:
+    build:
+      context: .
+      dockerfile: services/enstellar-poller/Dockerfile
+    expose: ["8002"]
+    ports:
+      - "8002:8002"
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+      revital-pipeline:
+        condition: service_healthy
+    environment:
+      WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@pgbouncer:5432/workflow
+      REVITAL_BASE_URL: http://revital-pipeline:3014
+      WORKFLOW_SLA_POLL_INTERVAL_SECONDS: "5"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: enstellar-poller
+    deploy:
+      replicas: 1
+    networks: [sim-net]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/ready')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   portal-bff:
     build:

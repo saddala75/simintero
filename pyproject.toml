@@ -8,6 +8,7 @@ members = [
   "services/enstellar-connectors",
   "services/enstellar-workflow",
   "services/enstellar-portal-bff",
+  "services/enstellar-poller",
 ]
 
 [tool.uv.sources]

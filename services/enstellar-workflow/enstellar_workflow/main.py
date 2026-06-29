@@ -52,9 +52,6 @@ from enstellar_workflow.normalization.config import get_normalization_settings
 from enstellar_workflow.criteria.router import router as criteria_router
 from enstellar_workflow.normalization.api import router as normalization_router
 from enstellar_workflow.queues.router import router as queues_router
-from enstellar_workflow.clocks.sla_poller import SlaPoller
-from enstellar_workflow.grievances.sla_poller import GrievanceSlaPoller
-from enstellar_workflow.revital.poller import RevitalPoller
 from enstellar_workflow.suggestions.router import router as suggestions_router
 
 # ── OpenTelemetry bootstrap ────────────────────────────────────────────────
@@ -171,18 +168,6 @@ async def lifespan(app: FastAPI):
     qual_gap_consumer._producer = producer
     decision_consumer._producer = producer
 
-    revital_poller = RevitalPoller(pool)
-    rp_task = asyncio.create_task(revital_poller.start(), name="revital-poller")
-    logger.info("RevitalPoller started")
-
-    sla_poller = SlaPoller(pool)
-    sla_task = asyncio.create_task(sla_poller.start(), name="sla-poller")
-    logger.info("SlaPoller started")
-
-    grievance_poller = GrievanceSlaPoller(pool)
-    gsp_task = asyncio.create_task(grievance_poller.start(), name="grievance-sla-poller")
-    logger.info("GrievanceSlaPoller started")
-
     delivery_consumer = NotificationDeliveryConsumer(
         pool=pool,
         email_sender=SmtpEmailSender(
@@ -230,19 +215,15 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
         await relay.stop()
-        await revital_poller.stop()
-        await sla_poller.stop()
-        await grievance_poller.stop()
-        for t in (relay_task, dr_task, rp_task, sla_task, gsp_task, delivery_task):
+        for t in (relay_task, dr_task, delivery_task):
             t.cancel()
             try:
                 await t
             except asyncio.CancelledError:
                 pass
-        # close long-lived httpx clients (consumer + poller) to drain pools
+        # close long-lived httpx clients (consumer) to drain pools
         await clinical_review_consumer._docs.close()
         await clinical_review_consumer._revital.close()
-        await revital_poller.aclose()
         await producer.stop()
         await pool.close()
         if fabric_pool is not None:
