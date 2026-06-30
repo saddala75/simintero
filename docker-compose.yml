@@ -975,6 +975,19 @@ services:
       timeout: 5s
       retries: 5
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI — http://localhost:8025
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── Enstellar app services (C4a) ───────────────────────────────────────────
 
   hapi:
@@ -1089,6 +1102,8 @@ services:
         condition: service_healthy
       revital-pipeline:
         condition: service_healthy
+      mailhog:
+        condition: service_healthy
     environment:
       WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@pgbouncer:5432/workflow
       # Second pool target for the fabric bridge: the simintero DB as sim_app
@@ -1117,7 +1132,7 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: enstellar-workflow
       # SMTP — required for email notice delivery (SmtpEmailSender)
-      WORKFLOW_SMTP_HOST: "${SMTP_HOST:-mailpit}"
+      WORKFLOW_SMTP_HOST: "${SMTP_HOST:-mailhog}"
       WORKFLOW_SMTP_PORT: "${SMTP_PORT:-1025}"
       WORKFLOW_SMTP_USERNAME: "${SMTP_USERNAME:-}"
       WORKFLOW_SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
