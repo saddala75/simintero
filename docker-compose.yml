@@ -1196,8 +1196,8 @@ services:
 
   web:
     build:
-      context: services/enstellar-portal
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/enstellar-portal/Dockerfile
       args:
         VITE_KEYCLOAK_URL: "${VITE_KEYCLOAK_URL:-http://localhost:8081}"
         VITE_KEYCLOAK_REALM: "${VITE_KEYCLOAK_REALM:-simintero}"

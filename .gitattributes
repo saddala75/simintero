@@ -1,0 +1,27 @@
+# Force LF line endings for all shell scripts and text files.
+# Prevents the /usr/bin/env: 'bash\r' error when cloning on Windows.
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.env text eol=lf
+*.conf text eol=lf
+*.toml text eol=lf
+
+# Binaries — no line ending conversion
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.jar binary
