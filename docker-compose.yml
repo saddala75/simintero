@@ -872,7 +872,7 @@ services:
       KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak_secret}"
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin}"
-      KC_HOSTNAME_URL: http://localhost:8081
+      KC_HOSTNAME_URL: "${KEYCLOAK_PUBLIC_URL:-http://localhost:8081}"
       TEST_CLIENT_SECRET: "${TEST_CLIENT_SECRET:-test-secret}"
       E2E_PASSWORD: "${E2E_PASSWORD:-e2e-pass}"
       TEST_REVIEWER_PASSWORD: "${TEST_REVIEWER_PASSWORD:-reviewer-password}"
@@ -1047,7 +1047,7 @@ services:
       MINIO_SECURE: "false"
       MINIO_BUCKET: enstellar-raw-bundles
       NORMALIZATION_URL: http://workflow-engine:8000
-      KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/simintero
+      KEYCLOAK_ISSUER_URI: "${KEYCLOAK_PUBLIC_URL:-http://localhost:8081}/realms/simintero"
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
       EXPECTED_AUDIENCE: enstellar-api
       INTEROP_CONFORMANCE_TEST_MODE: "${INTEROP_CONFORMANCE_TEST_MODE:-false}"
@@ -1092,7 +1092,7 @@ services:
       # this raw postgresql:// DSN alongside the workflow pool (app.state.fabric_pool).
       SIMINTERO_DB_URL: postgresql://sim_app:devpassword@pgbouncer:5432/simintero
       WORKFLOW_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      WORKFLOW_OIDC_ISSUER: http://localhost:8081/realms/simintero
+      WORKFLOW_OIDC_ISSUER: "${KEYCLOAK_PUBLIC_URL:-http://localhost:8081}/realms/simintero"
       WORKFLOW_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
       WORKFLOW_OPA_URL: http://opa:8181
       MINIO_ENDPOINT: minio:9000
@@ -1180,7 +1180,7 @@ services:
       BFF_FHIR_API_URL: http://interop:8080/fhir
       BFF_CRD_API_URL: http://interop:8080/cds-services
       BFF_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
-      BFF_OIDC_ISSUER: http://localhost:8081/realms/simintero
+      BFF_OIDC_ISSUER: "${KEYCLOAK_PUBLIC_URL:-http://localhost:8081}/realms/simintero"
       # OIDC audience — must match Keycloak client ID
       BFF_OIDC_AUDIENCE: "${BFF_OIDC_AUDIENCE:-enstellar-api}"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
@@ -1198,6 +1198,10 @@ services:
     build:
       context: services/enstellar-portal
       dockerfile: Dockerfile
+      args:
+        VITE_KEYCLOAK_URL: "${VITE_KEYCLOAK_URL:-http://localhost:8081}"
+        VITE_KEYCLOAK_REALM: "${VITE_KEYCLOAK_REALM:-simintero}"
+        VITE_KEYCLOAK_CLIENT_ID: "${VITE_KEYCLOAK_CLIENT_ID:-enstellar-app}"
     ports:
       - "5173:80"
     depends_on:
