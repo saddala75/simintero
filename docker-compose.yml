@@ -505,7 +505,7 @@ services:
       DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: simintero
-      DIGICORE_RUNTIME_URL: http://digicore-runtime:8083
+      DIGICORE_SERVICE_URL: http://digicore-runtime:8083
       TASK_SERVICE_URL: http://task-service:3021
       NODE_ENV: development
       PORT: "3015"
