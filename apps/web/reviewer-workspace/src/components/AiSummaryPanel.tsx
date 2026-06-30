@@ -5,11 +5,12 @@ interface Props {
   summary: string
   groundedness: GroundednessMetric
   completeness: Array<{ criteria: string; satisfied: boolean; note: string }>
+  selectedCitationId?: string | null
   onSelectCitation?: (citationId: string) => void
   className?: string
 }
 
-export function AiSummaryPanel({ summary, groundedness, completeness, onSelectCitation, className }: Props) {
+export function AiSummaryPanel({ summary, groundedness, completeness, selectedCitationId, onSelectCitation, className }: Props) {
   return (
     <Card className={className ?? 'h-full flex flex-col p-5 space-y-5 overflow-y-auto'}>
       <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
@@ -54,7 +55,7 @@ export function AiSummaryPanel({ summary, groundedness, completeness, onSelectCi
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Clinical Narrative Synthesis</h4>
           <button
             onClick={() => onSelectCitation?.('span-1')}
-            className="text-[11px] text-blue-600 hover:underline font-medium"
+            className={`text-[11px] font-medium hover:underline ${selectedCitationId === 'span-1' ? 'text-blue-800 underline' : 'text-blue-600'}`}
           >
             Inspect Citations →
           </button>

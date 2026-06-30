@@ -1,0 +1,11 @@
+# DEVELOPMENT: plaintext passwords for local convenience
+# This file is ONLY for local development with docker-compose.
+# NEVER use plaintext passwords in production.
+# Replace with SCRAM-SHA-256 hashes (see userlist.txt) before deploying.
+
+"sim" "devpassword"
+"sim_app" "devpassword"
+"sim_relay" "devpassword"
+"workflow" "workflow_secret"
+"keycloak" "keycloak_secret"
+"hapi" "hapi_secret"

@@ -34,7 +34,7 @@ export function CaseSelectorPage() {
         {items.map((item: WorklistItem) => (
           <button
             key={item.case_id}
-            onClick={() => navigate(`/cases/${item.case_id}`)}
+            onClick={() => navigate(`${routePrefix}/${item.case_id}`)}
             style={{
               display: 'flex',
               alignItems: 'center',

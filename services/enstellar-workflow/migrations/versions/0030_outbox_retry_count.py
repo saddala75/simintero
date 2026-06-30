@@ -43,14 +43,16 @@ def upgrade() -> None:
         ),
         schema="shared",
     )
-    # Index to quickly find unpublished, non-DLQ rows for relay polling.
-    op.execute(
-        """
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_shared_outbox_relay_pending
-        ON shared.outbox (event_id ASC)
-        WHERE published_at IS NULL AND dlq_at IS NULL
-        """
-    )
+    # CONCURRENTLY cannot run inside a transaction; autocommit_block commits
+    # the add_column DDL above first, then executes the index in autocommit mode.
+    with op.get_context().autocommit_block():
+        op.execute(
+            """
+            CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_shared_outbox_relay_pending
+            ON shared.outbox (event_id ASC)
+            WHERE published_at IS NULL AND dlq_at IS NULL
+            """
+        )
 
 
 def downgrade() -> None:

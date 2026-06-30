@@ -56,6 +56,7 @@ export default function App() {
       {/* Unified Platform Intelligence & Governance Routes */}
       <Route path="/revital" element={<ProtectedRoute><Nav><RevitalPage /></Nav></ProtectedRoute>} />
       <Route path="/revital/:caseId" element={<ProtectedRoute><Nav noScroll><AiWorkbenchPage /></Nav></ProtectedRoute>} />
+      <Route path="/ai-workbench" element={<ProtectedRoute><Nav><CaseSelectorPage /></Nav></ProtectedRoute>} />
       <Route path="/ai-workbench/:caseId" element={<ProtectedRoute><Nav noScroll><AiWorkbenchPage /></Nav></ProtectedRoute>} />
       <Route path="/digicore" element={<ProtectedRoute><Nav><PolicyListPage /></Nav></ProtectedRoute>} />
       <Route path="/digicore/new" element={<ProtectedRoute><Nav><NewPolicyPage /></Nav></ProtectedRoute>} />
