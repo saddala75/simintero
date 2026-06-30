@@ -19,6 +19,7 @@ from enstellar_workflow.auth import (
     require_auth,
     require_grievance_coordinator,
     require_reviewer,
+    require_saas_admin,
 )
 
 
@@ -92,6 +93,19 @@ async def _fake_require_grievance_coordinator(request: Request):
     return ctx
 
 
+async def _fake_require_saas_admin(request: Request):
+    """Test replacement for require_saas_admin."""
+    token = request.headers.get("Authorization", "")[len("Bearer "):]
+    ctx = ReviewerContext(
+        tenant_id=token,
+        sub="test-admin",
+        roles=["saas_admin"],
+        principal_type="human",
+    )
+    set_context(ctx)
+    return ctx
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _install_fake_auth() -> None:
     """Register the fake auth deps for all workflow-engine API tests."""
@@ -102,11 +116,13 @@ def _install_fake_auth() -> None:
     app.dependency_overrides[require_grievance_coordinator] = (
         _fake_require_grievance_coordinator
     )
+    app.dependency_overrides[require_saas_admin] = _fake_require_saas_admin
     yield
     app.dependency_overrides.pop(require_auth, None)
     app.dependency_overrides.pop(require_reviewer, None)
     app.dependency_overrides.pop(require_appeals_assigner, None)
     app.dependency_overrides.pop(require_grievance_coordinator, None)
+    app.dependency_overrides.pop(require_saas_admin, None)
 
 
 # OPA URL the workflow engine calls by default (config opa_url default).

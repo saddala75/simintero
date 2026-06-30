@@ -145,3 +145,22 @@ AssignerRequest = Annotated[ReviewerContext, Depends(require_appeals_assigner)]
 GrievanceCoordinatorRequest = Annotated[
     ReviewerContext, Depends(require_grievance_coordinator)
 ]
+
+# ---------------------------------------------------------------------------
+# Saas admin role — platform-wide admin operations (DLQ, etc.)
+# ---------------------------------------------------------------------------
+SAAS_ADMIN_ROLE = "saas_admin"
+
+
+async def require_saas_admin(
+    request: Request,
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> AsyncIterator[ReviewerContext]:
+    """Enforce the saas_admin role; yield a scoped ReviewerContext."""
+    ctx = await _authed_with_role(creds, SAAS_ADMIN_ROLE)
+    request.state.tenant_context = ctx
+    with tenant_context(ctx):
+        yield ctx
+
+
+AdminRequest = Annotated[ReviewerContext, Depends(require_saas_admin)]

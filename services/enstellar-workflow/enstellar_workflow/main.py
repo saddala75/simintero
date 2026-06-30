@@ -53,6 +53,7 @@ from enstellar_workflow.criteria.router import router as criteria_router
 from enstellar_workflow.normalization.api import router as normalization_router
 from enstellar_workflow.queues.router import router as queues_router
 from enstellar_workflow.suggestions.router import router as suggestions_router
+from enstellar_workflow.admin.dlq_router import router as dlq_admin_router
 
 # ── OpenTelemetry bootstrap ────────────────────────────────────────────────
 if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
@@ -265,6 +266,7 @@ app.include_router(queues_router)
 app.include_router(appeals_router)
 app.include_router(grievances_router)
 app.include_router(directory_router)
+app.include_router(dlq_admin_router)
 
 
 # --- simintero-authz exception → HTTP status mapping -------------------------
