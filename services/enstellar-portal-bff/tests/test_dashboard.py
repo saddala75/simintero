@@ -22,13 +22,19 @@ WORKFLOW_STUB = {
 VKAS_STUB = {"by_status": {"active": 42, "draft": 3}}
 
 
-@pytest.mark.asyncio
-@respx.mock
-async def test_dashboard_live():
+@pytest.fixture(autouse=True)
+def _override_auth():
     async def _fake_reviewer():
         return make_principal()
 
     app.dependency_overrides[auth_module.require_reviewer] = _fake_reviewer
+    yield
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_dashboard_live():
     respx.get("http://workflow-engine:8000/internal/dashboard").mock(
         return_value=httpx.Response(200, json=WORKFLOW_STUB)
     )
@@ -39,7 +45,6 @@ async def test_dashboard_live():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         r = await client.get("/bff/dashboard", headers={"Authorization": "Bearer tok"})
-    app.dependency_overrides.clear()
 
     assert r.status_code == 200
     data = r.json()
@@ -55,10 +60,6 @@ async def test_dashboard_live():
 @respx.mock
 async def test_dashboard_vkas_failure_returns_null_policies():
     """VKAS failure should not crash the dashboard — policies fields become None."""
-    async def _fake_reviewer():
-        return make_principal()
-
-    app.dependency_overrides[auth_module.require_reviewer] = _fake_reviewer
     respx.get("http://workflow-engine:8000/internal/dashboard").mock(
         return_value=httpx.Response(200, json=WORKFLOW_STUB)
     )
@@ -69,7 +70,6 @@ async def test_dashboard_vkas_failure_returns_null_policies():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         r = await client.get("/bff/dashboard", headers={"Authorization": "Bearer tok"})
-    app.dependency_overrides.clear()
 
     assert r.status_code == 200
     data = r.json()

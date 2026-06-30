@@ -1,6 +1,8 @@
 """Platform dashboard — aggregated daily summary for the post-login landing page."""
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 from fastapi import APIRouter, Depends
 from enstellar_bff.auth import require_reviewer
@@ -17,7 +19,6 @@ async def get_dashboard(auth: tuple = Depends(require_reviewer)) -> dict:
     tenant_id = ctx.tenant_id
 
     # Fetch workflow aggregates and VKAS stats concurrently.
-    import asyncio
     workflow_task = asyncio.create_task(workflow_client.dashboard_stats(bearer))
     vkas_task = asyncio.create_task(_vkas_stats(tenant_id))
     workflow_data, vkas_data = await asyncio.gather(workflow_task, vkas_task)

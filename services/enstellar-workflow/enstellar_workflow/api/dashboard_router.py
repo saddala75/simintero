@@ -1,7 +1,9 @@
 """Internal dashboard aggregate endpoint — called by the BFF, not public."""
 from __future__ import annotations
 
+import datetime
 import json
+from datetime import timezone
 from typing import Any
 
 from fastapi import APIRouter
@@ -151,8 +153,6 @@ async def _my_cases(conn, tenant_id: str) -> list[dict[str, Any]]:
         name = f"{member.get('first_name', '')} {member.get('last_name', '')}".strip()
         sla_remaining_hours: float | None = None
         if r["sla_deadline"] is not None:
-            from datetime import timezone
-            import datetime
             now = datetime.datetime.now(tz=timezone.utc)
             delta = r["sla_deadline"] - now
             sla_remaining_hours = round(delta.total_seconds() / 3600, 1)
