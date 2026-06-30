@@ -297,3 +297,7 @@ class ClinicalReviewConsumer(IdempotentKafkaConsumer):
         )
         async with tenant_transaction(self._pool, case.tenant_id) as conn:
             await self._outbox.publish(conn, event)
+            await conn.execute(
+                "UPDATE workflow_instances SET revital_bypassed = TRUE WHERE case_id = $1",
+                case.case_id,
+            )
