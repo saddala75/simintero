@@ -12,7 +12,7 @@ async def test_notification_templates_seeded(db_dsn):
         count = await conn.fetchval(
             "SELECT COUNT(*) FROM notification_templates WHERE tenant_id = 'tenant-dev'"
         )
-        assert count >= 14, f"Expected ≥14 templates, got {count}"
+        assert count >= 15, f"Expected ≥15 templates, got {count}"
     finally:
         await conn.close()
 

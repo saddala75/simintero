@@ -59,6 +59,7 @@ def upgrade() -> None:
         ON CONFLICT (tenant_id, COALESCE(lob,''), event_type, channel, version) DO NOTHING
     """)
     # PHI-permitted member letter template (channel='mail', member_phi=TRUE)
+    op.execute("SET LOCAL sim.tenant_id = 'tenant-dev'")
     op.execute("""
         INSERT INTO notification_templates (tenant_id, lob, event_type, channel, subject_template, body_template, member_phi)
         VALUES
