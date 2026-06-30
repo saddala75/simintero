@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import type { GovernanceStore } from '../store/GovernanceStore.js';
+import type { AuthedRequest } from '../middleware/requireAuth.js';
 
 export interface EnqueueInput {
   artifact_id: string;
@@ -53,9 +54,10 @@ export function createEnqueueRouter(store: GovernanceStore): Router {
   router.post('/v1/governance/queue/submit', async (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
 
+    // created_by comes from the verified JWT sub claim, never from the request body.
     const input: EnqueueInput = {
       artifact_id: typeof body['artifact_id'] === 'string' ? body['artifact_id'] : '',
-      created_by: typeof body['created_by'] === 'string' ? body['created_by'] : '',
+      created_by: (req as AuthedRequest).user.sub,
     };
     if (typeof body['cql_library_url'] === 'string') {
       input.cql_library_url = body['cql_library_url'];

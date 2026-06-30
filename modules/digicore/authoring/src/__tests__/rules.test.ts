@@ -80,6 +80,12 @@ beforeAll(
     new Promise<void>((resolve) => {
       const app = express();
       app.use(express.json());
+      // Inject a fake authenticated user so route handlers can read req.user.sub.
+      // In production this is set by the requireAuth middleware after JWT verification.
+      app.use((_req, _res, next) => {
+        (_req as any).user = { sub: VALID_BODY.created_by };
+        next();
+      });
       app.use(createRulesRouter({ compiler, vkas, governance }));
       server = createServer(app);
       server.listen(0, '127.0.0.1', () => {

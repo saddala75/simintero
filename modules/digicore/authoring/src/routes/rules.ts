@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import type { AuthedRequest } from '../middleware/requireAuth.js';
 
 const ARTIFACT_BASE = 'https://artifacts.simintero.io/shared/';
 const VERSION = '1.0.0';
@@ -23,7 +24,8 @@ export interface RulesRouterDeps {
   governance: RulesGovernanceClient;
 }
 
-const REQUIRED_FIELDS = ['procedure_code', 'slug', 'cql', 'created_by'] as const;
+// 'created_by' is intentionally absent — it is derived from the verified JWT sub claim.
+const REQUIRED_FIELDS = ['procedure_code', 'slug', 'cql'] as const;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
@@ -46,7 +48,8 @@ export function createRulesRouter(deps: RulesRouterDeps): Router {
     const procedureCode = body['procedure_code'] as string;
     const slug = body['slug'] as string;
     const cql = body['cql'] as string;
-    const createdBy = body['created_by'] as string;
+    // created_by comes from the verified JWT sub claim, never from the request body.
+    const createdBy = (req as AuthedRequest).user.sub;
     const paRequired = body['pa_required'];
     const pins = body['pins'];
     const dtrPackageRef = body['dtr_package_ref'];

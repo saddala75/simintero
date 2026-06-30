@@ -10,6 +10,7 @@ import { createValidateRouter } from './routes/validate.js';
 import { createUnitTestRouter } from './routes/unitTest.js';
 import { createDraftRouter } from './routes/draft.js';
 import { createRulesRouter } from './routes/rules.js';
+import { requireAuth, createJwksVerifier } from './middleware/requireAuth.js';
 import type {
   RulesCompiler,
   RulesVkasClient,
@@ -128,6 +129,9 @@ const rulesGovernance: RulesGovernanceClient = {
     ),
 };
 
+const jwksVerifier = createJwksVerifier();
+const auth = requireAuth(jwksVerifier);
+
 const app: Express = express();
 app.use(express.json());
 
@@ -139,10 +143,14 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next()
 })
 
+// Health check — no auth required
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'digicore-authoring' });
 });
 
+// All mutation routes require a valid Keycloak Bearer JWT.
+// The verified sub claim is injected as req.user.sub for downstream handlers.
+app.use(auth);
 app.use(createCompileRouter(compiler));
 app.use(createValidateRouter(validator));
 app.use(createUnitTestRouter());

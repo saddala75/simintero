@@ -12,6 +12,7 @@ import { createEnqueueRouter } from './routes/enqueue.js';
 import { InMemoryGovernanceStore } from './store/InMemoryGovernanceStore.js';
 import { PgGovernanceStore } from './store/PgGovernanceStore.js';
 import type { GovernanceStore } from './store/GovernanceStore.js';
+import { requireAuth, createJwksVerifier } from './middleware/requireAuth.js';
 
 // Re-export public types and classes
 export type {
@@ -54,6 +55,9 @@ const store: GovernanceStore = governanceDbUrl
   : new InMemoryGovernanceStore();
 const enforcer = new GateEnforcer();
 
+const jwksVerifier = createJwksVerifier();
+const auth = requireAuth(jwksVerifier);
+
 const app: Express = express();
 app.use(express.json());
 
@@ -65,10 +69,14 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next()
 })
 
+// Health check — no auth required
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'digicore-governance' });
 });
 
+// All mutation routes require a valid Keycloak Bearer JWT.
+// The verified sub claim is injected as req.user.sub for downstream handlers.
+app.use(auth);
 app.use(createQueueRouter(store));
 app.use(createEnqueueRouter(store));
 app.use(createApproveRouter(store, enforcer));

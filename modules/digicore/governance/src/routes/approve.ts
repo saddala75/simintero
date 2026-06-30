@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { GateEnforcer } from '../gates/GateEnforcer.js';
 import type { GovernanceStore } from '../store/GovernanceStore.js';
+import type { AuthedRequest } from '../middleware/requireAuth.js';
 
 export interface ApproveInput {
   artifact_id: string;
@@ -80,18 +81,18 @@ export function createApproveRouter(
     if (
       typeof body['artifact_id'] !== 'string' ||
       (body['gate'] !== 'clinical' && body['gate'] !== 'compliance') ||
-      (body['decision'] !== 'approved' && body['decision'] !== 'rejected') ||
-      typeof body['approver'] !== 'string'
+      (body['decision'] !== 'approved' && body['decision'] !== 'rejected')
     ) {
       res.status(400).json({ error: 'Invalid request body' });
       return;
     }
 
+    // approver comes from the verified JWT sub claim, never from the request body.
     const input: ApproveInput = {
       artifact_id: body['artifact_id'],
       gate: body['gate'],
       decision: body['decision'],
-      approver: body['approver'],
+      approver: (req as AuthedRequest).user.sub,
     };
 
     const result = await handleApprove(input, store, enforcer);
