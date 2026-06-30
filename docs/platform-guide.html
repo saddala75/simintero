@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simintero Platform — Engineer Guide</title>
+<style>
+:root {
+  --sidebar-w: 270px;
+  --sidebar-bg: #0f172a;
+  --sidebar-text: #94a3b8;
+  --sidebar-active: #6366f1;
+  --sidebar-hover: #1e293b;
+  --accent: #6366f1;
+  --accent2: #818cf8;
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --code-bg: #1e293b;
+  --code-text: #e2e8f0;
+  --python: #3b82f6;
+  --java: #f97316;
+  --node: #22c55e;
+  --react: #06b6d4;
+  --infra: #a855f7;
+  --success: #10b981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --kafka: #e11d48;
+  --http: #0ea5e9;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:15px;line-height:1.6}
+
+/* ── Sidebar ── */
+nav{width:var(--sidebar-w);background:var(--sidebar-bg);position:fixed;top:0;left:0;height:100vh;overflow-y:auto;flex-shrink:0;z-index:100}
+nav::-webkit-scrollbar{width:4px}
+nav::-webkit-scrollbar-thumb{background:#334155;border-radius:2px}
+.nav-header{padding:20px 16px 8px;border-bottom:1px solid #1e293b;margin-bottom:8px}
+.nav-logo{font-size:17px;font-weight:700;color:#f1f5f9;letter-spacing:-0.3px}
+.nav-sub{font-size:11px;color:#475569;margin-top:2px;letter-spacing:0.5px;text-transform:uppercase}
+.nav-search{margin:10px 12px;position:relative}
+.nav-search input{width:100%;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#94a3b8;font-size:13px;padding:6px 10px 6px 28px;outline:none}
+.nav-search input::placeholder{color:#475569}
+.nav-search::before{content:'⌕';position:absolute;left:9px;top:6px;color:#475569;font-size:14px}
+.nav-group{padding:4px 0}
+.nav-group-label{font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#475569;padding:10px 16px 4px}
+.nav-item{display:block;padding:6px 16px;color:var(--sidebar-text);text-decoration:none;font-size:13.5px;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s}
+.nav-item:hover{background:var(--sidebar-hover);color:#e2e8f0}
+.nav-item.active{color:#e2e8f0;background:#1e293b;border-left-color:var(--accent)}
+.nav-item .badge{float:right;font-size:10px;background:#1e293b;border:1px solid #334155;border-radius:4px;padding:1px 5px;color:#475569}
+.nav-item.active .badge{background:#312e81;border-color:#4338ca;color:#a5b4fc}
+
+/* ── Main ── */
+main{margin-left:var(--sidebar-w);flex:1;padding:0;max-width:1000px}
+section{padding:48px 48px 56px;border-bottom:1px solid var(--border)}
+section:last-child{border-bottom:none}
+
+h1{font-size:28px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-bottom:8px}
+h2{font-size:20px;font-weight:700;color:var(--text);margin:36px 0 12px;letter-spacing:-0.3px;padding-top:4px}
+h2:first-child{margin-top:0}
+h3{font-size:15px;font-weight:700;color:var(--text);margin:24px 0 8px}
+h4{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:20px 0 8px}
+p{color:#334155;margin-bottom:12px;max-width:72ch}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ── Section Hero ── */
+.section-hero{background:linear-gradient(135deg,#312e81 0%,#1e1b4b 100%);margin:-48px -48px 36px;padding:40px 48px 36px;color:#e2e8f0}
+.section-hero h1{color:#fff}
+.section-hero p{color:#a5b4fc;max-width:none}
+.hero-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.8)}
+.chip.python{background:rgba(59,130,246,0.2);border-color:rgba(59,130,246,0.4)}
+.chip.java{background:rgba(249,115,22,0.2);border-color:rgba(249,115,22,0.4)}
+.chip.node{background:rgba(34,197,94,0.2);border-color:rgba(34,197,94,0.4)}
+.chip.react{background:rgba(6,182,212,0.2);border-color:rgba(6,182,212,0.4)}
+.chip.infra{background:rgba(168,85,247,0.2);border-color:rgba(168,85,247,0.4)}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:20px}
+.card h3{margin-top:0;font-size:14px}
+.card p{font-size:13.5px;margin-bottom:0;color:var(--muted)}
+.card .port{font-size:12px;font-weight:600;color:var(--accent);background:#eef2ff;border-radius:4px;padding:2px 6px;float:right}
+.card .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;margin-right:4px;margin-bottom:6px}
+.tag.python{background:#dbeafe;color:#1d4ed8}
+.tag.java{background:#ffedd5;color:#c2410c}
+.tag.node{background:#dcfce7;color:#15803d}
+.tag.react{background:#cffafe;color:#0e7490}
+.tag.infra{background:#f3e8ff;color:#7e22ce}
+
+/* ── Code ── */
+pre{background:var(--code-bg);border-radius:8px;padding:18px 20px;overflow-x:auto;margin:14px 0;position:relative;border:1px solid #334155}
+code{font-family:'JetBrains Mono','Fira Code','Cascadia Code',monospace;font-size:13px;line-height:1.7;color:var(--code-text)}
+.code-label{position:absolute;top:10px;right:12px;font-size:11px;color:#475569;font-family:inherit}
+.kw{color:#c792ea}
+.str{color:#c3e88d}
+.cm{color:#7a9fb5;font-style:italic}
+.fn{color:#82aaff}
+.num{color:#f78c6c}
+.cls{color:#ffcb6b}
+.dec{color:#89ddff}
+.op{color:#89ddff}
+.var{color:#e2e8f0}
+.pl{color:#a5b4fc}
+
+/* ── Tables ── */
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th{background:#f8fafc;text-align:left;padding:9px 12px;font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:0.4px;border-bottom:2px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:#334155}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fafc}
+td code,th code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12px;color:#4338ca}
+
+/* ── Callouts ── */
+.callout{border-radius:8px;padding:14px 16px;margin:16px 0;display:flex;gap:12px;align-items:flex-start;font-size:13.5px}
+.callout.info{background:#eff6ff;border:1px solid #bfdbfe}
+.callout.warn{background:#fffbeb;border:1px solid #fde68a}
+.callout.danger{background:#fef2f2;border:1px solid #fecaca}
+.callout.success{background:#f0fdf4;border:1px solid #bbf7d0}
+.callout-icon{font-size:18px;flex-shrink:0;line-height:1}
+.callout p{margin:0;color:inherit}
+.callout.info p{color:#1e40af}
+.callout.warn p{color:#92400e}
+.callout.danger p{color:#991b1b}
+.callout.success p{color:#166534}
+
+/* ── Diagrams ── */
+.diagram{background:var(--code-bg);border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;border:1px solid #334155}
+.diagram pre{background:none;border:none;padding:0;margin:0}
+.diagram code{color:#94a3b8;font-size:13px}
+.flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:20px 0}
+.flow-node{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;text-align:center;min-width:110px}
+.flow-node.kafka{background:#fff1f2;border-color:#fecdd3;color:#be123c}
+.flow-node.python{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+.flow-node.java{background:#fff7ed;border-color:#fed7aa;color:#c2410c}
+.flow-node.node{background:#f0fdf4;border-color:#bbf7d0;color:#15803d}
+.flow-node.react{background:#ecfeff;border-color:#a5f3fc;color:#0e7490}
+.flow-node.infra{background:#faf5ff;border-color:#e9d5ff;color:#7e22ce}
+.flow-arrow{font-size:18px;color:var(--muted);padding:0 6px;flex-shrink:0}
+.flow-label{font-size:10px;color:var(--muted);text-align:center;margin-top:2px;font-weight:500}
+
+/* ── State machine ── */
+.states{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.state{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;border:1px solid}
+.state.initial{background:#f0fdf4;border-color:#86efac;color:#166534}
+.state.working{background:#eff6ff;border-color:#93c5fd;color:#1e40af}
+.state.pended{background:#fffbeb;border-color:#fde68a;color:#92400e}
+.state.terminal{background:#fef2f2;border-color:#fca5a5;color:#991b1b}
+.state.terminal.good{background:#f0fdf4;border-color:#86efac;color:#166534}
+
+/* ── Invariant box ── */
+.invariant{background:linear-gradient(135deg,#312e81,#1e1b4b);border-radius:10px;padding:16px 20px;margin:16px 0;color:#e0e7ff}
+.invariant h4{color:#a5b4fc;margin:0 0 6px;font-size:11px;letter-spacing:1px}
+.invariant p{color:#c7d2fe;margin:0;font-size:13.5px}
+
+/* ── Scenario steps ── */
+.steps{counter-reset:step;list-style:none;margin:16px 0}
+.steps li{counter-increment:step;display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--border)}
+.steps li:last-child{border-bottom:none}
+.step-num{background:var(--accent);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px}
+.step-body h4{margin:0 0 4px;font-size:14px;font-weight:700;color:var(--text);text-transform:none;letter-spacing:0}
+.step-body p{margin:0;font-size:13.5px;color:var(--muted)}
+.step-body code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12px;color:#4338ca}
+
+/* ── Topic pills ── */
+.topic{display:inline-block;background:#fff1f2;border:1px solid #fecdd3;color:#be123c;font-size:12px;font-weight:600;padding:2px 8px;border-radius:12px;font-family:monospace}
+.event{display:inline-block;background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;font-size:12px;font-weight:600;padding:2px 8px;border-radius:12px;font-family:monospace}
+.port-pill{display:inline-block;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-size:12px;font-weight:600;padding:2px 8px;border-radius:12px;font-family:monospace}
+
+/* ── Search highlight ── */
+.highlight{background:#fef08a;border-radius:2px}
+
+/* ── Scrollbar ── */
+main::-webkit-scrollbar{width:6px}
+main::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════ SIDEBAR -->
+<nav id="sidebar">
+  <div class="nav-header">
+    <div class="nav-logo">Simintero</div>
+    <div class="nav-sub">Platform Engineer Guide</div>
+  </div>
+  <div class="nav-search">
+    <input type="text" id="search" placeholder="Search…" oninput="doSearch(this.value)">
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Start Here</div>
+    <a class="nav-item" href="#overview">Platform Overview</a>
+    <a class="nav-item" href="#quickstart">Quick Start</a>
+    <a class="nav-item" href="#architecture">Architecture</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Platform Substrate</div>
+    <a class="nav-item" href="#substrate-db">Postgres &amp; Multi-tenancy</a>
+    <a class="nav-item" href="#substrate-kafka">Kafka / Redpanda</a>
+    <a class="nav-item" href="#substrate-auth">Keycloak &amp; Auth</a>
+    <a class="nav-item" href="#substrate-outbox">Transactional Outbox</a>
+    <a class="nav-item" href="#substrate-temporal">Temporal Workflows</a>
+    <a class="nav-item" href="#substrate-storage">MinIO &amp; Storage</a>
+    <a class="nav-item" href="#substrate-opa">OPA Policies</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Products</div>
+    <a class="nav-item" href="#enstellar">Enstellar PA/UM <span class="badge">Python</span></a>
+    <a class="nav-item" href="#interop">FHIR Interop <span class="badge">Java</span></a>
+    <a class="nav-item" href="#digicore">Digicore Rules <span class="badge">Java+TS</span></a>
+    <a class="nav-item" href="#revital">Revital AI <span class="badge">Node</span></a>
+    <a class="nav-item" href="#qualitron">Qualitron Quality <span class="badge">Node</span></a>
+    <a class="nav-item" href="#portal">Portal &amp; BFF <span class="badge">React</span></a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Deep Dives</div>
+    <a class="nav-item" href="#state-machine">PA State Machine</a>
+    <a class="nav-item" href="#consumers">Kafka Consumers</a>
+    <a class="nav-item" href="#e2e">E2E Walkthrough</a>
+    <a class="nav-item" href="#service-cards">Service Reference</a>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════ MAIN -->
+<main id="main">
+
+<!-- ─────────────────────────── OVERVIEW -->
+<section id="overview">
+  <div class="section-hero">
+    <h1>Simintero Payer Platform</h1>
+    <p>A unified prior-authorization, clinical-rules, AI-advisory, and quality-measure platform for payers. Polyglot monorepo, fully containerized, 46 services in a single <code>docker compose up</code>.</p>
+    <div class="hero-chips">
+      <span class="chip python">🐍 Python / FastAPI</span>
+      <span class="chip java">☕ Java / Spring Boot</span>
+      <span class="chip node">⬡ Node.js / TypeScript</span>
+      <span class="chip react">⚛ React / Vite</span>
+      <span class="chip infra">🔧 Kafka · Postgres · Temporal · Keycloak · OPA · MinIO</span>
+    </div>
+  </div>
+
+  <h2>Four Products, One Platform</h2>
+  <div class="card-grid">
+    <div class="card">
+      <span class="port">:8000</span>
+      <span class="tag python">Python</span>
+      <h3>Enstellar — Prior Authorization &amp; UM</h3>
+      <p>End-to-end PA lifecycle: intake → auto-determination → clinical review → adverse decision → notification. Kafka-driven state machine with SLA clocks, RFI, escalation, appeals, and grievances.</p>
+    </div>
+    <div class="card">
+      <span class="port">:8083</span>
+      <span class="tag java">Java</span><span class="tag node">Node</span>
+      <h3>Digicore — Clinical Rules Engine</h3>
+      <p>CQL (Clinical Quality Language) rule authoring, versioning, governance approval, and real-time evaluation via ELM interpreter. Integrates with VKAS for versioned artifact storage.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3014</span>
+      <span class="tag node">Node</span>
+      <h3>Revital AI — Evidence Pipeline</h3>
+      <p>Temporal-orchestrated multi-step AI advisory: fetches clinical docs → extracts entities → maps to evidence criteria → generates grounded summaries → persists advisory. PHI-isolated at model boundary.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3015</span>
+      <span class="tag node">Node</span>
+      <h3>Qualitron — Quality Measures</h3>
+      <p>HEDIS-style quality measure evaluation, denominator/numerator/exclusion gap detection, outreach task creation, and aggregated reporting. Driven by Kafka lifecycle events.</p>
+    </div>
+  </div>
+
+  <h2>How They Fit Together</h2>
+  <div class="diagram">
+    <pre><code>
+  EHR / Provider
+       │ FHIR PAS $submit
+       ▼
+  ┌─────────────┐    raw bundle     ┌──────┐
+  │   Interop   │ ─────────────────▶│ MinIO│
+  │  (Java :80) │                   └──────┘
+  └──────┬──────┘
+         │ POST /normalize
+         ▼
+  ┌────────────────┐   shared.outbox ──▶ Kafka ──▶ ┌─────────────────┐
+  │ Workflow Engine│                                 │ Kafka Consumers │
+  │ (Python :8000) │ ◀────────────────── events ────│ (same process)  │
+  └───────┬────────┘                                 └─────────────────┘
+          │                                                   │
+    ┌─────┴──────┐                               ┌───────────┘
+    │            │                               │
+    ▼            ▼                               ▼
+┌─────────┐  ┌──────────┐              ┌─────────────────┐
+│ Digicore│  │  Revital │              │   Qualitron     │
+│ Runtime │  │  Pipeline│              │  (gap detection)│
+│(:8083)  │  │ (:3014)  │              └─────────────────┘
+└─────────┘  └─────┬────┘
+                   │
+             ┌─────▼──────┐     ┌─────────────┐
+             │Model Gateway│────▶│ Anthropic API│
+             │  (:3011)   │     └─────────────┘
+             └────────────┘
+
+  ┌─────────────┐   JWT   ┌─────────────┐   HTTP   ┌─────────────┐
+  │ React Portal│ ───────▶│  Portal BFF │ ────────▶│  Workflow   │
+  │  (:5173)   │          │   (:8001)   │          │  Engine     │
+  └─────────────┘          └─────────────┘          └─────────────┘
+    </code></pre>
+  </div>
+
+  <h2>Communication Patterns</h2>
+  <table>
+    <tr><th>Pattern</th><th>Used for</th><th>Technology</th></tr>
+    <tr><td><strong>Async events</strong></td><td>PA lifecycle, clocks, AI results, notifications</td><td>Kafka (Redpanda) via transactional outbox</td></tr>
+    <tr><td><strong>Sync HTTP</strong></td><td>BFF→engine, engine→Revital, Revital→model-gateway</td><td>Internal Docker network HTTP</td></tr>
+    <tr><td><strong>Database</strong></td><td>All services to Postgres (RLS enforced)</td><td>PgBouncer :5433 → Postgres :5432</td></tr>
+    <tr><td><strong>Long-running workflows</strong></td><td>Revital analysis pipeline, document processing</td><td>Temporal gRPC :7233</td></tr>
+    <tr><td><strong>Object storage</strong></td><td>Raw PAS bundles, clinical docs, PHI letters</td><td>MinIO S3-compatible :9000</td></tr>
+    <tr><td><strong>Policy enforcement</strong></td><td>Adverse-action gate, AI kill-switch</td><td>OPA REST :8181</td></tr>
+    <tr><td><strong>Email</strong></td><td>Member notifications (dev: caught by Mailpit)</td><td>SMTP :1025 → Mailpit :8025</td></tr>
+  </table>
+</section>
+
+<!-- ─────────────────────────── QUICK START -->
+<section id="quickstart">
+  <h1>Quick Start</h1>
+  <p>Everything runs locally via Docker Compose. You need Docker Desktop with ≥8 GB RAM allocated.</p>
+
+  <h2>First Boot</h2>
+  <pre><code><span class="cm"># Clone and start — takes 5–15 min on first run (HAPI loads IGs)</span>
+git clone https://github.com/saddala75/simintero.git
+cd simintero
+make up-build   <span class="cm"># builds images + starts all 46 services</span>
+
+<span class="cm"># Run the full E2E smoke test (~5 min)</span>
+make smoke</code></pre>
+
+  <p>After first boot, images are cached and volumes persist, so subsequent starts take ~60–90 seconds:</p>
+  <pre><code>make up      <span class="cm"># start (fast)</span>
+make down    <span class="cm"># stop, keep data volumes</span>
+make clean   <span class="cm"># stop + wipe all volumes (clean slate)</span></code></pre>
+
+  <h2>Service URLs</h2>
+  <table>
+    <tr><th>Service</th><th>URL</th><th>Credentials</th></tr>
+    <tr><td>React Portal</td><td><code>http://localhost:5173</code></td><td>Log in via Keycloak</td></tr>
+    <tr><td>Portal BFF (Swagger)</td><td><code>http://localhost:8001/docs</code></td><td>Use Keycloak JWT</td></tr>
+    <tr><td>Workflow Engine (Swagger)</td><td><code>http://localhost:8000/docs</code></td><td>Use Keycloak JWT</td></tr>
+    <tr><td>FHIR Interop</td><td><code>http://localhost:8080/fhir/metadata</code></td><td>—</td></tr>
+    <tr><td>HAPI FHIR (raw)</td><td><code>http://localhost:8090/fhir/metadata</code></td><td>—</td></tr>
+    <tr><td>Keycloak Admin</td><td><code>http://localhost:8081</code></td><td><code>admin / admin</code></td></tr>
+    <tr><td>Mailpit (email)</td><td><code>http://localhost:8025</code></td><td>All dev email lands here</td></tr>
+    <tr><td>Grafana</td><td><code>http://localhost:3000</code></td><td>No login (dev mode)</td></tr>
+    <tr><td>Temporal UI</td><td><code>http://localhost:8088</code></td><td>—</td></tr>
+    <tr><td>MinIO Console</td><td><code>http://localhost:9001</code></td><td><code>minioadmin / minioadmin</code></td></tr>
+    <tr><td>Redpanda Console</td><td><code>http://localhost:8082</code></td><td>—</td></tr>
+    <tr><td>OPA</td><td><code>http://localhost:8181</code></td><td>—</td></tr>
+  </table>
+
+  <h2>Test Users</h2>
+  <p>All dev users live in the <code>simintero</code> Keycloak realm. Password for all: <strong><code>e2e-pass</code></strong></p>
+  <table>
+    <tr><th>Username</th><th>Roles</th><th>Use for</th></tr>
+    <tr><td><code>md-reviewer</code></td><td>reviewer, medical_director, appeals_coordinator, grievance_coordinator</td><td>Full reviewer flows, adverse decisions</td></tr>
+    <tr><td><code>dr-jones</code></td><td>reviewer</td><td>Standard clinical review</td></tr>
+    <tr><td><code>dr-smith</code></td><td>reviewer</td><td>SOD partner (second opinion)</td></tr>
+    <tr><td><code>e2e-reviewer</code></td><td>reviewer</td><td>Automated smoke tests</td></tr>
+  </table>
+
+  <h2>Getting a JWT for Manual API Testing</h2>
+  <pre><code>TOKEN=$(curl -sf -X POST http://localhost:8081/realms/simintero/protocol/openid-connect/token \
+  -d grant_type=password \
+  -d client_id=enstellar-test-client \
+  -d client_secret=test-secret \
+  -d username=md-reviewer \
+  -d password=e2e-pass \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+<span class="cm"># Use it:</span>
+curl http://localhost:8001/bff/queues/default/worklist \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Tenant-ID: tenant-dev"</code></pre>
+</section>
+
+<!-- ─────────────────────────── ARCHITECTURE -->
+<section id="architecture">
+  <h1>Architecture</h1>
+
+  <h2>Repository Layout</h2>
+  <pre><code>simintero/
+├── services/                  <span class="cm"># Application services</span>
+│   ├── enstellar-workflow/    <span class="cm"># PA engine (Python/FastAPI) — :8000</span>
+│   ├── enstellar-portal-bff/  <span class="cm"># BFF (Python/FastAPI) — :8001</span>
+│   ├── enstellar-portal/      <span class="cm"># React UI — :5173</span>
+│   ├── enstellar-interop/     <span class="cm"># FHIR layer (Java/Spring) — :8080</span>
+│   └── enstellar-poller/      <span class="cm"># SLA poller — :8002</span>
+├── modules/                   <span class="cm"># Product modules</span>
+│   ├── digicore/
+│   │   ├── runtime/           <span class="cm"># CQL evaluator (Java) — :8083</span>
+│   │   ├── authoring/         <span class="cm"># Rule editor (Node) — :3052</span>
+│   │   └── governance/        <span class="cm"># Approval gates (Node) — :3053</span>
+│   ├── revital/
+│   │   ├── pipeline/          <span class="cm"># AI pipeline (Node+Temporal) — :3014</span>
+│   │   └── extraction/        <span class="cm"># Entity extractor (Node lib)</span>
+│   └── qualitron/
+│       ├── execution/         <span class="cm"># Measure eval (Node) — :3015</span>
+│       ├── aggregation/       <span class="cm"># Kafka aggregator — :4081</span>
+│       ├── reporting/         <span class="cm"># Reports API — :4080</span>
+│       └── gaps/              <span class="cm"># Gap detection lib</span>
+├── platform/
+│   ├── services/              <span class="cm"># Shared infra services</span>
+│   │   ├── model-gateway/     <span class="cm"># AI inference proxy — :3011</span>
+│   │   ├── vkas/              <span class="cm"># Versioned artifact store — :3040</span>
+│   │   ├── task-service/      <span class="cm"># Task/worklist — :3021</span>
+│   │   ├── document/          <span class="cm"># Document ingestion — :3010</span>
+│   │   ├── terminology-service/ <span class="cm"># Value sets — :3030</span>
+│   │   ├── relay/             <span class="cm"># Event relay — :3070</span>
+│   │   └── control-plane/     <span class="cm"># Tenant mgmt — :3012</span>
+│   └── libs/                  <span class="cm"># Shared TypeScript libraries</span>
+│       ├── otel/              <span class="cm"># OpenTelemetry setup</span>
+│       ├── outbox/            <span class="cm"># Transactional outbox (Python + TS)</span>
+│       ├── authz-client/      <span class="cm"># OPA auth client</span>
+│       └── tenant-context/    <span class="cm"># Tenant ID propagation</span>
+├── packages/
+│   └── design-system/         <span class="cm"># @sim/design-system (React components)</span>
+├── apps/web/                  <span class="cm"># UI micro-frontends</span>
+│   ├── reviewer-workspace/    <span class="cm"># AI workbench UI</span>
+│   ├── digicore-console/      <span class="cm"># Policy Studio</span>
+│   ├── quality-console/       <span class="cm"># Quality dashboard</span>
+│   └── …</span>
+├── infra/                     <span class="cm"># Keycloak realm, Postgres init, OPA policies,</span>
+│                              <span class="cm"># Terraform, Helm/K8s, ArgoCD, observability</span>
+├── integration/               <span class="cm"># External connectors (VSAC, clearinghouse, CDS Hooks)</span>
+├── docker-compose.yml         <span class="cm"># All 46 services</span>
+└── Makefile                   <span class="cm"># up / up-build / down / clean / smoke</span></code></pre>
+
+  <h2>Kafka Topic Map</h2>
+  <table>
+    <tr><th>Topic</th><th>Key Events</th><th>Main Consumers</th></tr>
+    <tr>
+      <td><span class="topic">sim.case.lifecycle</span></td>
+      <td>CaseIntakeReceived, CaseStateChanged, RFIDispatched, RFIResponseReceived, DecisionRecorded, AppealFiled, GrievanceFiled</td>
+      <td>IntakeConsumer, ClinicalReviewConsumer, AutoDeterminationConsumer, RfiResponseConsumer, DecisionRecordedConsumer, QualGapClosedConsumer</td>
+    </tr>
+    <tr>
+      <td><span class="topic">sim.clock</span></td>
+      <td>ClockStarted, ClockPaused, ClockResumed, ClockBreached, ClockAtRisk, ClockStopped</td>
+      <td>SLA monitoring, UI regulatory clocks page</td>
+    </tr>
+    <tr>
+      <td><span class="topic">sim.ai.interaction</span></td>
+      <td>AgentAssistProduced, AgentAssistFailed</td>
+      <td>Workflow engine (updates revital_inflight row)</td>
+    </tr>
+    <tr>
+      <td><span class="topic">sim.artifact</span></td>
+      <td>NotificationSent</td>
+      <td>NotificationDeliveryConsumer (email / print)</td>
+    </tr>
+    <tr>
+      <td><span class="topic">sim.evidence</span></td>
+      <td>Evidence events</td>
+      <td>Qualitron aggregation</td>
+    </tr>
+  </table>
+  <p>Dead-letter convention: <span class="topic">{topic}.dead-letter</span> (e.g. <code>sim.case.lifecycle.dead-letter</code>)</p>
+</section>
+
+<!-- ─────────────────────────── SUBSTRATE: DB -->
+<section id="substrate-db">
+  <h1>Postgres &amp; Multi-tenancy</h1>
+
+  <h2>Database Layout</h2>
+  <table>
+    <tr><th>Database</th><th>Owner role</th><th>Used by</th></tr>
+    <tr><td><code>workflow</code></td><td><code>workflow</code></td><td>Workflow engine — PA cases, events, clocks, outbox</td></tr>
+    <tr><td><code>simintero</code></td><td><code>sim</code></td><td>All other services — shared fabric, VKAS, task-service, governance</td></tr>
+    <tr><td><code>hapi</code></td><td><code>hapi</code></td><td>HAPI FHIR server resource storage</td></tr>
+    <tr><td><code>keycloak</code></td><td><code>keycloak</code></td><td>Keycloak identity data</td></tr>
+  </table>
+
+  <p>All connections go through <strong>PgBouncer</strong> (transaction-mode pooler) on port <code>5433</code>, which maps to Postgres on <code>5432</code>. This allows dozens of services to share a small pool of actual Postgres connections.</p>
+
+  <h2>Row-Level Security (RLS)</h2>
+  <p>Every tenant's data is isolated at the database level using Postgres RLS. Every table in the <code>workflow</code> database has a <code>tenant_id</code> column and an RLS policy like:</p>
+  <pre><code><span class="kw">CREATE POLICY</span> tenant_isolation <span class="kw">ON</span> workflow_instances
+  <span class="kw">USING</span> (tenant_id = <span class="fn">current_setting</span>(<span class="str">'app.tenant_id'</span>));
+
+<span class="cm">-- Every query sets this before executing:</span>
+<span class="kw">SET LOCAL</span> app.tenant_id = <span class="str">'tenant-dev'</span>;</code></pre>
+
+  <div class="invariant">
+    <h4>⚡ Invariant: BYPASSRLS</h4>
+    <p>The <code>sim_relay</code> role has <code>BYPASSRLS</code> and is used <em>only</em> by the OutboxRelay and SlaPoller for cross-tenant reads. Application code uses <code>workflow</code> role (RLS enforced). To use <code>sim_relay</code>, you must explicitly <code>SET ROLE sim_relay</code> — <code>workflow</code> is a member but does NOT inherit BYPASSRLS automatically.</p>
+  </div>
+
+  <h2>Key Tables (workflow DB)</h2>
+  <table>
+    <tr><th>Table</th><th>Purpose</th></tr>
+    <tr><td><code>workflow_instances</code></td><td>One row per PA case — status, assignee_queue, tenant_id, correlation_id</td></tr>
+    <tr><td><code>workflow_events</code></td><td>Immutable audit log — every state transition recorded here</td></tr>
+    <tr><td><code>shared.outbox</code></td><td>Transactional outbox — events written here first, then relayed to Kafka</td></tr>
+    <tr><td><code>shared.processed_events</code></td><td>Deduplication table for idempotent Kafka consumers</td></tr>
+    <tr><td><code>shared.consumer_dlq</code></td><td>Dead-letter queue for permanently failed consumer messages</td></tr>
+    <tr><td><code>clocks</code></td><td>SLA decision clocks — pause/resume for RFI periods</td></tr>
+    <tr><td><code>ens.decision_audit_log</code></td><td>Adverse decision signoff records</td></tr>
+    <tr><td><code>notification_log</code></td><td>Outbound notice tracking (sent_at, delivered_at, channel)</td></tr>
+  </table>
+</section>
+
+<!-- ─────────────────────────── SUBSTRATE: KAFKA -->
+<section id="substrate-kafka">
+  <h1>Kafka / Redpanda</h1>
+  <p><strong>Redpanda</strong> is a Kafka-compatible broker — faster startup, no ZooKeeper, same client API. The platform uses it identically to Kafka.</p>
+
+  <h2>Broker Config</h2>
+  <table>
+    <tr><th>Endpoint</th><th>Port</th><th>Used by</th></tr>
+    <tr><td>Internal broker</td><td><code>redpanda:9092</code></td><td>All services inside Docker network</td></tr>
+    <tr><td>External broker</td><td><code>localhost:19092</code></td><td>Local tooling, smoke tests</td></tr>
+    <tr><td>Pandaproxy (REST)</td><td><code>localhost:8082</code></td><td>Redpanda Console UI</td></tr>
+  </table>
+
+  <h2>Event Envelope Format</h2>
+  <p>All events use a standard envelope written by <code>platform/libs/outbox/py/simintero_outbox/envelope.py</code>:</p>
+  <pre><code>{
+  <span class="str">"schema_ref"</span>: <span class="str">"sim.case.lifecycle/CaseStateChanged/v1"</span>,
+  <span class="str">"event_id"</span>:   <span class="str">"01J3XK..."</span>,          <span class="cm"># ULID — sortable, unique</span>
+  <span class="str">"tenant_id"</span>:  <span class="str">"tenant-dev"</span>,
+  <span class="str">"occurred_at"</span>:<span class="str">"2026-06-30T10:00:00Z"</span>,
+  <span class="str">"correlation_id"</span>: <span class="str">"pas-bundle-abc123"</span>,
+  <span class="str">"payload"</span>: { ... }             <span class="cm"># event-specific data</span>
+}</code></pre>
+
+  <p>The <code>schema_ref</code> field (<code>topic/EventName/version</code>) lets consumers filter by event type within a topic without separate topics per event.</p>
+
+  <div class="callout info">
+    <span class="callout-icon">💡</span>
+    <p><strong>Browse live topics:</strong> Open Redpanda Console at <a href="http://localhost:8082" target="_blank">http://localhost:8082</a> while the platform is running. You can see all topics, consumer group lag, and inspect individual messages.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── SUBSTRATE: AUTH -->
+<section id="substrate-auth">
+  <h1>Keycloak &amp; Auth</h1>
+  <p>Keycloak runs on port <code>8081</code>, realm <code>simintero</code>. All JWTs are issued by Keycloak and validated by each service independently (no session sharing).</p>
+
+  <h2>Clients (OAuth2 Audiences)</h2>
+  <table>
+    <tr><th>Client ID</th><th>Type</th><th>Used by</th></tr>
+    <tr><td><code>enstellar-app</code></td><td>Public (no secret)</td><td>React portal (keycloak-js, browser login)</td></tr>
+    <tr><td><code>enstellar-api</code></td><td>Confidential audience</td><td>Portal BFF validates <code>aud=enstellar-api</code></td></tr>
+    <tr><td><code>enstellar-workflow</code></td><td>Confidential audience</td><td>Workflow Engine validates <code>aud=enstellar-workflow</code></td></tr>
+    <tr><td><code>enstellar-test-client</code></td><td>Confidential (dev only)</td><td>Smoke tests — password-grant token fetch</td></tr>
+  </table>
+
+  <h2>JWT Flow</h2>
+  <div class="flow">
+    <div><div class="flow-node react">Browser</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node infra">Keycloak<br>:8081</div><div class="flow-label">issues JWT</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node react">React App</div><div class="flow-label">stores token</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node node">BFF :8001</div><div class="flow-label">validates aud=enstellar-api</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node python">Engine :8000</div><div class="flow-label">validates aud=enstellar-workflow</div></div>
+  </div>
+
+  <h2>Key Claims Used in Code</h2>
+  <table>
+    <tr><th>Claim</th><th>Used for</th><th>Where</th></tr>
+    <tr><td><code>sub</code></td><td>Actor identity — stamped as <code>filed_by</code>, <code>clinician_id</code>, <code>actor_id</code></td><td>BFF cases.py, appeals.py</td></tr>
+    <tr><td><code>realm_access.roles</code></td><td>Role-based route gating (<code>require_reviewer</code>, <code>require_medical_director</code>)</td><td>BFF middleware</td></tr>
+    <tr><td><code>tenant_id</code></td><td>Tenant isolation — set as <code>app.tenant_id</code> in Postgres sessions</td><td>Every DB-touching handler</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <span class="callout-icon">⚠️</span>
+    <p><strong>clinician_id spoofing prevention:</strong> The BFF's adverse-decision handler enforces <code>clinician_id == ctx.sub</code> (the JWT subject). The client cannot pass a different clinician ID — it's always taken from the token, never from the request body.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── SUBSTRATE: OUTBOX -->
+<section id="substrate-outbox">
+  <h1>Transactional Outbox Pattern</h1>
+  <p>This is the most important reliability pattern in the platform. <strong>No service writes to Kafka directly.</strong> Instead, every event is written to the <code>shared.outbox</code> table <em>in the same database transaction</em> as the business data change. A background poller then relays it to Kafka.</p>
+
+  <h2>Why This Matters</h2>
+  <div class="callout danger">
+    <span class="callout-icon">🚨</span>
+    <p><strong>Without the outbox:</strong> If a service writes to Postgres then crashes before publishing to Kafka, the event is lost and the system diverges silently. With the outbox, the event is durably recorded and will be published when the relay next runs — even if the service was down for hours.</p>
+  </div>
+
+  <h2>How It Works</h2>
+  <pre><code><span class="cm"># 1. Business code writes event to outbox IN THE SAME TRANSACTION:</span>
+<span class="kw">async with</span> tenant_transaction(conn, tenant_id) <span class="kw">as</span> txn:
+    <span class="kw">await</span> conn.<span class="fn">execute</span>(<span class="str">"UPDATE workflow_instances SET status=$1 WHERE id=$2"</span>, state, case_id)
+    <span class="kw">await</span> outbox.<span class="fn">append_event</span>(conn, CaseStateChanged(case_id=..., to_state=state))
+    <span class="cm"># ↑ Both succeed or both roll back together</span>
+
+<span class="cm"># 2. OutboxRelay polls shared.outbox every 1 second:</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> shared.outbox
+  <span class="kw">WHERE</span> published_at <span class="kw">IS NULL AND</span> dlq_at <span class="kw">IS NULL</span>
+  <span class="kw">FOR UPDATE SKIP LOCKED</span>   <span class="cm">-- safe for multiple relay instances</span>
+  <span class="kw">LIMIT</span> <span class="num">100</span>;
+
+<span class="cm"># 3. Relay publishes to Kafka, then marks published:</span>
+<span class="kw">await</span> producer.<span class="fn">send</span>(topic=row[<span class="str">"topic"</span>], value=row[<span class="str">"envelope"</span>])
+<span class="kw">UPDATE</span> shared.outbox <span class="kw">SET</span> published_at = <span class="fn">now</span>() <span class="kw">WHERE</span> id = row[<span class="str">"id"</span>]</code></pre>
+
+  <h2>Relay Failure Handling</h2>
+  <table>
+    <tr><th>Scenario</th><th>Behaviour</th></tr>
+    <tr><td>Kafka publish fails</td><td>Retried; after <code>MAX_RELAY_RETRIES=5</code> → sets <code>dlq_at</code> on the row</td></tr>
+    <tr><td>Consumer processes event twice</td><td>Deduplicated via <code>shared.processed_events</code> — idempotent consumers</td></tr>
+    <tr><td>Consumer fails permanently</td><td>After 3 retries → message to <code>shared.consumer_dlq</code> + Kafka dead-letter topic</td></tr>
+  </table>
+</section>
+
+<!-- ─────────────────────────── SUBSTRATE: TEMPORAL -->
+<section id="substrate-temporal">
+  <h1>Temporal Workflows</h1>
+  <p>Temporal is used for <strong>long-running, multi-step processes</strong> that need retries, timeouts, and visibility. Two services use it:</p>
+  <ul style="margin:12px 0 16px 20px;color:#334155">
+    <li style="margin-bottom:6px"><strong>Revital pipeline</strong> (<code>revital-worker</code>) — AI analysis: fetch docs → extract → map → summarize → persist (5-min timeout per activity, 3 retries)</li>
+    <li><strong>Document service</strong> (<code>document-worker</code>) — document ingestion and storage workflows</li>
+  </ul>
+
+  <h2>Temporal UI</h2>
+  <p>Browse running and completed workflows at <a href="http://localhost:8088" target="_blank">http://localhost:8088</a>. The namespace is <code>simintero</code>. This is invaluable for debugging — you can see exactly which activity a Revital analysis is on, replay failures, and inspect input/output payloads.</p>
+
+  <h2>Revital Workflow Activity Chain</h2>
+  <div class="flow" style="flex-wrap:wrap;gap:6px">
+    <div><div class="flow-node node" style="min-width:90px;font-size:12px">fetchDocuments</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node node" style="min-width:90px;font-size:12px">parseCcda</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node node" style="min-width:90px;font-size:12px">extractEntities</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node node" style="min-width:90px;font-size:12px">fetchEvidence<br>Requirements</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node node" style="min-width:90px;font-size:12px">mapEvidence<br>ToCriteria</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node node" style="min-width:90px;font-size:12px">summarize<br>Grounded</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node node" style="min-width:90px;font-size:12px">triageAdvise</div></div>
+    <div class="flow-arrow">→</div>
+    <div><div class="flow-node node" style="min-width:90px;font-size:12px">persistAdvisory</div></div>
+  </div>
+  <p style="margin-top:8px">On partial failure, <code>status="partial"</code> but <code>persistAdvisory</code> always runs — the workflow never leaves a case without some advisory output.</p>
+</section>
+
+<!-- ─────────────────────────── SUBSTRATE: STORAGE -->
+<section id="substrate-storage">
+  <h1>MinIO &amp; Storage</h1>
+  <p>MinIO provides S3-compatible object storage for blobs that don't belong in Postgres (large files, PHI-sensitive content).</p>
+  <table>
+    <tr><th>Bucket</th><th>Contents</th><th>Written by</th></tr>
+    <tr><td><code>enstellar-raw-bundles</code></td><td>Raw FHIR PAS bundles as received from EHRs</td><td>Interop service (store-first invariant)</td></tr>
+    <tr><td><code>simintero-docs</code></td><td>Clinical documents (C-CDA, PDFs, FHIR resources)</td><td>Document service</td></tr>
+    <tr><td><code>simintero-letters</code></td><td>Rendered member letters (PHI — never leaves MinIO)</td><td>NotificationService (CMS letter builder)</td></tr>
+  </table>
+  <div class="invariant">
+    <h4>⚡ PHI Boundary Invariant</h4>
+    <p>Member PHI letters are stored in MinIO. The <code>NOTIFICATION_SENT</code> Kafka event carries only a <code>body_ref</code> (MinIO object key) — <strong>never the letter body itself</strong>. This ensures PHI never travels over the event bus.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── SUBSTRATE: OPA -->
+<section id="substrate-opa">
+  <h1>OPA Policies</h1>
+  <p>Open Policy Agent runs on port <code>8181</code>, loaded from <code>platform/services/opa-policies/</code>. Two key uses:</p>
+  <table>
+    <tr><th>Policy</th><th>Where called</th><th>Purpose</th></tr>
+    <tr><td><code>sim/guards/adverse_action/allow</code></td><td>Workflow engine transition engine</td><td>Gate: must return <code>allow=true</code> before any adverse state is applied</td></tr>
+    <tr><td><code>sim/ai/kill_switch/active</code></td><td>Model gateway</td><td>Operator kill-switch to disable AI inference without a deploy</td></tr>
+  </table>
+  <p>OPA policies are Rego files. You can inspect them via:</p>
+  <pre><code>curl http://localhost:8181/v1/policies   <span class="cm"># list loaded policies</span>
+curl http://localhost:8181/health        <span class="cm"># health check</span></code></pre>
+</section>
+
+<!-- ─────────────────────────── ENSTELLAR -->
+<section id="enstellar">
+  <h1>Enstellar — Prior Authorization &amp; UM Engine</h1>
+  <p>The workflow engine is a Python/FastAPI application (<code>services/enstellar-workflow/</code>) that runs the full PA lifecycle. It owns the PA state machine, SLA clocks, RFI, escalation, appeals, and grievances.</p>
+
+  <h2>Application Startup</h2>
+  <p>The FastAPI <code>lifespan</code> context manager in <code>main.py</code> wires everything at startup:</p>
+  <pre><code><span class="dec">@asynccontextmanager</span>
+<span class="kw">async def</span> <span class="fn">lifespan</span>(app):
+    <span class="cm"># Two asyncpg pools:</span>
+    workflow_pool = <span class="kw">await</span> <span class="fn">create_pool</span>(WORKFLOW_DB_URL)     <span class="cm"># PA cases, RLS</span>
+    fabric_pool  = <span class="kw">await</span> <span class="fn">create_pool</span>(SIMINTERO_DB_URL)     <span class="cm"># shared simintero DB</span>
+
+    <span class="cm"># 9 background asyncio tasks (consumers + outbox relay):</span>
+    tasks = [
+        <span class="fn">IntakeConsumer</span>(pool=workflow_pool).<span class="fn">start</span>(),
+        <span class="fn">ClinicalReviewConsumer</span>(pool=workflow_pool).<span class="fn">start</span>(),
+        <span class="fn">AutoDeterminationConsumer</span>(pool=workflow_pool).<span class="fn">start</span>(),
+        <span class="fn">RfiResponseConsumer</span>(pool=workflow_pool).<span class="fn">start</span>(),
+        <span class="fn">QualGapClosedConsumer</span>(pool=fabric_pool).<span class="fn">start</span>(),
+        <span class="fn">DecisionRecordedConsumer</span>(pool=workflow_pool).<span class="fn">start</span>(),
+        <span class="fn">NotificationDeliveryConsumer</span>(pool=workflow_pool).<span class="fn">start</span>(),
+        <span class="fn">OutboxRelay</span>(pool=workflow_pool, producer=producer).<span class="fn">start</span>(),
+        <span class="fn">KafkaProducer</span>().<span class="fn">start</span>(),
+    ]
+    <span class="kw">yield</span>
+    <span class="cm"># cancel all tasks on shutdown</span></code></pre>
+</section>
+
+<!-- ─────────────────────────── STATE MACHINE -->
+<section id="state-machine">
+  <h1>PA State Machine</h1>
+
+  <h2>States</h2>
+  <div class="states">
+    <span class="state initial">intake_received</span>
+    <span class="state working">auto_determination</span>
+    <span class="state working">clinical_review</span>
+    <span class="state pended">pend_rfi</span>
+    <span class="state pended">escalated</span>
+    <span class="state terminal good">approved</span>
+    <span class="state terminal">denied</span>
+    <span class="state terminal">partially_denied</span>
+    <span class="state terminal">adverse_modification</span>
+    <span class="state terminal">withdrawn</span>
+    <span class="state terminal">closed</span>
+  </div>
+
+  <h2>Transition Engine</h2>
+  <p><code>engine/transitions.py — TransitionEngine.apply()</code> runs these checks in order on every state change:</p>
+  <pre><code><span class="kw">def</span> <span class="fn">apply</span>(conn, req: TransitionRequest):
+    case = <span class="kw">await</span> <span class="fn">fetch_case</span>(conn, req.case_id, req.tenant_id)
+
+    <span class="cm"># Guard 1: no transitions out of terminal states</span>
+    <span class="kw">if</span> case.status == <span class="str">"closed"</span>:
+        <span class="kw">raise</span> TerminalStateError
+
+    <span class="cm"># Guard 2: adverse states require human signoff recorded first</span>
+    <span class="fn">adverse_transition_guard</span>(req.to_state, req.human_signoff_recorded)
+
+    <span class="cm"># Guard 3: OPA adverse-action policy (for denied/partially_denied/adverse_modification)</span>
+    <span class="kw">if</span> req.to_state <span class="kw">in</span> ADVERSE_STATES:
+        <span class="fn">opa_gate</span>(<span class="str">"sim/guards/adverse_action/allow"</span>, req)
+
+    <span class="cm"># Write immutable audit row, update status, publish outbox event</span>
+    <span class="kw">await</span> conn.<span class="fn">execute</span>(<span class="str">"INSERT INTO workflow_events …"</span>)
+    <span class="kw">await</span> conn.<span class="fn">execute</span>(<span class="str">"UPDATE workflow_instances SET status=$1 …"</span>, req.to_state)
+    <span class="kw">await</span> outbox.<span class="fn">append_event</span>(conn, <span class="fn">CaseStateChanged</span>(…))</code></pre>
+
+  <div class="invariant">
+    <h4>⚡ Invariant #1 — Adverse decisions require human signoff</h4>
+    <p><code>ADVERSE_STATES = {"denied", "partially_denied", "adverse_modification"}</code><br>
+    These states also require OPA approval. AutoDeterminator can only produce <code>approved</code> or <code>clinical_review</code> — it can never auto-deny.</p>
+  </div>
+  <div class="invariant">
+    <h4>⚡ Invariant #2 — Terminal states are final</h4>
+    <p>Once a case reaches <code>closed</code>, no further transitions are allowed. Other terminal states (approved, denied, etc.) can be re-examined via appeals, which create a separate appeal record — they do not reopen the original case.</p>
+  </div>
+
+  <h2>SLA Clocks</h2>
+  <p>Each case has a decision clock that tracks CMS regulatory deadlines. The clock pauses when an RFI is dispatched (provider has the ball) and resumes when the response arrives.</p>
+  <pre><code><span class="cm"># In CaseService.pend_rfi() — all three happen in ONE transaction:</span>
+<span class="kw">async with</span> <span class="fn">tenant_transaction</span>(conn, tenant_id):
+    <span class="fn">transition</span>(conn, case_id, to_state=<span class="str">"pend_rfi"</span>)   <span class="cm"># state change</span>
+    <span class="fn">pause_clock</span>(conn, case_id)                       <span class="cm"># stop the timer</span>
+    <span class="fn">dispatch_rfi</span>(conn, rfi_request)                  <span class="cm"># emit RFIDispatched event</span></code></pre>
+
+  <p>The <strong>SlaPoller</strong> runs every 5 seconds (dev) / 30 seconds (prod). It uses <code>SET ROLE sim_relay</code> (BYPASSRLS) to scan all tenants' clocks and calls <code>escalate(breach_mode=True)</code> on any case whose deadline has passed.</p>
+</section>
+
+<!-- ─────────────────────────── CONSUMERS -->
+<section id="consumers">
+  <h1>Kafka Consumers</h1>
+  <p>All consumers extend <code>IdempotentKafkaConsumer</code>, which provides deduplication, retry logic, and dead-lettering. They run as async tasks inside the workflow engine process.</p>
+
+  <h2>IdempotentKafkaConsumer Base</h2>
+  <pre><code><span class="kw">class</span> <span class="cls">IdempotentKafkaConsumer</span>:
+    <span class="cm"># Dedup: insert event_id into shared.processed_events before handling</span>
+    <span class="cm"># If already present → skip (at-most-once per event)</span>
+    max_retries = <span class="num">3</span>
+
+    <span class="kw">async def</span> <span class="fn">_mark_processed</span>(conn, event_id):
+        <span class="kw">try</span>:
+            <span class="kw">await</span> conn.<span class="fn">execute</span>(<span class="str">"INSERT INTO shared.processed_events(event_id) VALUES($1)"</span>, event_id)
+        <span class="kw">except</span> UniqueViolation:
+            <span class="kw">return False</span>  <span class="cm"># already processed</span>
+        <span class="kw">return True</span>
+
+    <span class="cm"># After max_retries failures → DLQ + Kafka dead-letter topic</span>
+    <span class="cm"># enable_auto_commit=False — manual commit after _mark_processed</span></code></pre>
+
+  <h2>Consumer Reference</h2>
+  <table>
+    <tr><th>Consumer</th><th>Group ID</th><th>Trigger</th><th>Action</th></tr>
+    <tr>
+      <td><code>IntakeConsumer</code></td>
+      <td><code>workflow-engine-intake</code></td>
+      <td><span class="event">CaseIntakeReceived</span> on <span class="topic">sim.case.lifecycle</span></td>
+      <td>Creates the case record in <code>workflow_instances</code>, starts decision clock</td>
+    </tr>
+    <tr>
+      <td><code>ClinicalReviewConsumer</code></td>
+      <td><code>workflow-engine-clinical-review</code></td>
+      <td>State change → <code>clinical_review</code></td>
+      <td>Fetches docs from DocumentService, submits to Revital AI (non-blocking — failure never blocks case)</td>
+    </tr>
+    <tr>
+      <td><code>AutoDeterminationConsumer</code></td>
+      <td><code>workflow-engine-auto-determination</code></td>
+      <td>State change → <code>auto_determination</code></td>
+      <td>Calls AutoDeterminator — can only produce <code>approved</code> or <code>clinical_review</code></td>
+    </tr>
+    <tr>
+      <td><code>RfiResponseConsumer</code></td>
+      <td>—</td>
+      <td><span class="event">RFIResponseReceived</span></td>
+      <td>Resumes clock, transitions case back to <code>clinical_review</code></td>
+    </tr>
+    <tr>
+      <td><code>DecisionRecordedConsumer</code></td>
+      <td><code>comms</code></td>
+      <td><span class="event">DecisionRecorded</span></td>
+      <td>Triggers NotificationService to build and send member notice</td>
+    </tr>
+    <tr>
+      <td><code>NotificationDeliveryConsumer</code></td>
+      <td><code>notification-delivery</code></td>
+      <td><span class="event">NotificationSent</span> on <span class="topic">sim.artifact</span></td>
+      <td>Routes by channel: <code>email</code> → SMTP via Mailpit, <code>letter</code> → MinIO → print vendor stub</td>
+    </tr>
+    <tr>
+      <td><code>QualGapClosedConsumer</code></td>
+      <td>—</td>
+      <td><span class="event">QualGapClosed</span></td>
+      <td>Cross-products: quality gap closure triggers workflow engine (fabric_pool required)</td>
+    </tr>
+  </table>
+
+  <div class="invariant">
+    <h4>⚡ Invariant — ClinicalReview NEVER BLOCKS</h4>
+    <p>If Revital AI submission fails, <code>ClinicalReviewConsumer</code> catches the error, emits <code>AGENT_ASSIST_FAILED</code> to the outbox, and returns success to the Kafka consumer. The case proceeds to clinical review without AI advisory. Reviewers are shown a "AI unavailable" indicator in the UI.</p>
+  </div>
+
+  <div class="invariant">
+    <h4>⚡ PHI Boundary — What Crosses the Revital Interface</h4>
+    <p>Only <code>procedure_codes</code>, <code>diagnosis_codes</code>, <code>urgency</code>, and <code>lob</code> are sent to Revital. Member PHI (name, DOB, member ID) never crosses this boundary. Revital fetches docs via <code>document_refs</code> (opaque IDs), not by member identity.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── INTEROP -->
+<section id="interop">
+  <h1>FHIR Interop Layer</h1>
+  <p>A Java/Spring Boot service (<code>services/enstellar-interop/</code>) that speaks the DaVinci Prior Authorization Support (PAS) FHIR IG to EHRs, and translates to the platform's internal event model.</p>
+
+  <h2>PAS $submit Flow</h2>
+  <p>When an EHR submits a PA request via <code>POST /fhir/Claim/$submit</code>:</p>
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Store-First</h4>
+        <p>Raw FHIR bundle immediately stored to MinIO (<code>enstellar-raw-bundles</code>). If anything fails after this, the raw bundle can be replayed.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Validate</h4>
+        <p>Bundle validated against DaVinci-PAS FHIR profile using HAPI validator. Reject 422 if invalid.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Normalize</h4>
+        <p><code>POST http://workflow-engine:8000/normalize</code> — extracts procedure codes, diagnosis codes, member ref, urgency, LOB from the bundle into the platform's canonical model.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Idempotency Check</h4>
+        <p><code>DecisionStore.save()</code> — idempotent on <code>correlationId</code>. Returns 422 on duplicate submission (same correlationId resubmitted).</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Publish to Kafka</h4>
+        <p><span class="event">CaseIntakeReceived</span> published to <span class="topic">sim.case.lifecycle</span>. This is what the <code>IntakeConsumer</code> picks up.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h4>Return QUEUED</h4>
+        <p>Returns a FHIR <code>ClaimResponse</code> bundle with <code>outcome=QUEUED</code>. EHR polls status via <code>GET /fhir/Claim/{correlationId}/$inquire</code>.</p>
+      </div>
+    </li>
+  </ol>
+
+  <h2>Other Interop Endpoints</h2>
+  <table>
+    <tr><th>Endpoint</th><th>Handler</th><th>Purpose</th></tr>
+    <tr><td><code>GET /fhir/Claim/{id}/$inquire</code></td><td>PasClaimInquireProvider</td><td>Status polling — EHR checks if decision has been made</td></tr>
+    <tr><td><code>GET /cds-services/{service}</code></td><td>CdsServicesController</td><td>CDS Hooks discovery and evaluation</td></tr>
+    <tr><td><code>GET /fhir/{resourceType}/{id}</code></td><td>FhirProxyFilter</td><td>Proxies unknown resource types to HAPI FHIR</td></tr>
+    <tr><td><code>POST /dtr/launch</code></td><td>DtrLaunchController</td><td>DTR (Documentation Templates and Rules) launch</td></tr>
+  </table>
+</section>
+
+<!-- ─────────────────────────── DIGICORE -->
+<section id="digicore">
+  <h1>Digicore — Clinical Rules Engine</h1>
+  <p>Digicore evaluates CQL (Clinical Quality Language) rules to determine if a procedure needs PA, what evidence is required, and whether submitted evidence meets criteria. Three components:</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <span class="port">:8083</span>
+      <span class="tag java">Java</span>
+      <h3>Runtime</h3>
+      <p>Spring Boot ELM interpreter. Evaluates CQL rules, resolves coverage requirements, serves DTR questionnaires, and evaluates FHIR Measures.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3052</span>
+      <span class="tag node">Node</span>
+      <h3>Authoring</h3>
+      <p>Rule editor API. Authors write CQL, submit for validation, and promote to governance. Talks to VKAS for versioning and runtime for validation.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3053</span>
+      <span class="tag node">Node</span>
+      <h3>Governance</h3>
+      <p>Approval gate for rule promotions. Rules must be approved by a medical director before they go live. Tracks approval state in Postgres.</p>
+    </div>
+  </div>
+
+  <h2>Rule Lifecycle</h2>
+  <div class="flow" style="flex-direction:column;align-items:flex-start;gap:0">
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+      <div class="flow-node java" style="min-width:160px">Author writes CQL</div>
+      <span style="color:var(--muted);font-size:13px">→ Authoring API :3052</span>
+    </div>
+    <div style="color:var(--muted);padding:0 20px;font-size:20px">↓</div>
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+      <div class="flow-node node" style="min-width:160px">Submit to VKAS</div>
+      <span style="color:var(--muted);font-size:13px">→ versioned artifact store :3040 (draft state)</span>
+    </div>
+    <div style="color:var(--muted);padding:0 20px;font-size:20px">↓</div>
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+      <div class="flow-node node" style="min-width:160px">Governance review</div>
+      <span style="color:var(--muted);font-size:13px">→ Medical director approves :3053</span>
+    </div>
+    <div style="color:var(--muted);padding:0 20px;font-size:20px">↓</div>
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+      <div class="flow-node java" style="min-width:160px">Live evaluation</div>
+      <span style="color:var(--muted);font-size:13px">→ Runtime loads approved ELM from VKAS → evaluates against case evidence</span>
+    </div>
+  </div>
+
+  <h2>CQL Evaluation API</h2>
+  <pre><code><span class="cm"># Check if CPT 29826 needs PA:</span>
+curl -X POST http://localhost:8083/v1/runtime/coverage-discovery \
+  -d <span class="str">'{"service_code":"29826","procedure_code":"29826"}'</span>
+
+<span class="cm"># Evaluate criteria against submitted evidence:</span>
+curl -X POST http://localhost:8083/v1/runtime/evaluate \
+  -d <span class="str">'{
+    "case_id": "case-001",
+    "service_code": "29826",
+    "evidence": {
+      "imaging_confirms_pathology": true,
+      "failed_conservative_therapy": true
+    }
+  }'</span></code></pre>
+
+  <p>CQL rule files live in <code>modules/digicore/runtime/src/main/resources/</code>: <code>knee-arthroscopy.cql</code>, <code>lumbar-spine-mri.cql</code>, <code>ct-abdomen-pelvis.cql</code>, <code>upper-endoscopy.cql</code></p>
+</section>
+
+<!-- ─────────────────────────── REVITAL -->
+<section id="revital">
+  <h1>Revital AI — Evidence Pipeline</h1>
+  <p>Revital takes clinical documents for a case and produces an AI-generated advisory: a grounded summary of whether the submitted clinical evidence supports the requested procedure. It runs as a Temporal workflow so partial failures are retried without starting over.</p>
+
+  <h2>Model Gateway — AI Inference Proxy</h2>
+  <p>Revital never calls Anthropic directly. It goes through the <strong>model-gateway</strong> (<code>:3011</code>), which:</p>
+  <ul style="margin:10px 0 16px 20px;color:#334155">
+    <li style="margin-bottom:5px">Checks the OPA kill-switch (operator can disable AI without a deploy)</li>
+    <li style="margin-bottom:5px">Runs the <strong>PHI filter</strong> (allow-list scrubbing before anything reaches Anthropic)</li>
+    <li style="margin-bottom:5px">Resolves the model binding from VKAS (which Claude model version, which prompt version)</li>
+    <li>Tracks FinOps metrics (token usage per tenant per model)</li>
+  </ul>
+
+  <h2>Revital Workflow Input</h2>
+  <pre><code><span class="cm">// AnalysisInput — what ClinicalReviewConsumer sends:</span>
+{
+  analysis_id: <span class="str">"uuid"</span>,
+  tenant_id: <span class="str">"tenant-dev"</span>,
+  case_ref: <span class="str">"case-001"</span>,
+  document_refs: [<span class="str">"doc-uuid-1"</span>, <span class="str">"doc-uuid-2"</span>],  <span class="cm">// opaque IDs — no PHI</span>
+  service_code: <span class="str">"29826"</span>,
+  model_binding_ref: <span class="str">"claude-3-5-sonnet"</span>,
+  model_binding_version: <span class="str">"v3"</span>,
+  prompt_ref: <span class="str">"pa-advisory-v2"</span>,
+  cell_boundary: <span class="str">"us-east-1"</span>,
+  document_format: <span class="str">"ccda"</span>
+}</code></pre>
+
+  <div class="callout info">
+    <span class="callout-icon">🔧</span>
+    <p><strong>Dev mode:</strong> When <code>ANTHROPIC_API_KEY</code> is not set, the model-gateway falls through to <code>mock-llm</code> (<code>:3060</code>), which returns canned responses. Revital still runs the full workflow — you just get deterministic mock advisory output.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── QUALITRON -->
+<section id="qualitron">
+  <h1>Qualitron — Quality Measures</h1>
+  <p>Qualitron evaluates HEDIS-style quality measures, detects care gaps, creates outreach tasks, and provides aggregated reporting. It's driven primarily by Kafka events from the case lifecycle.</p>
+
+  <h2>Gap Detection Logic</h2>
+  <p>From <code>modules/qualitron/gaps/src/GapDetector.ts</code>:</p>
+  <pre><code><span class="kw">function</span> <span class="fn">detectGap</span>(input: GapInput): GapDecision {
+  <span class="cm">// Not in denominator or explicitly excluded → no gap</span>
+  <span class="kw">if</span> (!input.denominator || input.exclusion) <span class="kw">return</span> { has_gap: <span class="kw">false</span> };
+
+  <span class="cm">// Numerator already hit → no gap (measure met)</span>
+  <span class="kw">if</span> (input.numerator) <span class="kw">return</span> { has_gap: <span class="kw">false</span> };
+
+  <span class="cm">// In denominator, not excluded, numerator not met → gap</span>
+  <span class="kw">return</span> {
+    has_gap: <span class="kw">true</span>,
+    gap_type: <span class="str">"missing_numerator"</span>,
+    should_create_outreach: <span class="kw">true</span>
+  };
+}</code></pre>
+
+  <h2>Components</h2>
+  <table>
+    <tr><th>Service</th><th>Port</th><th>Role</th></tr>
+    <tr><td><code>qualitron</code> (execution)</td><td><code>:3015</code></td><td>Evaluates measures for individual cases via <code>POST /runs</code></td></tr>
+    <tr><td><code>qualitron-aggregation</code></td><td><code>:4081</code></td><td>Consumes Kafka events, batches, and triggers measure evaluation; schedules batch runs</td></tr>
+    <tr><td><code>qualitron-reporting</code></td><td><code>:4080</code></td><td>Aggregate measure performance reports by LOB, date range, measure set</td></tr>
+    <tr><td><code>qualitron-gaps</code></td><td>Library</td><td>Gap detection logic, outreach task creation, gap event handling</td></tr>
+  </table>
+
+  <h2>Qualitron Kafka Consumers</h2>
+  <p>In <code>modules/qualitron/aggregation/src/consumers/</code>:</p>
+  <ul style="margin:10px 0 16px 20px;color:#334155">
+    <li style="margin-bottom:5px"><code>EvidenceConsumer</code> — listens for clinical evidence events, triggers measure evaluation</li>
+    <li style="margin-bottom:5px"><code>EvidenceIndexedConsumer</code> — indexes evidence for reporting queries</li>
+    <li><code>CaseLifecycleConsumer</code> — on case approval, checks if quality measure numerator is met</li>
+  </ul>
+</section>
+
+<!-- ─────────────────────────── PORTAL -->
+<section id="portal">
+  <h1>Portal &amp; BFF</h1>
+
+  <h2>React App (<code>services/enstellar-portal/</code>)</h2>
+  <p>A Vite + React + TypeScript SPA. Auth via <code>keycloak-js</code> (OIDC, no client secret — public client <code>enstellar-app</code>).</p>
+
+  <h3>Key Routes</h3>
+  <table>
+    <tr><th>Path</th><th>Component</th><th>Product area</th></tr>
+    <tr><td><code>/worklist</code>, <code>/queues/:id/worklist</code></td><td>WorklistPage</td><td>Enstellar PA — reviewer queue</td></tr>
+    <tr><td><code>/cases/:caseId</code></td><td>CasePage</td><td>Case detail, transition actions</td></tr>
+    <tr><td><code>/ai-workbench/:caseId</code></td><td>AiWorkbenchPage</td><td>Revital AI advisory display</td></tr>
+    <tr><td><code>/digicore</code>, <code>/digicore/policies/:id</code></td><td>Digicore Console</td><td>CQL policy studio</td></tr>
+    <tr><td><code>/qualitron</code>, <code>/qualitron/gaps</code></td><td>Quality Console</td><td>Measure performance, gap analysis</td></tr>
+    <tr><td><code>/analytics</code></td><td>Analytics Console</td><td>Operational analytics</td></tr>
+    <tr><td><code>/ehr-sim</code></td><td>EhrOrderSimPage</td><td>Simulates EHR submitting a PA</td></tr>
+    <tr><td><code>/regulatory-clocks</code></td><td>RegulatoryClocksPage</td><td>SLA clock visibility</td></tr>
+  </table>
+
+  <h3>API Client Pattern</h3>
+  <p>All API calls go through <code>src/api/client.ts → apiFetch()</code>:</p>
+  <pre><code><span class="kw">async function</span> <span class="fn">apiFetch</span>(path, options = {}) {
+  <span class="cm">// Auto-refresh Keycloak token if expiring within 30 seconds</span>
+  <span class="kw">if</span> (keycloak.isTokenExpired(<span class="num">30</span>)) <span class="kw">await</span> keycloak.<span class="fn">updateToken</span>(<span class="num">30</span>);
+
+  <span class="kw">return</span> <span class="fn">fetch</span>(<span class="str">`/bff${path}`</span>, {
+    ...options,
+    headers: {
+      <span class="str">'Authorization'</span>: <span class="str">`Bearer ${keycloak.token}`</span>,
+      <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span>,
+      ...options.headers
+    }
+  });
+}</code></pre>
+
+  <h2>Portal BFF (<code>services/enstellar-portal-bff/</code>)</h2>
+  <p>Python FastAPI proxy at <code>:8001</code>. It validates Keycloak JWTs (<code>aud=enstellar-api</code>), extracts claims, enforces role-based access, and proxies to the workflow engine + FHIR layer.</p>
+
+  <h3>BFF Route Reference</h3>
+  <table>
+    <tr><th>Route</th><th>Auth required</th><th>Proxies to</th></tr>
+    <tr><td><code>GET /bff/queues/:id/worklist</code></td><td>reviewer</td><td>workflow-engine <code>/api/worklist</code></td></tr>
+    <tr><td><code>GET /bff/cases/:id</code></td><td>reviewer</td><td>workflow-engine <code>/api/cases/:id</code></td></tr>
+    <tr><td><code>GET /bff/cases/:id/workbench</code></td><td>reviewer</td><td>Parallel: case + criteria + suggestions + FHIR docs</td></tr>
+    <tr><td><code>POST /bff/cases/:id/decision</code></td><td>reviewer</td><td>workflow-engine transition</td></tr>
+    <tr><td><code>POST /bff/cases/:id/adverse-decision</code></td><td>medical_director</td><td>record_signoff → transition; enforces <code>clinician_id==sub</code></td></tr>
+    <tr><td><code>POST /bff/cases/:id/rfi</code></td><td>reviewer</td><td>Fetches <code>provider_npi</code> from case, stamps <code>actor_id</code> from JWT</td></tr>
+    <tr><td><code>POST /bff/cases/:id/appeals</code></td><td>appeals_coordinator</td><td><code>filed_by</code> from JWT <code>sub</code></td></tr>
+    <tr><td><code>POST /bff/grievances</code></td><td>grievance_coordinator</td><td>Standalone grievance lifecycle</td></tr>
+  </table>
+
+  <div class="callout info">
+    <span class="callout-icon">💡</span>
+    <p><strong>The BFF is a security boundary</strong>, not just a proxy. It ensures the browser never gets raw workflow-engine URLs, never sets its own <code>filed_by</code> or <code>clinician_id</code>, and never bypasses role checks. All trust decisions are made here.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── E2E WALKTHROUGH -->
+<section id="e2e">
+  <h1>End-to-End Walkthrough</h1>
+  <p>Trace a PA request from EHR submission to member letter. Every service involved, every event fired.</p>
+
+  <h2>Scenario: Shoulder arthroscopy (CPT 29826) — Denied</h2>
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>EHR submits PA bundle</h4>
+        <p><code>POST http://interop:8080/fhir/Claim/$submit</code> with DaVinci-PAS FHIR bundle. Interop stores raw bundle to MinIO, validates, normalizes via workflow-engine, then publishes <span class="event">CaseIntakeReceived</span> to <span class="topic">sim.case.lifecycle</span>.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>IntakeConsumer creates the case</h4>
+        <p><code>IntakeConsumer</code> picks up <span class="event">CaseIntakeReceived</span>. Calls <code>CaseService.create_case()</code> — inserts row in <code>workflow_instances</code> (status=<code>intake_received</code>), starts decision clock. Publishes <span class="event">CaseStateChanged</span>.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Auto-determination</h4>
+        <p><code>AutoDeterminationConsumer</code> runs <code>AutoDeterminator</code>: calls Digicore runtime (<code>POST :8083/v1/runtime/coverage-discovery</code>). CPT 29826 requires PA → transitions to <code>clinical_review</code>. Publishes <span class="event">CaseStateChanged to_state=clinical_review</span>.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>ClinicalReviewConsumer triggers Revital</h4>
+        <p>Fetches document refs from DocumentService. Sends <code>AnalysisInput</code> to <code>POST :3014/analyses</code> (only codes + doc refs — no PHI). Revital starts Temporal workflow: fetch docs → extract entities → map to criteria → LLM grounded summary. Writes advisory to DB.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Reviewer opens case in portal</h4>
+        <p>Reviewer opens <code>/cases/{caseId}</code>. BFF calls <code>GET /workbench</code> — parallel fetches: case details, Digicore criteria, Revital AI suggestions, FHIR docs. AI advisory shows "evidence insufficient: conservative therapy not documented."</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h4>Medical director records signoff + denies</h4>
+        <p>Medical director clicks "Deny." BFF's <code>POST /adverse-decision</code>: validates <code>clinician_id == JWT.sub</code>, checks <code>sign_off_confirmed=true</code>. Calls <code>record_signoff()</code>, then calls OPA adverse-action gate (<code>sim/guards/adverse_action/allow</code>). Both pass → transitions to <code>denied</code>. Publishes <span class="event">CaseStateChanged</span> + <span class="event">AdverseDetermination</span> + <span class="event">DecisionRecorded</span>.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <h4>DecisionRecordedConsumer builds notice</h4>
+        <p><code>DecisionRecordedConsumer</code> picks up <span class="event">DecisionRecorded</span>. <code>NotificationService</code> renders a CMS-compliant denial letter with member PHI, stores it to MinIO (<code>simintero-letters</code>). Publishes <span class="event">NotificationSent</span> on <span class="topic">sim.artifact</span> with only a <code>body_ref</code> (MinIO key) — no PHI on the event bus.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">8</div>
+      <div class="step-body">
+        <h4>NotificationDeliveryConsumer sends email</h4>
+        <p>Picks up <span class="event">NotificationSent</span>. Routes to <code>SmtpEmailSender</code> → Mailpit (<code>:1025</code>). In dev, the email is visible at <a href="http://localhost:8025" target="_blank">http://localhost:8025</a>. Updates <code>notification_log.delivered_at</code>.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">9</div>
+      <div class="step-body">
+        <h4>EHR polls for decision</h4>
+        <p><code>GET /fhir/Claim/{correlationId}/$inquire</code> → returns FHIR <code>ClaimResponse</code> with <code>outcome=DENIED</code>. Case is terminal — clock stopped at step 6 when denied.</p>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<!-- ─────────────────────────── SERVICE CARDS -->
+<section id="service-cards">
+  <h1>Service Reference</h1>
+  <p>All 46 services at a glance. Click any service URL to open it (platform must be running).</p>
+
+  <h4>Core Application Services</h4>
+  <div class="card-grid">
+    <div class="card">
+      <span class="port">:8080</span><span class="tag java">Java</span>
+      <h3>enstellar-interop</h3>
+      <p>FHIR PAS $submit, CDS Hooks, DTR launch, HAPI proxy. Entry point for EHR integrations.</p>
+    </div>
+    <div class="card">
+      <span class="port">:8000</span><span class="tag python">Python</span>
+      <h3>workflow-engine</h3>
+      <p>PA state machine, 9 Kafka consumers, RFI, SLA clocks, escalation, appeals, grievances, notifications.</p>
+    </div>
+    <div class="card">
+      <span class="port">:8001</span><span class="tag python">Python</span>
+      <h3>portal-bff</h3>
+      <p>JWT-validating API gateway for the React portal. Role enforcement, proxies to workflow-engine.</p>
+    </div>
+    <div class="card">
+      <span class="port">:5173</span><span class="tag react">React</span>
+      <h3>web (portal)</h3>
+      <p>React SPA — reviewer worklist, case detail, AI workbench, Digicore policy studio, quality console.</p>
+    </div>
+    <div class="card">
+      <span class="port">:8083</span><span class="tag java">Java</span>
+      <h3>digicore-runtime</h3>
+      <p>CQL/ELM evaluator, coverage discovery, evidence requirements, DTR questionnaire packages, FHIR Measure evaluation.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3014</span><span class="tag node">Node</span>
+      <h3>revital-pipeline</h3>
+      <p>Temporal workflow host for AI evidence analysis. Express API to submit analyses and poll results.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3011</span><span class="tag node">Node</span>
+      <h3>model-gateway</h3>
+      <p>AI inference proxy. PHI filter, OPA kill-switch, VKAS model binding resolution, FinOps tracking.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3015</span><span class="tag node">Node</span>
+      <h3>qualitron</h3>
+      <p>Quality measure execution engine. Evaluates denominator, numerator, exclusion for HEDIS measures.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3052</span><span class="tag node">Node</span>
+      <h3>digicore-authoring</h3>
+      <p>CQL rule authoring API. Authors submit rules for governance review and VKAS versioning.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3053</span><span class="tag node">Node</span>
+      <h3>digicore-governance</h3>
+      <p>Rule promotion approval gate. Medical directors approve/reject rule changes before they go live.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3040</span><span class="tag node">Node</span>
+      <h3>vkas</h3>
+      <p>Versioned Knowledge Artifact Store. Full version history for CQL rules, prompts, model bindings, questionnaires.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3010</span><span class="tag node">Node</span>
+      <h3>document-service</h3>
+      <p>Document ingestion and Temporal workflow host. Stores clinical docs in MinIO, indexes metadata.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3021</span><span class="tag node">Node</span>
+      <h3>task-service</h3>
+      <p>Task and worklist management. Qualitron creates outreach tasks here when gaps are detected.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3030</span><span class="tag node">Node</span>
+      <h3>terminology-service</h3>
+      <p>VSAC value-set proxy and cache. Resolves code system lookups. Backed by VKAS for versioned value sets.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3012</span><span class="tag node">Node</span>
+      <h3>control-plane</h3>
+      <p>Tenant management, provisioning, and Keycloak integration. Entry point for onboarding new payer tenants.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3070</span><span class="tag node">Node</span>
+      <h3>relay</h3>
+      <p>Event relay service. Consumes from Kafka and relays to downstream webhook endpoints or other services.</p>
+    </div>
+    <div class="card">
+      <span class="port">:4080</span><span class="tag node">Node</span>
+      <h3>qualitron-reporting</h3>
+      <p>Aggregate quality measure reports. Queries rolled-up measure performance by LOB and date range.</p>
+    </div>
+    <div class="card">
+      <span class="port">:4081</span><span class="tag node">Node</span>
+      <h3>qualitron-aggregation</h3>
+      <p>Kafka consumer that aggregates case lifecycle events into measure performance data.</p>
+    </div>
+  </div>
+
+  <h4>Integration Connectors</h4>
+  <div class="card-grid">
+    <div class="card">
+      <span class="port">:3051</span><span class="tag node">Node</span>
+      <h3>vsac-proxy</h3>
+      <p>Authenticated proxy to VSAC (NLM value set authority). Caches results to avoid rate limits.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3050</span><span class="tag node">Node</span>
+      <h3>cds-hooks</h3>
+      <p>CDS Hooks implementation. EHRs call this at order entry time for real-time PA requirement checks.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3016</span><span class="tag node">Node</span>
+      <h3>claims-service</h3>
+      <p>X12 clearinghouse integration for claims submission. Optional — disabled without <code>CLEARINGHOUSE_URL</code>.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3017</span><span class="tag node">Node</span>
+      <h3>automation-service</h3>
+      <p>Workflow automation rules. OPA-backed policy engine for configurable automation triggers.</p>
+    </div>
+  </div>
+
+  <h4>Infrastructure</h4>
+  <div class="card-grid">
+    <div class="card">
+      <span class="port">:8081</span><span class="tag infra">Infra</span>
+      <h3>Keycloak</h3>
+      <p>Identity provider. Realm: <code>simintero</code>. Issues JWTs for all services. Admin UI at <a href="http://localhost:8081" target="_blank">localhost:8081</a></p>
+    </div>
+    <div class="card">
+      <span class="port">:8090</span><span class="tag infra">Infra</span>
+      <h3>HAPI FHIR</h3>
+      <p>FHIR R4 server. Loaded with US Core, DaVinci PAS, DTR, and CRD IGs. First boot takes ~15 min.</p>
+    </div>
+    <div class="card">
+      <span class="port">:9092</span><span class="tag infra">Infra</span>
+      <h3>Redpanda</h3>
+      <p>Kafka-compatible broker. No ZooKeeper. Console at <a href="http://localhost:8082" target="_blank">localhost:8082</a>.</p>
+    </div>
+    <div class="card">
+      <span class="port">:7233</span><span class="tag infra">Infra</span>
+      <h3>Temporal</h3>
+      <p>Durable workflow engine. Namespace: <code>simintero</code>. UI at <a href="http://localhost:8088" target="_blank">localhost:8088</a>.</p>
+    </div>
+    <div class="card">
+      <span class="port">:9000</span><span class="tag infra">Infra</span>
+      <h3>MinIO</h3>
+      <p>S3-compatible object store. Buckets: raw-bundles, documents, letters. Console at <a href="http://localhost:9001" target="_blank">localhost:9001</a>.</p>
+    </div>
+    <div class="card">
+      <span class="port">:8181</span><span class="tag infra">Infra</span>
+      <h3>OPA</h3>
+      <p>Policy engine. Adverse-action gate and AI kill-switch. Policies from <code>platform/services/opa-policies/</code>.</p>
+    </div>
+    <div class="card">
+      <span class="port">:5433</span><span class="tag infra">Infra</span>
+      <h3>PgBouncer</h3>
+      <p>Connection pooler in front of Postgres. Transaction mode. All services connect here, not directly to Postgres.</p>
+    </div>
+    <div class="card">
+      <span class="port">:8025</span><span class="tag infra">Infra</span>
+      <h3>Mailpit</h3>
+      <p>SMTP catcher for dev. All outbound email lands here — no real mail sent. UI at <a href="http://localhost:8025" target="_blank">localhost:8025</a>.</p>
+    </div>
+    <div class="card">
+      <span class="port">:3000</span><span class="tag infra">Infra</span>
+      <h3>Grafana</h3>
+      <p>Observability dashboard. Pre-loaded with traces (Tempo), metrics (Prometheus), and logs (Loki). No login in dev.</p>
+    </div>
+    <div class="card">
+      <span class="port">:11434</span><span class="tag infra">Infra</span>
+      <h3>Ollama</h3>
+      <p>Local LLM runtime. Available for offline model experiments. Not used in the default PA workflow.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ── Nav: active section tracking
+const sections = document.querySelectorAll('section[id]');
+const navItems = document.querySelectorAll('.nav-item');
+
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navItems.forEach(n => n.classList.remove('active'));
+      const active = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+      if (active) {
+        active.classList.add('active');
+        active.scrollIntoView({block:'nearest'});
+      }
+    }
+  });
+}, {rootMargin:'-10% 0px -80% 0px'});
+
+sections.forEach(s => obs.observe(s));
+
+// ── Nav: click scroll
+navItems.forEach(item => {
+  item.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(item.getAttribute('href'));
+    if (target) target.scrollIntoView({behavior:'smooth'});
+  });
+});
+
+// ── Search
+function doSearch(q) {
+  const main = document.getElementById('main');
+  // Remove existing highlights
+  main.querySelectorAll('.highlight').forEach(el => {
+    el.outerHTML = el.textContent;
+  });
+  if (!q || q.length < 2) return;
+
+  const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+  nodes.forEach(node => {
+    if (!node.textContent.match(re)) return;
+    if (node.parentElement.tagName === 'SCRIPT') return;
+    const span = document.createElement('span');
+    span.innerHTML = node.textContent.replace(re, m => `<mark class="highlight">${m}</mark>`);
+    node.replaceWith(span);
+  });
+}
+</script>
+</body>
+</html>

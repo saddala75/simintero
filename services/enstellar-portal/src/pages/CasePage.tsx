@@ -541,6 +541,7 @@ function ReviewColumn({
           summary={workbench.summary}
           groundedness={workbench.groundedness}
           completeness={workbench.completeness}
+          selectedCitationId={selectedCitationId}
           onSelectCitation={onSelectCitation}
           className="flex flex-col p-5 space-y-5 mb-4 border border-slate-100 rounded-lg bg-blue-50/30"
         />

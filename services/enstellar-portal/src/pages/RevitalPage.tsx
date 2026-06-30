@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Card, Badge, Button } from '@sim/design-system'
-import { getAiPerformance, type AiPerformanceData, type AiCaseRecord } from '../api/client'
+import { Card, Badge } from '@sim/design-system'
+import { getAiPerformance } from '../api/client'
+import type { AiPerformanceData, AiCaseRecord } from '../api/client'
 
 function groundednessColor(score: number): string {
   if (score >= 0.75) return 'text-emerald-700 bg-emerald-50 border-emerald-200'
@@ -44,7 +45,7 @@ function KpiCard({ label, value, sub, highlight = 'neutral' }: KpiCardProps) {
 
 export function RevitalPage() {
   const navigate = useNavigate()
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<AiPerformanceData>({
     queryKey: ['ai-performance'],
     queryFn: getAiPerformance,
   })
@@ -134,7 +135,7 @@ export function RevitalPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.recent_cases.map((row) => (
+                  {data.recent_cases.map((row: AiCaseRecord) => (
                     <tr
                       key={row.case_id}
                       onClick={() => navigate('/cases/' + row.case_id)}
@@ -166,15 +167,11 @@ export function RevitalPage() {
                       </td>
                       <td className="py-2.5 pr-3 text-center">
                         {row.ai_recommendation ? (
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              row.ai_recommendation === 'approve'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-red-100 text-red-700'
-                            }`}
-                          >
-                            {row.ai_recommendation}
-                          </span>
+                          <Badge
+                            variant="status"
+                            status={row.ai_recommendation === 'approve' ? 'approved' : 'denied'}
+                            label={row.ai_recommendation}
+                          />
                         ) : (
                           <span className="text-slate-400">—</span>
                         )}

@@ -9,6 +9,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // tokens.css subpath alias must come before the barrel to prevent prefix collision
+      '@sim/design-system/tokens.css': path.resolve(__dirname, '../../packages/design-system/src/tokens.css'),
       // design-system barrel
       '@sim/design-system': path.resolve(__dirname, '../../packages/design-system/src/index.ts'),
       // reviewer-workspace
@@ -19,6 +21,7 @@ export default defineConfig({
       // digicore-console
       '@sim/digicore-console/pages/PolicyListPage':      web('digicore-console', 'pages/PolicyListPage.tsx'),
       '@sim/digicore-console/pages/PolicyDetailPage':    web('digicore-console', 'pages/PolicyDetailPage.tsx'),
+      '@sim/digicore-console/pages/NewPolicyPage':       web('digicore-console', 'pages/NewPolicyPage.tsx'),
       '@sim/digicore-console/pages/GovernanceReportsPage': web('digicore-console', 'pages/GovernanceReportsPage.tsx'),
       // quality-console
       '@sim/quality-console/pages/GapAnalysisPage':      web('quality-console', 'pages/GapAnalysisPage.tsx'),

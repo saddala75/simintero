@@ -49,11 +49,14 @@ const fetchVkasClient: VkasClient = {
   },
 };
 
-const governanceDbUrl = process.env['GOVERNANCE_DB_URL'];
-const store: GovernanceStore = governanceDbUrl
-  ? new PgGovernanceStore(new pg.Pool({ connectionString: governanceDbUrl }))
-  : new InMemoryGovernanceStore();
-const enforcer = new GateEnforcer();
+// Fail-fast on missing GOVERNANCE_DB_URL to prevent silent degradation to in-memory fallback
+export function validateGovernanceDbUrl(dbUrl: string | undefined): string {
+  if (!dbUrl) {
+    console.error('FATAL: GOVERNANCE_DB_URL is required. Refusing to start with in-memory fallback.');
+    process.exit(1);
+  }
+  return dbUrl;
+}
 
 const jwksVerifier = createJwksVerifier();
 const auth = requireAuth(jwksVerifier);
@@ -77,15 +80,24 @@ app.get('/health', (_req: Request, res: Response) => {
 // All mutation routes require a valid Keycloak Bearer JWT.
 // The verified sub claim is injected as req.user.sub for downstream handlers.
 app.use(auth);
-app.use(createQueueRouter(store));
-app.use(createEnqueueRouter(store));
-app.use(createApproveRouter(store, enforcer));
-app.use(createActivateRouter(store, enforcer, fetchVkasClient));
 
 export default app;
 
+// Initialize store and enforcer for production use
+// This is called explicitly on startup to enforce fail-fast if GOVERNANCE_DB_URL is missing.
+// Tests can import and configure the app without triggering this initialization.
 if (process.env['NODE_ENV'] !== 'test') {
   const port = Number(process.env['PORT'] ?? 3014);
+  const governanceDbUrl = validateGovernanceDbUrl(process.env['GOVERNANCE_DB_URL']);
+  const store = new PgGovernanceStore(new pg.Pool({ connectionString: governanceDbUrl }));
+  const enforcer = new GateEnforcer();
+
+  // Attach routes after store initialization
+  app.use(createQueueRouter(store));
+  app.use(createEnqueueRouter(store));
+  app.use(createApproveRouter(store, enforcer));
+  app.use(createActivateRouter(store, enforcer, fetchVkasClient));
+
   app.listen(port, () => {
     console.log(`[digicore-governance] listening on :${port}`);
   });

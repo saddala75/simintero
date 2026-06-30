@@ -206,6 +206,7 @@ export function MeasureLibraryPage() {
                       <span className="font-mono text-xs font-black text-slate-700">{m.code}</span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${programBadgeClass(m.program)}`}>{m.program}</span>
                       <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{m.domain}</span>
+                      {m.active && <Badge variant="status" status="approved" label="Active" />}
                     </div>
                     <h3 className="font-bold text-slate-900 text-sm leading-snug">{m.name}</h3>
                   </div>

@@ -28,6 +28,15 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "../../apps/web/*/src/**/*"],
+  "include": [
+    "src",
+    "../../apps/web/reviewer-workspace/src/**/*",
+    "../../apps/web/digicore-console/src/**/*",
+    "../../apps/web/quality-console/src/**/*",
+    "../../apps/web/analytics-console/src/**/*",
+    "../../apps/web/ai-ops-console/src/**/*",
+    "../../apps/web/saas-admin/src/**/*",
+    "../../apps/web/support-console/src/**/*"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
