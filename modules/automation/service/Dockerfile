@@ -4,12 +4,24 @@ WORKDIR /repo
 
 RUN npm install -g pnpm@10
 
+# Copy root workspace config + shared tsconfig
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+
+# Copy package.json files first for better layer caching on install
+COPY platform/libs/otel/package.json ./platform/libs/otel/
+COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
 COPY modules/automation/service/package.json ./modules/automation/service/
 
 RUN pnpm install --frozen-lockfile --filter @sim/automation-service...
 
+# Copy full source (dist excluded by .dockerignore — build from source below)
+COPY platform/libs/otel/ ./platform/libs/otel/
+COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
 COPY modules/automation/service/ ./modules/automation/service/
+
+# Build workspace libs first, then the service
+RUN pnpm --filter @sim/otel run build
+RUN pnpm --filter @sim/outbox-ts run build
 RUN pnpm --filter @sim/automation-service run build
 RUN pnpm --filter @sim/automation-service deploy --prod --legacy /app/deploy
 

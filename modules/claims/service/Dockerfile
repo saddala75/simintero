@@ -6,15 +6,21 @@ RUN npm install -g pnpm@10
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 
+COPY platform/libs/otel/package.json ./platform/libs/otel/
+COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
 COPY modules/claims/service/package.json              ./modules/claims/service/
 COPY integration/connectors/clearinghouse/package.json ./integration/connectors/clearinghouse/
 
 RUN pnpm install --frozen-lockfile --filter @sim/claims-service...
 
+COPY platform/libs/otel/ ./platform/libs/otel/
+COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
 COPY modules/claims/service/                ./modules/claims/service/
 COPY integration/connectors/clearinghouse/  ./integration/connectors/clearinghouse/
 
-# Build workspace lib first
+# Build workspace libs first
+RUN pnpm --filter @sim/otel run build
+RUN pnpm --filter @sim/outbox-ts run build
 RUN pnpm --filter @sim/connector-clearinghouse run build
 
 # Build the service

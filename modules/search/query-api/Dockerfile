@@ -5,11 +5,14 @@ WORKDIR /repo
 RUN npm install -g pnpm@10
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 COPY modules/search/query-api/package.json ./modules/search/query-api/
 
 RUN pnpm install --frozen-lockfile --filter @sim/search-query-api...
 
+COPY platform/libs/otel/ ./platform/libs/otel/
 COPY modules/search/query-api/ ./modules/search/query-api/
+RUN pnpm --filter @sim/otel run build
 RUN pnpm --filter @sim/search-query-api run build
 
 # Produce a self-contained deployment dir with REAL (non-symlinked) node_modules.

@@ -4,8 +4,10 @@ WORKDIR /repo
 RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY platform/services/relay/package.json ./platform/services/relay/
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
 RUN pnpm install --frozen-lockfile --filter @sim/relay...
+COPY platform/libs/otel/ ./platform/libs/otel/
 COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
 COPY platform/services/relay/ ./platform/services/relay/
 RUN pnpm --filter @sim/relay... run build

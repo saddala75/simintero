@@ -8,15 +8,18 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 
 COPY modules/revital/pipeline/package.json   ./modules/revital/pipeline/
 COPY modules/revital/extraction/package.json ./modules/revital/extraction/
+COPY platform/libs/otel/package.json         ./platform/libs/otel/
 COPY platform/libs/outbox/ts/package.json    ./platform/libs/outbox/ts/
 
 RUN pnpm install --frozen-lockfile --filter @sim/revital-pipeline...
 
 COPY modules/revital/pipeline/   ./modules/revital/pipeline/
 COPY modules/revital/extraction/ ./modules/revital/extraction/
+COPY platform/libs/otel/         ./platform/libs/otel/
 COPY platform/libs/outbox/ts/    ./platform/libs/outbox/ts/
 
 # Build workspace libs first
+RUN pnpm --filter @sim/otel run build
 RUN pnpm --filter @sim/outbox-ts run build
 RUN pnpm --filter @sim/revital-extraction run build
 

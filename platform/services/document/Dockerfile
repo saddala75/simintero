@@ -6,14 +6,17 @@ RUN npm install -g pnpm@10
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY platform/services/document/package.json ./platform/services/document/
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
 
 RUN pnpm install --frozen-lockfile --filter @sim/document...
 
+COPY platform/libs/otel/ ./platform/libs/otel/
 COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
 COPY platform/services/document/ ./platform/services/document/
 
-# Build workspace lib first, then the service
+# Build workspace libs first, then the service
+RUN pnpm --filter @sim/otel run build
 RUN pnpm --filter @sim/outbox-ts run build
 RUN pnpm --filter @sim/document run build
 

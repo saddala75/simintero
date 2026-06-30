@@ -5,11 +5,14 @@ WORKDIR /repo
 RUN npm install -g pnpm@10
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 COPY platform/services/model-gateway/package.json ./platform/services/model-gateway/
 
 RUN pnpm install --frozen-lockfile --filter @sim/model-gateway...
 
+COPY platform/libs/otel/ ./platform/libs/otel/
 COPY platform/services/model-gateway/ ./platform/services/model-gateway/
+RUN pnpm --filter @sim/otel run build
 RUN pnpm --filter @sim/model-gateway run build
 RUN pnpm --filter @sim/model-gateway deploy --prod --legacy /app/deploy
 

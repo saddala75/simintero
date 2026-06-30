@@ -5,11 +5,14 @@ WORKDIR /repo
 RUN npm install -g pnpm@10
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 COPY modules/analytics/service/package.json ./modules/analytics/service/
 
 RUN pnpm install --frozen-lockfile --filter @sim/analytics-service...
 
+COPY platform/libs/otel/ ./platform/libs/otel/
 COPY modules/analytics/service/ ./modules/analytics/service/
+RUN pnpm --filter @sim/otel run build
 RUN pnpm --filter @sim/analytics-service run build
 RUN pnpm --filter @sim/analytics-service deploy --prod --legacy /app/deploy
 

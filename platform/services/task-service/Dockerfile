@@ -3,9 +3,12 @@ FROM node:20-alpine AS builder
 WORKDIR /repo
 RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 COPY platform/services/task-service/package.json ./platform/services/task-service/
 RUN pnpm install --frozen-lockfile --filter @sim/task-service...
+COPY platform/libs/otel/ ./platform/libs/otel/
 COPY platform/services/task-service/ ./platform/services/task-service/
+RUN pnpm --filter @sim/otel run build
 RUN pnpm --filter @sim/task-service run build
 RUN pnpm --filter @sim/task-service deploy --prod --legacy /app/deploy
 

@@ -4,11 +4,13 @@ WORKDIR /repo
 RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY modules/digicore/authoring/package.json ./modules/digicore/authoring/
-# Workspace lib deps (@sim/outbox-ts, @sim/tenant-context-ts) — manifests for install
+# Workspace lib deps — manifests for install
+COPY platform/libs/otel/package.json ./platform/libs/otel/
 COPY platform/libs/outbox/ts/package.json ./platform/libs/outbox/ts/
 COPY platform/libs/tenant-context/ts/package.json ./platform/libs/tenant-context/ts/
 RUN pnpm install --frozen-lockfile --filter @sim/digicore-authoring...
 # Workspace lib deps source — needed to compile their dist/ for runtime resolution
+COPY platform/libs/otel/ ./platform/libs/otel/
 COPY platform/libs/outbox/ts/ ./platform/libs/outbox/ts/
 COPY platform/libs/tenant-context/ts/ ./platform/libs/tenant-context/ts/
 COPY modules/digicore/authoring/ ./modules/digicore/authoring/
