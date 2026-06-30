@@ -1,0 +1,14 @@
+# Development configuration for pgbouncer with plaintext passwords.
+# Use this file for local development:
+#
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# This overrides pgbouncer to use:
+#   - pgbouncer.dev.ini (auth_type = md5)
+#   - userlist.dev.txt (plaintext passwords)
+
+services:
+  pgbouncer:
+    volumes:
+      - ./infra/pgbouncer/pgbouncer.dev.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./infra/pgbouncer/userlist.dev.txt:/etc/pgbouncer/userlist.txt:ro

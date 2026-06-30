@@ -1,6 +1,20 @@
-"sim" "devpassword"
-"sim_app" "devpassword"
-"sim_relay" "devpassword"
-"workflow" "workflow_secret"
-"keycloak" "keycloak_secret"
-"hapi" "hapi_secret"
+# PRODUCTION: SCRAM-SHA-256 password hashes required
+# This file must be populated at deploy time with real SCRAM-SHA-256 hashes.
+#
+# To generate a hash for a user after setting the password in PostgreSQL:
+#   psql -h localhost -U postgres -d postgres -c \
+#     "SELECT concat('SCRAM-SHA-256\$', substring(rolpassword, 1, 20), '...') FROM pg_authid WHERE rolname='sim_app';"
+#
+# Or use psql's \password command and then extract the hash from pg_authid:
+#   psql -h localhost -U postgres -d postgres
+#   \password sim_app
+#   SELECT rolname, rolpassword FROM pg_authid WHERE rolname='sim_app';
+#
+# For development, see userlist.dev.txt which uses plaintext for local convenience.
+
+"sim" "REPLACE_WITH_SCRAM_SHA256_HASH_FROM_POSTGRESQL"
+"sim_app" "REPLACE_WITH_SCRAM_SHA256_HASH_FROM_POSTGRESQL"
+"sim_relay" "REPLACE_WITH_SCRAM_SHA256_HASH_FROM_POSTGRESQL"
+"workflow" "REPLACE_WITH_SCRAM_SHA256_HASH_FROM_POSTGRESQL"
+"keycloak" "REPLACE_WITH_SCRAM_SHA256_HASH_FROM_POSTGRESQL"
+"hapi" "REPLACE_WITH_SCRAM_SHA256_HASH_FROM_POSTGRESQL"
