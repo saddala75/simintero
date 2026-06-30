@@ -1,4 +1,4 @@
-.PHONY: up down clean smoke build
+.PHONY: up up-build down clean smoke build
 
 up: ## Start the platform and wait for healthy (data volumes preserved)
 	./scripts/platform-up.sh
