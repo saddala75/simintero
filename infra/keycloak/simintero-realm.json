@@ -2,7 +2,7 @@
   "realm": "simintero",
   "enabled": true,
   "displayName": "Simintero",
-  "sslRequired": "none",
+  "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
