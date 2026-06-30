@@ -15,7 +15,7 @@ export interface RulesVkasClient {
 }
 
 export interface RulesGovernanceClient {
-  enqueue(body: Record<string, unknown>): Promise<unknown>;
+  enqueue(body: Record<string, unknown>, authHeader: string): Promise<unknown>;
 }
 
 export interface RulesRouterDeps {
@@ -102,13 +102,17 @@ export function createRulesRouter(deps: RulesRouterDeps): Router {
       await vkas.submit(cqlLibraryUrl, VERSION);
       await vkas.submit(coverageRuleUrl, VERSION);
 
-      // 4. Enqueue in governance
-      await governance.enqueue({
-        artifact_id: coverageRuleUrl,
-        cql_library_url: cqlLibraryUrl,
-        version: VERSION,
-        created_by: createdBy,
-      });
+      // 4. Enqueue in governance — forward the caller's Authorization header so the
+      // governance service (now also JWT-protected) can validate the same token.
+      await governance.enqueue(
+        {
+          artifact_id: coverageRuleUrl,
+          cql_library_url: cqlLibraryUrl,
+          version: VERSION,
+          created_by: createdBy,
+        },
+        req.headers.authorization as string,
+      );
     } catch (err) {
       res.status(502).json({
         error: 'Failed to orchestrate rule authoring downstream',

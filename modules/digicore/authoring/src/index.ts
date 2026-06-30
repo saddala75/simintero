@@ -78,10 +78,13 @@ const fetchVkasClient = {
 };
 
 const fetchGovernanceClient = {
-  post: async (url: string, body: unknown): Promise<unknown> => {
+  post: async (url: string, body: unknown, authHeader?: string): Promise<unknown> => {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
@@ -122,10 +125,11 @@ const rulesVkas: RulesVkasClient = {
 };
 
 const rulesGovernance: RulesGovernanceClient = {
-  enqueue: (body) =>
+  enqueue: (body, authHeader) =>
     fetchGovernanceClient.post(
       `${governanceBaseUrl}/v1/governance/queue/submit`,
-      body
+      body,
+      authHeader,
     ),
 };
 

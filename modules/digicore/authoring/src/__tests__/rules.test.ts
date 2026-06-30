@@ -29,6 +29,7 @@ interface SubmitCall {
 }
 interface EnqueueCall {
   body: Record<string, unknown>;
+  authHeader: string;
 }
 
 let compilerCalls: CompilerCall[];
@@ -66,8 +67,8 @@ const vkas: RulesVkasClient = {
 };
 
 const governance: RulesGovernanceClient = {
-  async enqueue(body: Record<string, unknown>) {
-    enqueueCalls.push({ body });
+  async enqueue(body: Record<string, unknown>, authHeader: string) {
+    enqueueCalls.push({ body, authHeader });
     return { enqueued: true };
   },
 };
@@ -111,10 +112,13 @@ beforeEach(() => {
   compilerShouldFail = false;
 });
 
-async function postRule(body: unknown): Promise<{ status: number; data: unknown }> {
+async function postRule(
+  body: unknown,
+  authHeader = 'Bearer test-token',
+): Promise<{ status: number; data: unknown }> {
   const res = await fetch(`${baseUrl}/v1/authoring/rules`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: authHeader },
     body: JSON.stringify(body),
   });
   const data: unknown = await res.json();
@@ -181,7 +185,7 @@ describe('POST /v1/authoring/rules', () => {
       expect(c.version).toBe('1.0.0');
     }
 
-    // governance.enqueue called once
+    // governance.enqueue called once, with the caller's Authorization header forwarded
     expect(enqueueCalls).toHaveLength(1);
     expect(enqueueCalls[0]!.body).toEqual({
       artifact_id: COVERAGE_RULE_URL,
@@ -189,6 +193,7 @@ describe('POST /v1/authoring/rules', () => {
       version: '1.0.0',
       created_by: VALID_BODY.created_by,
     });
+    expect(enqueueCalls[0]!.authHeader).toBe('Bearer test-token');
 
     // response shape
     expect(data).toEqual({

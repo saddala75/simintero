@@ -780,6 +780,8 @@ services:
       VKAS_BASE_URL: http://vkas:3040
       GOVERNANCE_BASE_URL: http://digicore-governance:3053
       TERMINOLOGY_GW_BASE_URL: http://terminology-service:3030
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_CLIENT_ID: digicore-authoring
     ports:
       - "3052:3052"
     depends_on:
@@ -808,6 +810,8 @@ services:
       PORT: "3053"
       VKAS_BASE_URL: http://vkas:3040
       GOVERNANCE_DB_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_CLIENT_ID: digicore-governance
     ports:
       - "3053:3053"
     depends_on:

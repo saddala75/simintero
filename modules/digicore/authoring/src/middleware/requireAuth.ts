@@ -1,3 +1,5 @@
+// ponytail: duplicated from modules/digicore/governance/src/middleware/requireAuth.ts
+// TODO: extract to platform/libs/authz-client/ts/ once that package is set up for Express middleware
 import type { Request, Response, NextFunction } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
@@ -23,7 +25,10 @@ export function createJwksVerifier(): JwtVerifier {
 
   return {
     async verify(token: string): Promise<{ sub: string }> {
-      const { payload } = await jwtVerify(token, JWKS, { issuer });
+      const { payload } = await jwtVerify(token, JWKS, {
+        issuer,
+        audience: process.env['KEYCLOAK_CLIENT_ID'] ?? 'digicore-authoring',
+      });
       if (typeof payload['sub'] !== 'string' || payload['sub'].length === 0) {
         throw new Error('JWT sub claim is missing or empty');
       }
