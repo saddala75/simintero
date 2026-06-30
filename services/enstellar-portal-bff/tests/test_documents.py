@@ -88,19 +88,69 @@ async def test_get_documents_requires_auth() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_proxy_document_content_redirects() -> None:
+async def test_proxy_document_content_streams() -> None:
     doc_id = "doc-1"
+    attachment_url = "https://minio.internal/bucket/doc-1.pdf"
+    pdf_bytes = b"%PDF-1.4 fake content"
     respx.get(f"{FHIR_BASE}/DocumentReference/{doc_id}").mock(
         return_value=Response(200, json={
             "resourceType": "DocumentReference",
             "id": doc_id,
-            "content": [{"attachment": {"url": "https://minio.internal/bucket/doc-1.pdf"}}],
+            "content": [{"attachment": {
+                "url": attachment_url,
+                "contentType": "application/pdf",
+            }}],
         })
     )
+    respx.get(attachment_url).mock(
+        return_value=Response(200, content=pdf_bytes, headers={"content-type": "application/pdf"})
+    )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get(
-            f"/bff/cases/{CASE_ID}/documents/{doc_id}/content",
-            follow_redirects=False,
-        )
-    assert resp.status_code in (302, 307)
-    assert resp.headers["location"] == "https://minio.internal/bucket/doc-1.pdf"
+        resp = await client.get(f"/bff/cases/{CASE_ID}/documents/{doc_id}/content")
+    assert resp.status_code == 200
+    assert "application/pdf" in resp.headers["content-type"]
+    assert resp.content == pdf_bytes
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_proxy_document_content_upstream_error_returns_502() -> None:
+    doc_id = "doc-2"
+    attachment_url = "https://minio.internal/bucket/doc-2.pdf"
+    respx.get(f"{FHIR_BASE}/DocumentReference/{doc_id}").mock(
+        return_value=Response(200, json={
+            "resourceType": "DocumentReference",
+            "id": doc_id,
+            "content": [{"attachment": {
+                "url": attachment_url,
+                "contentType": "application/pdf",
+            }}],
+        })
+    )
+    # Upstream returns 404 — BFF should surface this as 502
+    respx.get(attachment_url).mock(return_value=Response(404))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get(f"/bff/cases/{CASE_ID}/documents/{doc_id}/content")
+    assert resp.status_code == 502
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_proxy_document_content_defaults_content_type() -> None:
+    """When FHIR attachment has no contentType, BFF defaults to application/octet-stream."""
+    doc_id = "doc-3"
+    attachment_url = "https://minio.internal/bucket/doc-3.bin"
+    raw_bytes = b"\x00\x01\x02\x03"
+    respx.get(f"{FHIR_BASE}/DocumentReference/{doc_id}").mock(
+        return_value=Response(200, json={
+            "resourceType": "DocumentReference",
+            "id": doc_id,
+            "content": [{"attachment": {"url": attachment_url}}],
+        })
+    )
+    respx.get(attachment_url).mock(return_value=Response(200, content=raw_bytes))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get(f"/bff/cases/{CASE_ID}/documents/{doc_id}/content")
+    assert resp.status_code == 200
+    assert "application/octet-stream" in resp.headers["content-type"]
+    assert resp.content == raw_bytes

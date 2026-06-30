@@ -7,7 +7,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from enstellar_bff.auth import require_auth, require_reviewer
@@ -339,20 +339,28 @@ async def proxy_document_content(
     case_id: str,
     doc_id: str,
     auth: tuple = Depends(require_reviewer),
-) -> RedirectResponse:
-    """Proxy document content — redirects to the underlying attachment URL.
-
-    The client (browser) never sees raw HAPI or MinIO URLs directly;
-    this endpoint fetches the DocumentReference from HAPI and issues a
-    redirect to the attachment URL (e.g., MinIO presigned URL).
-    """
+) -> StreamingResponse:
+    """Stream document content through the BFF — the raw attachment URL never reaches the browser."""
     ctx, bearer = auth
     resource = await fhir_client.document_by_id(doc_id, ctx.tenant_id, bearer)
     content = (resource.get("content") or [{}])[0]
-    attachment_url = (content.get("attachment") or {}).get("url")
+    attachment = content.get("attachment") or {}
+    attachment_url = attachment.get("url")
     if not attachment_url:
         raise HTTPException(status_code=404, detail="No attachment URL on document")
-    return RedirectResponse(url=attachment_url, status_code=302)
+    content_type = attachment.get("contentType", "application/octet-stream")
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            upstream = await client.get(attachment_url)
+            upstream.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail="Upstream document fetch failed") from exc
+    except httpx.TransportError as exc:
+        raise HTTPException(status_code=502, detail="Upstream document unreachable") from exc
+    return StreamingResponse(
+        iter([upstream.content]),
+        media_type=content_type,
+    )
 
 
 @router.get("/cases/{case_id}/criteria", response_model=list[CriterionItem])
