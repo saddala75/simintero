@@ -962,21 +962,8 @@ services:
     networks:
       - sim-net
 
-  mailpit:
-    image: axllent/mailpit:latest
-    ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI — http://localhost:8025
-    networks:
-      - sim-net
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8025/livez"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   mailhog:
-    image: mailhog/mailhog:latest
+    image: mailhog/mailhog:v1.0.1
     ports:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI — http://localhost:8025
