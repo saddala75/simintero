@@ -1,9 +1,10 @@
 """OutboxRelay — polls shared.outbox and publishes unpublished events to Kafka.
 
 The relay reads rows for EVERY tenant, so it must bypass the RLS tenant_isolation
-policy on shared.outbox. It does so by SET ROLE'ing to the BYPASSRLS `sim_relay`
-role (created by migration 0011) on each acquired connection. The Kafka payload is
-the stored envelope jsonb published verbatim to the row's topic.
+policy on shared.outbox. It does so with SET LOCAL ROLE inside the batch transaction
+so the BYPASSRLS `sim_relay` role is transaction-scoped and never leaks back to
+PgBouncer's connection pool. The Kafka payload is the stored envelope jsonb
+published verbatim to the row's topic.
 
 Error handling (migration 0030):
 - Each row tracks ``retry_count`` (failures since last success).
@@ -17,8 +18,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import asynccontextmanager
-
 import asyncpg
 
 from ..config import get_settings
@@ -51,23 +50,15 @@ class OutboxRelay:
     async def stop(self) -> None:
         self._running = False
 
-    @asynccontextmanager
-    async def _relay_conn(self):  # type: ignore[override]
-        """Acquire a connection with the BYPASSRLS relay role set (if configured)."""
-        role = get_settings().relay_db_role
-        async with self._pool.acquire() as conn:
-            if role:
-                await conn.execute(f'SET ROLE "{role}"')
-            try:
-                yield conn
-            finally:
-                if role:
-                    await conn.execute("RESET ROLE")
-
     async def _relay_batch(self, batch_size: int) -> int:
+        # ponytail: SET LOCAL ROLE is transaction-scoped; auto-reverts at COMMIT so
+        # PgBouncer transaction pooling never sees a leaked sim_relay on the backend.
+        role = get_settings().relay_db_role
         count = 0
-        async with self._relay_conn() as conn:
+        async with self._pool.acquire() as conn:
             async with conn.transaction():
+                if role:
+                    await conn.execute(f'SET LOCAL ROLE "{role}"')
                 rows = await conn.fetch(
                     """
                     SELECT event_id, topic, key, envelope, retry_count
