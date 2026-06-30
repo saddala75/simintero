@@ -74,7 +74,7 @@ export function GapAnalysisPage() {
       <div className="max-w-[1280px] mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/qualitron')}>
               ← Back to Measures
             </Button>
             <div>
@@ -128,7 +128,7 @@ export function GapAnalysisPage() {
             columns={columns}
             data={filtered}
             keyExtractor={(row) => row.id}
-            onRowClick={(row) => navigate(`/gaps/${row.id}`)}
+            onRowClick={(row) => navigate(`/qualitron/gaps/${row.id}`)}
           />
         )}
       </div>

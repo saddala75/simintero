@@ -4,30 +4,23 @@
 # Usage:
 #   ./scripts/platform-up.sh          # start everything, wait for healthy
 #   ./scripts/platform-up.sh --build  # rebuild all Docker images first, then start
-#   ./scripts/platform-up.sh --skip-hapi  # skip waiting for HAPI (faster, FHIR won't work)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 BUILD=false
-SKIP_HAPI=false
 for arg in "$@"; do
   case "$arg" in
-    --build)     BUILD=true ;;
-    --skip-hapi) SKIP_HAPI=true ;;
+    --build) BUILD=true ;;
     *) echo "Unknown argument: $arg" >&2; exit 1 ;;
   esac
 done
 
 # ── Prerequisites check ──────────────────────────────────────────────────────
-check_prereq() {
-  local cmd="$1" hint="$2"
-  command -v "$cmd" >/dev/null 2>&1 || { echo "❌ $cmd not found. $hint" >&2; exit 1; }
-}
-check_prereq docker    "Install Docker Desktop: https://www.docker.com/products/docker-desktop"
-check_prereq "docker compose" "Docker Compose v2+ is required (bundled with Docker Desktop 4.x+)"
+command -v docker >/dev/null 2>&1 || { echo "❌ docker not found. Install Docker Desktop: https://www.docker.com/products/docker-desktop" >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo "❌ Docker daemon not running. Start Docker Desktop." >&2; exit 1; }
+docker compose version >/dev/null 2>&1 || { echo "❌ Docker Compose v2 not found. Bundled with Docker Desktop 4.x+; on Linux install the docker-compose-plugin package." >&2; exit 1; }
 
 # Warn if ANTHROPIC_API_KEY is unset (AI features degraded, smoke still passes via mock-llm)
 if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
@@ -50,7 +43,7 @@ docker compose up -d 2>&1 || true
 
 # ── Wait for health ──────────────────────────────────────────────────────────
 # Services without a healthcheck are treated as healthy (empty status = ok).
-CORE_SVCS="postgres keycloak redpanda minio opa
+CORE_SVCS="postgres keycloak redpanda minio opa mailpit
   digicore-runtime document-service document-worker
   interop workflow-engine portal-bff
   temporal revital-pipeline revital-worker model-gateway
@@ -90,25 +83,29 @@ wait_healthy() {
 
 wait_healthy "core"
 
-# ── HAPI FHIR (slow — loads Implementation Guides on boot) ──────────────────
-if [ "$SKIP_HAPI" = false ]; then
-  echo "  Waiting for HAPI FHIR to finish loading IGs (up to 15 min on first run)..."
-  HAPI_READY=false
-  for i in $(seq 1 180); do
-    if curl -sf http://localhost:8090/fhir/metadata >/dev/null 2>&1; then
-      HAPI_READY=true
-      break
-    fi
-    [ $((i % 12)) -eq 0 ] && echo "   still waiting (${i}×5s)..."
-    sleep 5
-  done
-  if [ "$HAPI_READY" = false ]; then
-    echo "❌ HAPI not ready after 15 min. Check: docker logs simintero-hapi-1" >&2
-    echo "   Tip: use --skip-hapi if you don't need FHIR/interop features." >&2
-    exit 1
+# ── HAPI FHIR ────────────────────────────────────────────────────────────────
+# interop does not start until HAPI is healthy (Docker depends_on), so it won't appear
+# in the CORE_SVCS check above on first boot. Poll HAPI directly (port 8090).
+# First boot: up to 15 min while HAPI loads IGs. Subsequent starts: ~60s.
+echo "  Waiting for HAPI FHIR (first boot: up to 15 min; port 8090)..."
+HAPI_READY=false
+for i in $(seq 1 180); do
+  if curl -sf http://localhost:8090/fhir/metadata >/dev/null 2>&1; then
+    HAPI_READY=true
+    break
   fi
-  echo "  ✅ HAPI FHIR ready"
+  [ $((i % 12)) -eq 0 ] && echo "   still waiting for HAPI (${i}×5s)..."
+  sleep 5
+done
+if [ "$HAPI_READY" = false ]; then
+  echo "❌ HAPI not ready after 15 min. Check: docker logs simintero-hapi-1" >&2
+  echo "   If exit code is 137 (SIGKILL), Docker is OOM — increase memory to 8 GB." >&2
+  exit 1
 fi
+echo "  ✅ HAPI FHIR ready"
+
+# Wait for interop (which starts after HAPI) and any other late-starting services.
+wait_healthy "late"
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 echo ""
@@ -117,12 +114,14 @@ echo ""
 echo "  Portal UI          http://localhost:5173"
 echo "  Portal BFF API     http://localhost:8001/docs"
 echo "  Interop FHIR       http://localhost:8080/fhir/metadata"
+echo "  HAPI FHIR (raw)    http://localhost:8090/fhir/metadata"
 echo "  Keycloak admin     http://localhost:8081  (admin / admin)"
 echo "  Grafana            http://localhost:3000"
 echo "  Temporal UI        http://localhost:8088"
 echo "  MinIO console      http://localhost:9001  (minioadmin / minioadmin)"
+echo "  Mailpit (email)    http://localhost:8025"
 echo ""
 echo "  Test login: username=md-reviewer  password=e2e-pass"
 echo ""
 echo "  Run the smoke test:  make smoke"
-echo "  Shut down:           ./scripts/platform-down.sh"
+echo "  Shut down:           make down"

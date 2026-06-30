@@ -1,739 +1,279 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
+import './LandingPage.css'
 
 export function LandingPage() {
+  const { login, authenticated, ready } = useAuth()
   const navigate = useNavigate()
-  const pageRef = useRef<HTMLDivElement>(null)
+  const toApp = () => login(`${window.location.origin}/dashboard`)
 
-  // Enable scrolling for the landing page — override app-level overflow:hidden
+  // Authenticated users who land on / go straight to the dashboard
+  useEffect(() => {
+    if (ready && authenticated) navigate('/dashboard', { replace: true })
+  }, [ready, authenticated, navigate])
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // allow scrolling on this page
   useEffect(() => {
     const root = document.getElementById('root')
-    const origBodyOv = document.body.style.overflow
-    const origBodyH = document.body.style.height
-    const origRootOv = root?.style.overflow ?? ''
-    const origRootH = root?.style.height ?? ''
+    const prevBodyOv = document.body.style.overflow
+    const prevBodyH  = document.body.style.height
+    const prevRootOv = root?.style.overflow ?? ''
+    const prevRootH  = root?.style.height  ?? ''
     document.body.style.overflow = 'auto'
-    document.body.style.height = 'auto'
-    if (root) {
-      root.style.overflow = 'auto'
-      root.style.height = 'auto'
-    }
+    document.body.style.height   = 'auto'
+    if (root) { root.style.overflow = 'auto'; root.style.height = 'auto' }
     return () => {
-      document.body.style.overflow = origBodyOv
-      document.body.style.height = origBodyH
-      if (root) {
-        root.style.overflow = origRootOv
-        root.style.height = origRootH
-      }
+      document.body.style.overflow = prevBodyOv
+      document.body.style.height   = prevBodyH
+      if (root) { root.style.overflow = prevRootOv; root.style.height = prevRootH }
     }
   }, [])
 
-  // IntersectionObserver reveal animation
+  // scroll-reveal
   useEffect(() => {
-    const el = pageRef.current
+    const el = rootRef.current
     if (!el) return
     const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            const sibs = [
-              ...(e.target.parentElement?.querySelectorAll('.reveal') ?? []),
-            ]
-            const delay = Math.min(sibs.indexOf(e.target as Element) * 70, 300)
-            ;(e.target as HTMLElement).style.transitionDelay = `${delay}ms`
-            e.target.classList.add('in')
-            io.unobserve(e.target)
-          }
-        })
-      },
+      (entries) => entries.forEach((e) => {
+        if (!e.isIntersecting) return
+        const sibs = [...(e.target.parentElement?.querySelectorAll('.reveal') ?? [])]
+        const delay = Math.min(sibs.indexOf(e.target as Element) * 70, 300)
+        ;(e.target as HTMLElement).style.transitionDelay = `${delay}ms`
+        e.target.classList.add('in')
+        io.unobserve(e.target)
+      }),
       { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
     )
     el.querySelectorAll('.reveal').forEach((r) => io.observe(r))
     return () => io.disconnect()
   }, [])
 
-  const goToApp = () => navigate('/queues/default/worklist')
-
   return (
-    <div className="lp-page" ref={pageRef}>
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="lp-header">
-        <div className="lp-wrap">
-          <nav className="lp-nav">
-            <a className="lp-brand" href="/">
-              <svg
-                className="mark"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <rect
-                  x="2"
-                  y="2"
-                  width="20"
-                  height="20"
-                  rx="6"
-                  stroke="#0F564C"
-                  strokeWidth="1.6"
-                />
-                <circle cx="12" cy="12" r="3.4" fill="#0F564C" />
-              </svg>
-              Enstellar
-            </a>
-            <div className="lp-nav-links">
-              <a href="#product">Product</a>
-              <a href="#integrity">Integrity</a>
-              <a href="#outcomes">Outcomes</a>
-              <a href="#adoption">Adoption</a>
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <button className="lp-btn ghost" onClick={() => navigate('/ehr-sim')}>
-                EHR Simulator
-              </button>
-              <button className="lp-btn ghost" onClick={goToApp}>
-                Sign in
-              </button>
-              <button className="lp-btn" onClick={goToApp}>
-                Request demo
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M3 8h10M9 4l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            </div>
-          </nav>
-        </div>
-      </header>
+    <div className="sim-lp" ref={rootRef}>
 
-      {/* ── Hero ───────────────────────────────────────────────────────────── */}
-      <section className="lp-hero">
-        <div className="lp-wrap">
-          <div className="lp-hero-grid">
+      {/* ── Topbar ── */}
+      <div className="topbar">
+        <div className="wrap topbar-inner">
+          <div className="status-pair">
+            <span className="status-dot" aria-hidden="true" />
+            <span>Evidence synchronized</span>
+          </div>
+          <span>FHIR R4 · CQL · CDS Hooks · UDAP · X12</span>
+        </div>
+      </div>
+
+      {/* ── Nav ── */}
+      <nav className="nav" aria-label="Primary navigation">
+        <div className="wrap nav-inner">
+          <a className="brand" href="#top" aria-label="Simintero home">
+            <span className="brand-mark">S</span>
+            <span className="brand-text">
+              <span className="brand-title">Simintero</span>
+              <span className="brand-subtitle">Payer Operating System</span>
+            </span>
+          </a>
+          <div className="nav-links">
+            <a href="#platform">Platform</a>
+            <a href="#workflow">Workflow</a>
+            <a href="#trust">Trust</a>
+          </div>
+          <div className="nav-actions">
+            <button className="btn btn-ghost" onClick={toApp}>Login</button>
+            <button className="btn btn-primary" onClick={toApp}>Request briefing</button>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── Hero ── */}
+      <main id="top">
+        <section className="hero">
+          <div className="wrap hero-grid">
+
             {/* Left copy */}
-            <div>
-              <div className="lp-badge reveal">
-                <span className="tag">New · 2026</span>
-                <span className="txt">Full UM lifecycle, incl. appeals</span>
+            <div className="hero-copy">
+              <div className="eyebrow reveal">
+                <span className="mini-node" />
+                Standards-native payer operations
               </div>
               <h1 className="reveal">
-                Prior authorization{' '}
-                <em>without the audit anxiety.</em>
+                Evidence-driven payer decisions, without the manual chart chase.
               </h1>
-              <p className="sub reveal">
-                Enstellar is the interoperability and workflow-execution layer
-                for payer organizations — deterministic state machines, governed
-                AI advisory, and full provenance from receipt to determination.
+              <p className="hero-lede reveal">
+                Simintero unifies prior authorization intake, policy-as-code, governed AI review,
+                provider documentation, and quality signals into one traceable operating layer.
               </p>
-              <p className="lp-ribbon reveal">
-                <b>Criteria met · human signed · immutable</b>
-                <br />
-                Every decision is traceable end-to-end. No AI-only
-                determinations. No black boxes. Every adverse action has a
-                recorded clinician sign-off.
-              </p>
-              <div className="lp-cta-row reveal">
-                <button className="lp-btn" onClick={goToApp}>
-                  See it live
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M3 8h10M9 4l4 4-4 4"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-                <a className="lp-btn ghost" href="#integrity">
-                  How it works
-                </a>
+              <div className="hero-actions reveal">
+                <a className="btn btn-primary" href="#platform">See how it works</a>
+                <a className="btn btn-ai" href="#trust">✦ View evidence model</a>
+                <button className="btn btn-ghost" onClick={toApp}>Request briefing</button>
               </div>
-              <div className="lp-hero-stats reveal">
-                <div className="lp-hstat">
-                  <div className="v pine">72 h</div>
-                  <div className="l">expedited clock, never missed</div>
+              <div className="hero-proof reveal" aria-label="Platform proof points">
+                <div className="proof-tile">
+                  <div className="proof-label">Decision state</div>
+                  <div className="proof-value">Explainable by default</div>
                 </div>
-                <div className="lp-hstat">
-                  <div className="v">100%</div>
-                  <div className="l">adverse decisions with human sign-off</div>
+                <div className="proof-tile">
+                  <div className="proof-label">Clinical logic</div>
+                  <div className="proof-value">Versioned and testable</div>
                 </div>
-                <div className="lp-hstat">
-                  <div className="v">0</div>
-                  <div className="l">AI-only determinations, ever</div>
+                <div className="proof-tile">
+                  <div className="proof-label">AI boundary</div>
+                  <div className="proof-value">Advisory only</div>
                 </div>
               </div>
             </div>
 
-            {/* Right bento panel */}
-            <div className="lp-panel reveal">
-              <div className="lp-bento">
-                {/* AI summary card — full width */}
-                <div className="lp-c lp-c-ai">
-                  <div className="lp-c-head">
-                    <span className="lp-c-title">
-                      <svg
-                        width="13"
-                        height="13"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <circle
-                          cx="8"
-                          cy="8"
-                          r="6.4"
-                          stroke="#0F564C"
-                          strokeWidth="1.6"
-                        />
-                        <path
-                          d="M8 5v3l2 1.2"
-                          stroke="#0F564C"
-                          strokeWidth="1.4"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      Governed AI · Advisory
-                    </span>
-                    <span className="lp-chip solid">Advisory only</span>
+            {/* Right — system frame */}
+            <div className="hero-visual reveal" aria-label="Simintero interface preview">
+              <div className="system-frame">
+                <div className="system-titlebar">
+                  <div className="window-controls" aria-hidden="true">
+                    <span /><span /><span />
                   </div>
-                  <p className="lp-ai-sum">
-                    Patient meets 2 of 3 imaging criteria per plan policy
-                    (InterQual 2025). Documentation gap: no ordering physician
-                    attestation for medical necessity. Recommend requesting
-                    attestation before advancing to determination.
-                  </p>
-                  <div className="lp-ai-cites">
-                    <span className="lp-cite">Policy §4.2.1</span>
-                    <span className="lp-cite">InterQual 2025</span>
-                    <span className="lp-cite">Claim 2024-11-03</span>
-                  </div>
-                  <div className="lp-ai-foot">
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="lp-mini">Reject</button>
-                      <button className="lp-mini go">Accept →</button>
-                    </div>
-                    <span className="lp-lock">
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <rect
-                          x="3"
-                          y="7"
-                          width="10"
-                          height="6.5"
-                          rx="1.4"
-                          stroke="currentColor"
-                          strokeWidth="1.3"
-                        />
-                        <path
-                          d="M5.5 7V5a2.5 2.5 0 015 0v2"
-                          stroke="currentColor"
-                          strokeWidth="1.3"
-                        />
-                      </svg>
-                      Cannot issue determination
-                    </span>
-                  </div>
+                  <div className="case-id">CASE · PA-24-009184 · LIVE EVIDENCE PACKAGE</div>
                 </div>
-
-                {/* Timeline card */}
-                <div className="lp-c">
-                  <div className="lp-c-head">
-                    <span className="lp-c-title">Case timeline</span>
-                    <span className="lp-chip">Live</span>
-                  </div>
-                  {[
-                    { done: true, label: 'PA received via FHIR', ts: '08:14' },
-                    {
-                      done: true,
-                      label: 'Completeness check passed',
-                      ts: '08:15',
-                    },
-                    {
-                      done: true,
-                      label: 'Clinical review started',
-                      ts: '09:03',
-                    },
-                    {
-                      done: false,
-                      label: 'Awaiting physician attestation',
-                      ts: 'Pending',
-                    },
-                  ].map((ev, i) => (
-                    <div key={i} className="lp-evt">
-                      <span
-                        className={`lp-node${ev.done ? ' done' : ''}`}
-                      />
-                      <span className="lab">{ev.label}</span>
-                      <span className="ts">{ev.ts}</span>
+                <div className="system-body">
+                  <div className="case-summary">
+                    <div className="panel">
+                      <div className="panel-header">
+                        <div className="panel-title">Authorization case</div>
+                        <span className="rule-badge green">FHIR-PAS</span>
+                      </div>
+                      <div className="panel-content">
+                        <div className="data-row"><span className="data-key">Line of business</span><span className="data-value">Medicare Advantage</span></div>
+                        <div className="data-row"><span className="data-key">Intake channel</span><span className="data-value">FHIR Claim.submit</span></div>
+                        <div className="data-row"><span className="data-key">Current state</span><span className="data-value">Clinical review</span></div>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="clock-card">
+                      <div className="clock-label">Regulatory clock</div>
+                      <div className="clock-value">38h 12m</div>
+                      <div className="progress-track"><span /></div>
+                      <p className="clock-note">SLA, RFI pauses, and reviewer routing tracked in one governed workflow.</p>
+                    </div>
+                  </div>
 
-                {/* Gauge card */}
-                <div className="lp-c">
-                  <div className="lp-gauge">
-                    <svg viewBox="0 0 140 84" fill="none" aria-hidden="true">
-                      <path
-                        d="M14 76 A56 56 0 0 1 126 76"
-                        stroke="rgba(15,86,76,.15)"
-                        strokeWidth="10"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M14 76 A56 56 0 0 1 126 76"
-                        stroke="#0F564C"
-                        strokeWidth="10"
-                        strokeLinecap="round"
-                        strokeDasharray="96 100"
-                        pathLength="100"
-                      />
-                    </svg>
-                    <div className="val">96%</div>
-                    <div className="cap">
-                      Clock compliance · expedited, this period
+                  <div className="panel">
+                    <div className="panel-header">
+                      <div className="panel-title">Universal timeline</div>
+                      <span className="rule-badge neutral">IMMUTABLE</span>
+                    </div>
+                    <div className="visual-timeline">
+                      <div className="vt-node done"><span className="vt-dot" /><span>Intake</span></div>
+                      <div className="vt-node done"><span className="vt-dot" /><span>Rules</span></div>
+                      <div className="vt-node ai"><span className="vt-dot" /><span>AI evidence</span></div>
+                      <div className="vt-node"><span className="vt-dot" /><span>Review</span></div>
+                      <div className="vt-node waiting"><span className="vt-dot" /><span>Quality</span></div>
+                    </div>
+                  </div>
+
+                  <div className="stack-grid">
+                    <div className="evidence-card">
+                      <div className="evidence-head"><div className="evidence-title">Rules trace</div><span className="rule-badge">DIG</span></div>
+                      <p className="evidence-copy">Policy version and logic branch resolved for reproducible review.</p>
+                    </div>
+                    <div className="evidence-card">
+                      <div className="evidence-head"><div className="evidence-title">AI advisory</div><span className="rule-badge blue">REV</span></div>
+                      <p className="evidence-copy">Summaries cite the original clinical evidence for verification.</p>
+                    </div>
+                    <div className="evidence-card">
+                      <div className="evidence-head"><div className="evidence-title">Human control</div><span className="rule-badge green">SAFE</span></div>
+                      <p className="evidence-copy">Adverse determinations require qualified reviewer sign-off.</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ── Governed AI section ────────────────────────────────────────────── */}
-      <section className="lp-sec" id="product">
-        <div className="lp-wrap">
-          <div className="lp-sec-head reveal">
-            <span className="lp-eyebrow">Governed AI</span>
-            <h2>
-              AI that advises. Clinicians who decide.
-            </h2>
-            <p className="sub">
-              Enstellar's agent layer is wired to the guardrail engine.
-              Every AI output is advisory, cited, and passed through policy
-              validation before a human ever sees it. The system of record
-              is the deterministic state machine — not the model.
-            </p>
           </div>
+        </section>
 
-          <div className="lp-ai-split reveal">
-            <div className="lp-ai-col does">
-              <h3>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <circle
-                    cx="8"
-                    cy="8"
-                    r="6.4"
-                    stroke="#0F564C"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M5 8.5l2 2 4-4"
-                    stroke="#0F564C"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                What governed AI does
-              </h3>
-              <ul>
-                <li>
-                  <span style={{ color: '#0F564C', fontWeight: 700 }}>✓</span>
-                  <span>
-                    Summarizes clinical evidence from the submitted record
-                  </span>
-                </li>
-                <li>
-                  <span style={{ color: '#0F564C', fontWeight: 700 }}>✓</span>
-                  <span>
-                    Flags documentation gaps and criteria mismatches with
-                    citations
-                  </span>
-                </li>
-                <li>
-                  <span style={{ color: '#0F564C', fontWeight: 700 }}>✓</span>
-                  <span>
-                    Surfaces precedent cases and applicable policy references
-                  </span>
-                </li>
-                <li>
-                  <span style={{ color: '#0F564C', fontWeight: 700 }}>✓</span>
-                  <span>
-                    Drafts structured rationale for the clinician to review and
-                    sign
-                  </span>
-                </li>
-              </ul>
+        {/* ── Platform capabilities ── */}
+        <section className="section" id="platform">
+          <div className="wrap">
+            <div className="section-header">
+              <div>
+                <div className="section-kicker">What the platform does</div>
+                <h2>One operating layer for the work payers and providers keep repeating.</h2>
+              </div>
+              <p className="section-lede">
+                Instead of separate systems for intake, policy, document review, appeals, and quality,
+                Simintero creates a shared evidence fabric where every decision is grounded, governed, and auditable.
+              </p>
             </div>
-            <div className="lp-ai-col">
-              <h3
-                style={{
-                  color: '#B23A48',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  marginBottom: 20,
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <circle
-                    cx="8"
-                    cy="8"
-                    r="6.4"
-                    stroke="#B23A48"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M5.5 5.5l5 5M10.5 5.5l-5 5"
-                    stroke="#B23A48"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                What governed AI never does
-              </h3>
-              <ul>
-                <li>
-                  <span style={{ color: '#B23A48', fontWeight: 700 }}>✗</span>
-                  <span>Issues or commits a determination of any kind</span>
-                </li>
-                <li>
-                  <span style={{ color: '#B23A48', fontWeight: 700 }}>✗</span>
-                  <span>Signs off on an adverse decision</span>
-                </li>
-                <li>
-                  <span style={{ color: '#B23A48', fontWeight: 700 }}>✗</span>
-                  <span>
-                    Accesses PHI beyond the minimum necessary for the case
-                  </span>
-                </li>
-                <li>
-                  <span style={{ color: '#B23A48', fontWeight: 700 }}>✗</span>
-                  <span>
-                    Operates outside tenant or deployment boundaries
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </div>
 
-          <div className="lp-pullquote reveal">
-            The guardrail engine sits between every AI output and any case
-            mutation.{' '}
-            <b>
-              No advisory output commits directly — human action is always
-              required for a determination.
-            </b>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Moments section ────────────────────────────────────────────────── */}
-      <section className="lp-sec">
-        <div className="lp-wrap">
-          <div className="lp-sec-head reveal">
-            <span className="lp-eyebrow">How it works</span>
-            <h2>Five moments. One audit trail.</h2>
-            <p className="sub">
-              From the first byte of the FHIR request to the final notice
-              letter, every state transition is deterministic, tenant-scoped,
-              and immutably recorded.
-            </p>
-          </div>
-
-          <div className="lp-moments">
-            {[
-              {
-                n: '01',
-                title: 'Receipt & completeness',
-                text: 'PA request arrives via FHIR PAS or X12 278. The completeness engine validates required fields in seconds — no manual triage, no phone queues.',
-                tag: 'FHIR PAS · X12 278 · CRD',
-              },
-              {
-                n: '02',
-                title: 'Clinical review',
-                text: 'Nurse reviewer gets a pre-staged workspace: AI summary, criteria checklist, documentation gaps highlighted. Human reads, human decides.',
-                tag: 'InterQual · DTR · AI advisory',
-              },
-              {
-                n: '03',
-                title: 'MD determination',
-                text: 'Adverse cases escalate to the medical director with the full case record, AI-drafted rationale, and a sign-off gate. Clinician reviews and attests.',
-                tag: 'Human sign-off required',
-              },
-              {
-                n: '04',
-                title: 'Notice & appeal',
-                text: 'Determinations generate compliant member and provider notices automatically. Appeals reopen the full workflow with a fresh audit trail.',
-                tag: 'EOB · IRE · NCQA',
-              },
-              {
-                n: '05',
-                title: 'Full provenance',
-                text: 'Every event, every AI advisory call, every decision — timestamped, tenant-scoped, immutable. Designed to survive any external audit.',
-                tag: 'Immutable event log',
-              },
-            ].map((m) => (
-              <div key={m.n} className="lp-moment reveal">
-                <div className="num">{m.n}</div>
-                <div>
-                  <h3>{m.title}</h3>
-                  <p>{m.text}</p>
-                  <span className="tag">{m.tag}</span>
+            <div className="capability-grid">
+              <article className="capability-card primary">
+                <div className="capability-top"><div className="capability-glyph">E</div><span className="rule-badge">ENS</span></div>
+                <div className="capability-body">
+                  <h3>Intake and workflow</h3>
+                  <p>Normalize FHIR, X12, portal, and fax submissions into one canonical case with SLA-aware routing.</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+              </article>
+              <article className="capability-card primary">
+                <div className="capability-top"><div className="capability-glyph">D</div><span className="rule-badge">DIG</span></div>
+                <div className="capability-body">
+                  <h3>Policy-as-code</h3>
+                  <p>Turn payer rules, licensed criteria, and documentation requirements into versioned, testable logic.</p>
+                </div>
+              </article>
+              <article className="capability-card ai">
+                <div className="capability-top"><div className="capability-glyph">R</div><span className="rule-badge blue">REV</span></div>
+                <div className="capability-body">
+                  <h3>Governed AI review</h3>
+                  <p>Extract and summarize evidence from clinical documents while keeping coverage decisions human controlled.</p>
+                </div>
+              </article>
+              <article className="capability-card good">
+                <div className="capability-top"><div className="capability-glyph">Q</div><span className="rule-badge green">QUAL</span></div>
+                <div className="capability-body">
+                  <h3>Quality intelligence</h3>
+                  <p>Measure care gaps and quality signals directly against the same evidence stream already collected.</p>
+                </div>
+              </article>
+            </div>
 
-      {/* ── Integrity & provenance ─────────────────────────────────────────── */}
-      <section className="lp-sec lp-integrity" id="integrity">
-        <div className="lp-wrap">
-          <div className="lp-sec-head reveal">
-            <span className="lp-eyebrow">Integrity by design</span>
-            <h2>Three guarantees, wired into the architecture.</h2>
-            <p className="sub">
-              Not a policy. Not a checkbox. Provenance, guardrails, and PHI
-              boundary integrity are invariants enforced at the code level with
-              test coverage that cannot be weakened.
-            </p>
-          </div>
-
-          <div className="lp-proofs">
-            <div className="lp-proof reveal">
-              <div className="n">PROOF 01 · PROVENANCE</div>
-              <p>
-                Every state transition carries <b>tenant_id</b>, actor,
-                timestamp, and prior state. Every AI advisory call is appended
-                to the case timeline with its full input/output record.
-              </p>
-            </div>
-            <div className="lp-proof reveal">
-              <div className="n">PROOF 02 · GUARDRAILS</div>
-              <p>
-                The guardrail engine gates every AI output before any case
-                mutation.{' '}
-                <b>No advisory output commits directly.</b> Human action is
-                always required for determination.
-              </p>
-            </div>
-            <div className="lp-proof reveal">
-              <div className="n">PROOF 03 · PHI BOUNDARY</div>
-              <p>
-                PHI is minimized before any inference call per configuration.{' '}
-                <b>No cross-tenant, no cross-boundary</b> inference. Deployment
-                tiers are isolated at network, data, and model levels.
-              </p>
-            </div>
-          </div>
-
-          {/* Outcomes / metrics */}
-          <div
-            className="lp-sec-head reveal"
-            id="outcomes"
-            style={{ marginTop: 72, maxWidth: 780 }}
-          >
-            <span className="lp-eyebrow">Outcomes</span>
-            <h2>Numbers that hold up in an audit.</h2>
-          </div>
-          <div className="lp-metrics">
-            <div className="lp-metric reveal">
-              <div className="v">
-                0<small> auto</small>
+            <div className="mini-flow" id="workflow" aria-label="Simintero workflow">
+              <div className="flow-step">
+                <span className="flow-num">1</span>
+                <div className="flow-title">Request enters</div>
+                <p className="flow-copy">Provider submits through FHIR, SMART, portal, X12, or document channel.</p>
               </div>
-              <div className="l">
-                determinations issued by AI — ever. Every determination has a
-                human sign-off.
+              <div className="flow-step">
+                <span className="flow-num">2</span>
+                <div className="flow-title">Rules resolve</div>
+                <p className="flow-copy">Digicore selects the applicable policy and documentation requirements.</p>
               </div>
-            </div>
-            <div className="lp-metric reveal">
-              <div className="v">100%</div>
-              <div className="l">
-                of adverse decisions with recorded clinician attestation, tied
-                to NPI.
+              <div className="flow-step">
+                <span className="flow-num">3</span>
+                <div className="flow-title">Evidence maps</div>
+                <p className="flow-copy">Revital summarizes and cites clinical evidence for reviewer verification.</p>
               </div>
-            </div>
-            <div className="lp-metric reveal">
-              <div className="v">96%</div>
-              <div className="l">
-                expedited clock compliance this period — tracked live on the
-                dashboard.
+              <div className="flow-step" id="trust">
+                <span className="flow-num">4</span>
+                <div className="flow-title">Human reviews</div>
+                <p className="flow-copy">Reviewer sees rule traces, missing evidence, SLA context, and rationale.</p>
               </div>
-            </div>
-            <div className="lp-metric reveal">
-              <div className="v">
-                &lt;2<small> s</small>
-              </div>
-              <div className="l">
-                completeness check. PA requests triaged instantly on receipt.
+              <div className="flow-step">
+                <span className="flow-num">5</span>
+                <div className="flow-title">Decision is defensible</div>
+                <p className="flow-copy">The evidence package preserves policy, source data, AI context, and sign-off.</p>
               </div>
             </div>
           </div>
+        </section>
+      </main>
 
-          <div className="lp-integrity-stmt reveal">
-            <span className="lp-eyebrow">Our commitment</span>
-            <p>
-              We will never ship a code path that allows AI to issue, sign, or
-              be the sole basis for an adverse determination.{' '}
-              <b>
-                The guardrail invariant and its tests are non-negotiable — they
-                cannot be weakened by a PR, ever.
-              </b>
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Adoption phases ────────────────────────────────────────────────── */}
-      <section className="lp-sec" id="adoption">
-        <div className="lp-wrap">
-          <div className="lp-sec-head reveal">
-            <span className="lp-eyebrow">Adoption</span>
-            <h2>Go live in phases, not years.</h2>
-            <p className="sub">
-              Each phase is independently deployable and production-ready.
-              Start with inbound FHIR and layer in the rest on your schedule.
-            </p>
-          </div>
-
-          <div className="lp-phases">
-            {[
-              { pn: 'PHASE 01', pt: 'Inbound & completeness' },
-              { pn: 'PHASE 02', pt: 'Clinical review & triage' },
-              { pn: 'PHASE 03', pt: 'MD determination' },
-              { pn: 'PHASE 04', pt: 'Notice & appeal' },
-              { pn: 'PHASE 05', pt: 'Audit & reporting' },
-            ].map((p) => (
-              <div key={p.pn} className="lp-phase reveal">
-                <div className="pn">{p.pn}</div>
-                <div className="pt">{p.pt}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Standards strip ────────────────────────────────────────────────── */}
-      <section className="lp-strip lp-sec">
-        <div className="lp-wrap">
-          <div className="lp-duo">
-            <div className="reveal">
-              <span className="lp-eyebrow">Standards &amp; compliance</span>
-              <h3>Built on open standards, end-to-end.</h3>
-              <p>
-                FHIR R4, Da Vinci PAS, CRD, DTR. X12 278/279. US Core. NCQA.
-                CMS Interoperability Rule. No proprietary formats. No lock-in.
-              </p>
-              <div className="lp-stds">
-                {[
-                  'FHIR R4',
-                  'Da Vinci PAS',
-                  'CRD',
-                  'DTR',
-                  'US Core',
-                  'X12 278/279',
-                  'NCQA',
-                  'CMS Interop',
-                ].map((s) => (
-                  <span key={s} className="lp-pill">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="reveal">
-              <span className="lp-eyebrow">Interoperability</span>
-              <h3>Connects to everything your plan already uses.</h3>
-              <p>
-                Native connectors for Digicore, Revital, and core-admin
-                systems. Plug-in adapters for EHRs, clearinghouses, and state
-                HIEs. OpenAPI + AsyncAPI contracts — not proprietary webhooks.
-              </p>
-              <p style={{ marginTop: 16 }}>
-                <button
-                  className="lp-btn"
-                  style={{ fontSize: 14, padding: '10px 18px' }}
-                  onClick={goToApp}
-                >
-                  Explore the live demo →
-                </button>
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Final CTA ──────────────────────────────────────────────────────── */}
-      <section className="lp-final">
-        <div className="lp-wrap">
-          <span className="lp-eyebrow reveal">Ready when you are</span>
-          <h2 className="reveal">
-            Prior authorization done right — the first time.
-          </h2>
-          <p className="reveal">
-            See Enstellar in action: live worklist, governed AI advisory,
-            full determination workflow, and immutable provenance — all in a
-            single demo environment.
-          </p>
-          <div className="lp-cta-row reveal" style={{ marginTop: 40 }}>
-            <button className="lp-btn" onClick={goToApp}>
-              Open live demo
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M3 8h10M9 4l4 4-4 4"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-            <button className="lp-btn ghost" onClick={goToApp}>
-              Schedule a call
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="lp-footer">
-        <div className="lp-wrap">
-          <a className="lp-brand" href="/">
-            <svg
-              className="mark"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <rect
-                x="2"
-                y="2"
-                width="20"
-                height="20"
-                rx="6"
-                stroke="#9FD3C8"
-                strokeWidth="1.6"
-              />
-              <circle cx="12" cy="12" r="3.4" fill="#9FD3C8" />
-            </svg>
-            Enstellar
-          </a>
-          <span className="fnote">
-            © 2026 Simintero · Enstellar · All determinations require human
-            sign-off
-          </span>
+      {/* ── Footer ── */}
+      <footer className="footer">
+        <div className="wrap footer-inner">
+          <span>Simintero · Payer Operating System</span>
+          <span>Evidence grounded · Policy governed · Human accountable</span>
         </div>
       </footer>
+
     </div>
   )
 }

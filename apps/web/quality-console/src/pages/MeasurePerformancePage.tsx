@@ -19,11 +19,11 @@ export function MeasurePerformancePage() {
             <p className="text-sm text-slate-500 mt-1">HEDIS, CMS Stars, QRS & Medicaid Measure Performance</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => navigate('/gaps')}>
-              Gap Analysis
+            <Button variant="ghost" onClick={() => navigate('/qualitron/library')}>
+              Manage Measures
             </Button>
-            <Button variant="primary" onClick={() => navigate('/readiness')}>
-              Pre-Submission Audit
+            <Button variant="ghost" onClick={() => navigate('/qualitron/gaps')}>
+              View All Care Gaps
             </Button>
           </div>
         </div>
@@ -36,7 +36,7 @@ export function MeasurePerformancePage() {
               <Card
                 key={m.id}
                 className="p-6 cursor-pointer hover:shadow-lg transition-all border-slate-200"
-                onClick={() => navigate(`/gaps?measure=${m.code}&program=${m.program}`)}
+                onClick={() => navigate(`/qualitron/gaps?measure=${m.code}&program=${m.program}`)}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>

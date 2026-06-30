@@ -14,7 +14,10 @@ from simintero_authz import AuthError, ForbiddenError
 from enstellar_bff.routers import appeals, cases, directory, grievances, worklist
 from enstellar_bff.routers.crd import router as crd_router
 from enstellar_bff.routers.dtr import router as dtr_router
+from enstellar_bff.routers.measure_library import router as measure_library_router
 from enstellar_bff.routers.queues import router as queues_router
+from enstellar_bff.routers.dashboard import router as dashboard_router
+from enstellar_bff.routers.revital import router as revital_router
 
 # ── OpenTelemetry bootstrap ────────────────────────────────────────────────
 if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
@@ -50,6 +53,9 @@ app.include_router(directory.router, prefix="/bff")
 app.include_router(queues_router)
 app.include_router(crd_router)
 app.include_router(dtr_router)
+app.include_router(dashboard_router)
+app.include_router(revital_router)
+app.include_router(measure_library_router)
 
 
 @app.exception_handler(AuthError)

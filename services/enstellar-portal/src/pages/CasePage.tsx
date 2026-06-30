@@ -2,15 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type { RefObject } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCase, getCaseDocuments, getCriteria, getDocumentContent, getNoticePreview, getSuggestions, getWorklist, postRfi, postSuggestionAction, submitDecision } from '../api/client'
-import type { AdverseOutcome, CaseDetail, CriterionItem, SlaInfo, SuggestionItem, WorklistItem } from '../types'
+import { getCase, getCaseDocuments, getCriteria, getDocumentContent, getNoticePreview, getWorklist, postRfi, submitDecision, getWorkbenchCase } from '../api/client'
+import type { WorkbenchCaseDetail } from '../api/client'
+import type { AdverseOutcome, CaseDetail, CriterionItem, SlaInfo, WorklistItem } from '../types'
 import { AppShell } from '../components/AppShell'
 import { useAuth, hasRole } from '../auth/AuthContext'
 import { DecisionForm } from '../components/DecisionForm'
 import { MdAdverseForm, type MdFormReadiness } from '../components/MdAdverseForm'
 import { AppealFilingModal } from '../components/AppealFilingModal'
 import { GrievanceFilingModal } from '../components/GrievanceFilingModal'
-import { EvidenceCard } from '@sim/design-system'
+import { CitedDocumentPanel, AiSummaryPanel } from '../components/workbenchComponents'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -495,16 +496,22 @@ function nodeType(eventType: string): string {
   return 'sys'
 }
 
-// ── WorkColumn ────────────────────────────────────────────────────────────────
+// ── ReviewColumn ──────────────────────────────────────────────────────────────
 
-function WorkColumn({
+function ReviewColumn({
   caseData,
   caseId,
+  workbench,
+  selectedCitationId,
+  onSelectCitation,
   onDecisionComplete,
   onOpenRfi,
 }: {
   caseData: CaseDetail
   caseId: string
+  workbench: WorkbenchCaseDetail | undefined
+  selectedCitationId: string | null
+  onSelectCitation: (id: string) => void
   onDecisionComplete: () => void
   onOpenRfi: (initialQuestion?: string) => void
 }) {
@@ -529,6 +536,15 @@ function WorkColumn({
 
   return (
     <section className="en-col work">
+      {workbench && (
+        <AiSummaryPanel
+          summary={workbench.summary}
+          groundedness={workbench.groundedness}
+          completeness={workbench.completeness}
+          onSelectCitation={onSelectCitation}
+          className="flex flex-col p-5 space-y-5 mb-4 border border-slate-100 rounded-lg bg-blue-50/30"
+        />
+      )}
       <div className="en-work-head">
         <h2>Criteria review</h2>
         <span className="en-policy-pin">
@@ -725,151 +741,6 @@ function WorkColumn({
       {/* Decision form */}
       <DecisionForm caseId={caseId} onComplete={onDecisionComplete} />
     </section>
-  )
-}
-
-// ── AI advisory column ────────────────────────────────────────────────────────
-
-function AiColumn({ caseId }: { caseId: string }) {
-  const queryClient = useQueryClient()
-
-  const { data: suggestions, isLoading: sugsLoading } = useQuery({
-    queryKey: ['suggestions', caseId],
-    queryFn: () => getSuggestions(caseId),
-    staleTime: 30_000,
-  })
-
-  const { data: caseDetail } = useQuery({
-    queryKey: ['case', caseId],
-    queryFn: () => getCase(caseId),
-    staleTime: 60_000,
-  })
-
-  const { mutate: recordAction, variables: pendingAction } = useMutation({
-    mutationFn: ({ sid, action }: { sid: string; action: 'accepted' | 'rejected' }) =>
-      postSuggestionAction(caseId, sid, action),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestions', caseId] })
-    },
-  })
-
-  const sugItems = suggestions ?? []
-  const serviceDesc = getCaseServiceDesc(caseDetail)
-
-  return (
-    <aside className="en-col ai" aria-label="Governed AI advisory">
-      <div className="en-ai-card">
-        <div className="en-ai-card-h">
-          <span className="at">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-              <circle
-                cx="8"
-                cy="8"
-                r="6.4"
-                stroke="currentColor"
-                strokeWidth="1.4"
-              />
-              <path
-                d="M8 5v3l2 1.2"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-            Governed AI · Advisory
-          </span>
-          <span className="en-advisory-chip">Advisory only</span>
-        </div>
-        <div className="en-ai-card-b">
-          <p className="en-ai-sum">
-            {sugItems.length > 0
-              ? sugItems[0].title
-              : serviceDesc
-              ? `Prior authorization evaluation for ${serviceDesc}. Patient clinical criteria and medical documentation under active review.`
-              : 'Patient clinical documentation under review.'}
-          </p>
-
-          {/* Citation chips */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 6,
-              flexWrap: 'wrap',
-              marginTop: 10,
-            }}
-          >
-            {(serviceDesc
-              ? [`Plan Policy §4.2`, `${serviceDesc}`, `Clinical Records`]
-              : ['Plan Policy §4.2', 'Clinical Criteria', 'Medical Records']
-            ).map((c) => (
-              <span
-                key={c}
-                style={{
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontSize: 10,
-                  background: 'var(--panel-2)',
-                  border: '1px solid var(--line)',
-                  borderRadius: 6,
-                  padding: '2px 7px',
-                  color: 'var(--ink-mut)',
-                }}
-              >
-                {c}
-              </span>
-            ))}
-          </div>
-
-          {/* Suggestions */}
-          <div className="en-ai-sug">
-            {sugsLoading && (
-              <div style={{ color: 'var(--ink-mut)', fontSize: 13, padding: '8px 0' }}>
-                Loading suggestions…
-              </div>
-            )}
-            {!sugsLoading && sugItems.length === 0 && (
-              <div style={{ color: 'var(--ink-mut)', fontSize: 13, padding: '8px 0' }}>
-                No suggestions yet.
-              </div>
-            )}
-            {sugItems.map((s: SuggestionItem) => {
-              const isDone = s.status !== 'pending' || pendingAction?.sid === s.id
-              return (
-                <div key={s.id} className={`my-2 ${isDone ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <EvidenceCard
-                    title={s.title}
-                    confidence={s.confidence}
-                    citationCount={s.citations.length}
-                    onAccept={isDone ? undefined : () => recordAction({ sid: s.id, action: 'accepted' })}
-                    onReject={isDone ? undefined : () => recordAction({ sid: s.id, action: 'rejected' })}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        </div>
-        <div className="en-ai-foot">
-          <span className="en-boundary">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <rect
-                x="3"
-                y="7"
-                width="10"
-                height="6.5"
-                rx="1.4"
-                stroke="currentColor"
-                strokeWidth="1.3"
-              />
-              <path
-                d="M5.5 7V5a2.5 2.5 0 015 0v2"
-                stroke="currentColor"
-                strokeWidth="1.3"
-              />
-            </svg>
-            Cannot issue a determination
-          </span>
-        </div>
-      </div>
-    </aside>
   )
 }
 
@@ -1649,6 +1520,16 @@ export function CasePage() {
     enabled: !!caseId,
   })
 
+  const { data: workbench } = useQuery({
+    queryKey: ['workbench', caseId],
+    queryFn: () => getWorkbenchCase(caseId!),
+    enabled: !!caseId,
+    staleTime: 60_000,
+    retry: 1,
+  })
+
+  const [selectedCitationId, setSelectedCitationId] = useState<string | null>(null)
+
   const secsRemaining = useSlaCountdown(data?.sla ?? null)
 
   if (!caseId) return <p>No case ID.</p>
@@ -1782,19 +1663,6 @@ export function CasePage() {
             )}
 
             <div className="en-actions">
-              <a
-                href={`http://localhost:3055/ai-workbench/${caseId}`}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="en-act"
-                style={{
-                  textDecoration: 'none',
-                  color: '#3980f4',
-                  borderColor: '#3980f4',
-                }}
-              >
-                ✦ View in Revital
-              </a>
               {/* Timeline icon */}
               <button
                 className="en-iconbtn"
@@ -1924,16 +1792,27 @@ export function CasePage() {
           ) : (
             <div className="en-content">
               <ContextColumn caseData={data} />
-              <WorkColumn
+              <section className="en-col doc">
+                <CitedDocumentPanel
+                  caseId={caseId}
+                  documentUrl={workbench?.documentUrl ?? null}
+                  citations={workbench?.citations ?? []}
+                  selectedCitationId={selectedCitationId ?? undefined}
+                  onSelectCitation={setSelectedCitationId}
+                />
+              </section>
+              <ReviewColumn
                 caseData={data}
                 caseId={caseId}
+                workbench={workbench}
+                selectedCitationId={selectedCitationId}
+                onSelectCitation={setSelectedCitationId}
                 onDecisionComplete={() => setDecisionDone(true)}
                 onOpenRfi={(q) => {
                   setRfiInitialQuestion(q ?? '')
                   setRfiOpen(true)
                 }}
               />
-              <AiColumn caseId={caseId} />
             </div>
           )}
         </main>

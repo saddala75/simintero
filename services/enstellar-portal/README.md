@@ -1,73 +1,67 @@
-# React + TypeScript + Vite
+# Enstellar Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite SPA. The primary clinical operations UI for the Simintero platform — prior authorization review, MD adverse decisions, appeals, grievances, RFI management, EHR simulator, and quality console.
 
-Currently, two official plugins are available:
+## Running locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The portal runs inside Docker Compose as the `web` service (nginx on port 5173). Engineers use the full-stack `make up` at the repo root — there is no need to run it standalone.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# From the repo root:
+make up
+# Portal: http://localhost:5173
+# Login: md-reviewer / e2e-pass
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Local dev server (hot reload)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+For active frontend development, run Vite's dev server against the already-running Docker backend:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Prerequisites: Node 20+, pnpm 10+
+cd services/enstellar-portal
+pnpm install
+pnpm dev
+# → http://localhost:5174 (Vite dev server, proxies /bff/* to portal-bff on :8001)
 ```
+
+The Vite config proxies `/bff/*` to `http://localhost:8001` and `/auth/*` to `http://localhost:8081`, so Keycloak OIDC and all BFF API calls work without CORS issues.
+
+## Building the Docker image
+
+```bash
+# From repo root:
+docker compose build web
+
+# Rebuild and restart just the portal:
+docker compose up -d --no-deps web
+```
+
+## Project layout
+
+```
+src/
+├── api/          # apiFetch wrapper + typed API client
+├── auth/         # Keycloak-js OIDC (AuthContext, useAuth, hasRole)
+├── components/   # Shared UI components (AppShell, QuestionnaireRenderer, etc.)
+├── pages/        # Route-level page components
+└── main.tsx      # App entry + React Router v7 setup
+```
+
+## Auth
+
+Uses `keycloak-js` (public OIDC client `enstellar-app`, no client secret). Token stored in memory only; `apiFetch` attaches it as `Authorization: Bearer <token>` on every request. Role-based route gating via `hasRole(auth, 'medical_director')` etc.
+
+## Design system
+
+All UI components come from `@sim/design-system` (workspace package at `packages/design-system`). Use `<Button variant="primary">`, `<Card>`, etc. — do **not** use raw `<button>` elements with Tailwind classes; they render invisibly in the current theme.
+
+## Tests
+
+```bash
+pnpm test        # Vitest unit tests
+pnpm typecheck   # tsc --noEmit
+pnpm lint        # ESLint
+```
+
+E2E tests live at `integration/e2e/` and run via `make smoke` at the repo root (requires full stack up).

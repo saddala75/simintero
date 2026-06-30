@@ -33,6 +33,7 @@
   "exports": {
     ".": "./src/App.tsx",
     "./App": "./src/App.tsx",
-    "./pages/*": "./src/pages/*"
+    "./pages/*": "./src/pages/*",
+    "./components/*": "./src/components/*"
   }
 }

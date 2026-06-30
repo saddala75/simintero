@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simintero | Evidence-Driven Payer Operations</title>
+  <meta name="description" content="Simintero is a payer operating layer for prior authorization, policy-as-code, governed AI review, provider interoperability, and quality intelligence." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --surface: #f7f9fb;
+      --surface-dim: #d8dadc;
+      --surface-container-lowest: #ffffff;
+      --surface-container-low: #f2f4f6;
+      --surface-container: #eceef0;
+      --surface-container-high: #e6e8ea;
+      --surface-container-highest: #e0e3e5;
+      --on-surface: #191c1e;
+      --on-surface-variant: #45464d;
+      --inverse-surface: #2d3133;
+      --inverse-on-surface: #eff1f3;
+      --outline: #76777d;
+      --outline-variant: #c6c6cd;
+      --deep-navy: #0f172a;
+      --deep-navy-2: #131b2e;
+      --compliance-green: #10b981;
+      --green-soft: #dcfce7;
+      --green-deep: #006c49;
+      --intelligence-blue: #3b82f6;
+      --blue-soft: #dbeafe;
+      --blue-deep: #001a42;
+      --warning: #b7791f;
+      --warning-soft: #fef3c7;
+      --rose: #be123c;
+      --rose-soft: #ffe4e6;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-300: #cbd5e1;
+      --slate-500: #64748b;
+      --slate-600: #475569;
+      --shadow-focus: 0 4px 12px rgba(15, 23, 42, 0.05);
+      --shadow-soft: 0 12px 36px rgba(15, 23, 42, 0.06);
+      --radius-sm: 2px;
+      --radius: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-xl: 12px;
+      --gutter: 16px;
+      --container-max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--on-surface);
+      background: var(--surface);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: linear-gradient(var(--slate-200) 1px, transparent 1px), linear-gradient(90deg, var(--slate-200) 1px, transparent 1px);
+      background-size: 32px 32px;
+      opacity: 0.22;
+      mask-image: linear-gradient(180deg, black 0%, rgba(0,0,0,0.55) 46%, transparent 100%);
+      z-index: -1;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; }
+
+    .page-shell {
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .container {
+      width: min(calc(100% - 48px), var(--container-max));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      background: var(--deep-navy);
+      color: var(--inverse-on-surface);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .topbar-inner {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #bec6e0;
+    }
+
+    .status-pair {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .status-dot {
+      display: inline-flex;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--compliance-green);
+      box-shadow: 0 0 0 4px rgba(16,185,129,0.14);
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(247, 249, 251, 0.88);
+      border-bottom: 1px solid var(--slate-200);
+      backdrop-filter: blur(18px);
+    }
+
+    .nav-inner {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 210px;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      background: var(--deep-navy);
+      border: 1px solid #263247;
+      color: white;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      letter-spacing: -0.06em;
+      position: relative;
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+      width: 7px;
+      height: 7px;
+      border-radius: var(--radius-sm);
+      background: var(--compliance-green);
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--deep-navy);
+      font-size: 15px;
+    }
+
+    .brand-subtitle {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      line-height: 14px;
+      text-transform: uppercase;
+      color: var(--slate-500);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--slate-200);
+      background: rgba(255,255,255,0.78);
+      border-radius: var(--radius-md);
+    }
+
+    .nav-links a {
+      font-size: 13px;
+      line-height: 20px;
+      color: var(--slate-600);
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    .nav-links a:hover {
+      background: var(--slate-100);
+      color: var(--deep-navy);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 9px 13px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-focus);
+    }
+
+    .btn-primary {
+      background: var(--deep-navy);
+      color: white;
+      border-color: var(--deep-navy);
+    }
+
+    .btn-ai {
+      background: var(--intelligence-blue);
+      color: white;
+      border-color: var(--intelligence-blue);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--slate-600);
+      border-color: var(--slate-200);
+    }
+
+    .hero {
+      padding: 72px 0 54px;
+      position: relative;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 18% 12%, rgba(59,130,246,0.10), transparent 28rem), radial-gradient(circle at 92% 20%, rgba(16,185,129,0.12), transparent 24rem);
+      z-index: -1;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(420px, 1.05fr);
+      gap: 40px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border: 1px solid var(--slate-200);
+      background: var(--surface-container-lowest);
+      border-radius: var(--radius);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      line-height: 16px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--deep-navy);
+      text-transform: uppercase;
+      box-shadow: var(--shadow-focus);
+    }
+
+    .eyebrow .mini-node {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-sm);
+      background: var(--intelligence-blue);
+    }
+
+    h1 {
+      margin: 20px 0 16px;
+      font-size: clamp(38px, 4.4vw, 56px);
+      line-height: 1;
+      letter-spacing: -0.055em;
+      color: var(--deep-navy);
+      max-width: 720px;
+    }
+
+    .hero-lede {
+      font-size: 17px;
+      line-height: 28px;
+      color: var(--on-surface-variant);
+      max-width: 620px;
+      margin: 0 0 24px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+
+    .hero-proof {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      max-width: 620px;
+    }
+
+    .proof-tile {
+      background: rgba(255,255,255,0.82);
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius-lg);
+      padding: 11px;
+    }
+
+    .proof-label {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9px;
+      line-height: 13px;
+      color: var(--slate-500);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    .proof-value {
+      color: var(--deep-navy);
+      font-weight: 800;
+      font-size: 13px;
+      line-height: 19px;
+    }
+
+    .hero-visual {
+      position: relative;
+    }
+
+    .system-frame {
+      position: relative;
+      background: var(--surface-container-lowest);
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+    }
+
+    .system-titlebar {
+      height: 44px;
+      background: var(--deep-navy);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      color: white;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .window-controls span {
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      background: rgba(255,255,255,0.32);
+    }
+
+    .case-id {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: #bec6e0;
+    }
+
+    .system-body {
+      padding: 13px;
+      display: grid;
+      gap: 11px;
+      background: var(--slate-50);
+    }
+
+    .case-summary {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 11px;
+    }
+
+    .panel,
+    .evidence-card,
+    .capability-card {
+      background: var(--surface-container-lowest);
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-focus);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 42px;
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--slate-200);
+      background: white;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 800;
+      color: var(--deep-navy);
+    }
+
+    .rule-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 21px;
+      padding: 3px 6px;
+      border-radius: var(--radius);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9px;
+      line-height: 14px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      background: var(--deep-navy);
+      color: white;
+      border: 1px solid rgba(15,23,42,0.2);
+    }
+
+    .rule-badge.blue {
+      background: var(--blue-soft);
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+    }
+
+    .rule-badge.green {
+      background: var(--green-soft);
+      color: #047857;
+      border-color: #bbf7d0;
+    }
+
+    .rule-badge.neutral {
+      background: var(--slate-100);
+      color: var(--slate-600);
+      border-color: var(--slate-200);
+    }
+
+    .panel-content {
+      padding: 11px;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--slate-100);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .data-row:last-child { border-bottom: 0; }
+    .data-key { color: var(--slate-500); }
+    .data-value { color: var(--deep-navy); font-weight: 800; text-align: right; }
+
+    .clock-card {
+      background: var(--deep-navy);
+      color: white;
+      border-radius: var(--radius-lg);
+      padding: 13px;
+      border: 1px solid #263247;
+    }
+
+    .clock-label {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9px;
+      line-height: 14px;
+      text-transform: uppercase;
+      color: #bec6e0;
+      margin-bottom: 4px;
+    }
+
+    .clock-value {
+      font-size: 26px;
+      line-height: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+    }
+
+    .progress-track {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+      overflow: hidden;
+      margin-bottom: 9px;
+    }
+
+    .progress-track span {
+      display: block;
+      width: 38%;
+      height: 100%;
+      background: var(--compliance-green);
+      border-radius: inherit;
+    }
+
+    .clock-note {
+      color: #dbeafe;
+      font-size: 12px;
+      line-height: 18px;
+      margin: 0;
+    }
+
+    .visual-timeline {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      padding: 8px 10px 14px;
+      position: relative;
+    }
+
+    .visual-timeline::before {
+      content: "";
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      top: 23px;
+      height: 2px;
+      background: var(--slate-200);
+    }
+
+    .vt-node {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      justify-items: center;
+      gap: 7px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 8px;
+      line-height: 12px;
+      text-transform: uppercase;
+      color: var(--slate-500);
+      text-align: center;
+    }
+
+    .vt-dot {
+      width: 21px;
+      height: 21px;
+      border-radius: var(--radius);
+      border: 3px solid white;
+      background: var(--deep-navy);
+      box-shadow: 0 0 0 1px var(--slate-200);
+    }
+
+    .vt-node.done .vt-dot { background: var(--compliance-green); }
+    .vt-node.ai .vt-dot { background: var(--intelligence-blue); }
+    .vt-node.waiting .vt-dot { background: var(--slate-300); }
+
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .evidence-card {
+      padding: 11px;
+    }
+
+    .evidence-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 7px;
+    }
+
+    .evidence-title {
+      font-weight: 800;
+      color: var(--deep-navy);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .evidence-copy {
+      color: var(--slate-600);
+      font-size: 11px;
+      line-height: 17px;
+      margin: 0;
+    }
+
+    .section {
+      padding: 54px 0 64px;
+      border-top: 1px solid var(--slate-200);
+      position: relative;
+    }
+
+    .section-header {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+      gap: 40px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+
+    .section-kicker {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      line-height: 16px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--green-deep);
+      margin-bottom: 9px;
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--deep-navy);
+      font-size: clamp(26px, 2.8vw, 36px);
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+    }
+
+    .section-lede {
+      margin: 0;
+      color: var(--on-surface-variant);
+      font-size: 15px;
+      line-height: 25px;
+      max-width: 760px;
+    }
+
+    .capability-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gutter);
+      margin-bottom: 16px;
+    }
+
+    .capability-card {
+      min-height: 236px;
+      display: flex;
+      flex-direction: column;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+
+    .capability-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--slate-300);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .capability-top {
+      padding: 14px;
+      border-bottom: 1px solid var(--slate-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .capability-glyph {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius);
+      background: var(--slate-50);
+      color: var(--deep-navy);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+    }
+
+    .capability-card.primary .capability-glyph {
+      background: var(--deep-navy);
+      color: white;
+      border-color: var(--deep-navy);
+    }
+
+    .capability-card.ai .capability-glyph {
+      background: var(--blue-soft);
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+    }
+
+    .capability-card.good .capability-glyph {
+      background: var(--green-soft);
+      color: #047857;
+      border-color: #bbf7d0;
+    }
+
+    .capability-body {
+      padding: 14px;
+      flex: 1;
+    }
+
+    .capability-body h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      line-height: 24px;
+      color: var(--deep-navy);
+      letter-spacing: -0.02em;
+    }
+
+    .capability-body p {
+      margin: 0;
+      color: var(--on-surface-variant);
+      font-size: 13px;
+      line-height: 21px;
+    }
+
+    .mini-flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      background: var(--surface-container-lowest);
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-focus);
+      padding: 12px;
+    }
+
+    .flow-step {
+      border: 1px solid var(--slate-200);
+      background: var(--slate-50);
+      border-radius: var(--radius);
+      padding: 10px;
+      min-height: 88px;
+      display: grid;
+      align-content: start;
+      gap: 8px;
+    }
+
+    .flow-num {
+      width: 22px;
+      height: 22px;
+      border-radius: var(--radius);
+      background: var(--deep-navy);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .flow-step:nth-child(3) .flow-num { background: var(--intelligence-blue); }
+    .flow-step:nth-child(5) .flow-num { background: var(--compliance-green); }
+
+    .flow-title {
+      font-weight: 800;
+      color: var(--deep-navy);
+      font-size: 12px;
+      line-height: 17px;
+    }
+
+    .flow-copy {
+      color: var(--slate-600);
+      font-size: 11px;
+      line-height: 17px;
+      margin: 0;
+    }
+
+    .footer {
+      background: var(--deep-navy);
+      color: #cbd5e1;
+      padding: 24px 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: center;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      line-height: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    @media (max-width: 1050px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-visual {
+        max-width: 760px;
+      }
+
+      .capability-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .container {
+        width: min(calc(100% - 32px), var(--container-max));
+      }
+
+      .topbar-inner > span:last-child,
+      .brand-subtitle,
+      .case-id {
+        display: none;
+      }
+
+      .hero {
+        padding: 52px 0 42px;
+      }
+
+      h1 {
+        font-size: 38px;
+        line-height: 1.03;
+      }
+
+      .nav-actions {
+        gap: 6px;
+      }
+
+      .nav-actions .btn {
+        min-height: 34px;
+        padding: 7px 9px;
+        font-size: 12px;
+      }
+
+      .hero-lede {
+        font-size: 16px;
+        line-height: 26px;
+      }
+
+      .hero-proof,
+      .case-summary,
+      .stack-grid,
+      .section-header,
+      .capability-grid,
+      .mini-flow {
+        grid-template-columns: 1fr;
+      }
+
+      .section {
+        padding: 44px 0 52px;
+      }
+
+      .visual-timeline {
+        overflow-x: auto;
+        grid-template-columns: repeat(5, minmax(84px, 1fr));
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div class="topbar">
+      <div class="container topbar-inner">
+        <div class="status-pair">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>Evidence synchronized</span>
+        </div>
+        <span>FHIR R4 · CQL · CDS Hooks · UDAP · X12</span>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="Primary navigation">
+      <div class="container nav-inner">
+        <a class="brand" href="#top" aria-label="Simintero home">
+          <span class="brand-mark">S</span>
+          <span class="brand-text">
+            <span class="brand-title">Simintero</span>
+            <span class="brand-subtitle">Payer Operating System</span>
+          </span>
+        </a>
+        <div class="nav-links" aria-label="Page sections">
+          <a href="#platform">Platform</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#trust">Trust</a>
+        </div>
+        <div class="nav-actions">
+          <a class="btn btn-ghost" href="#login">Login</a>
+          <a class="btn btn-primary" href="#briefing">Request briefing</a>
+        </div>
+      </div>
+    </nav>
+
+    <main id="top">
+      <section class="hero">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <div class="eyebrow"><span class="mini-node"></span> Standards-native payer operations</div>
+            <h1>Evidence-driven payer decisions, without the manual chart chase.</h1>
+            <p class="hero-lede">Simintero unifies prior authorization intake, policy-as-code, governed AI review, provider documentation, and quality signals into one traceable operating layer.</p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#platform">See how it works</a>
+              <a class="btn btn-ai" href="#trust">✦ View evidence model</a>
+              <a class="btn btn-ghost" href="#briefing">Request briefing</a>
+            </div>
+            <div class="hero-proof" aria-label="Platform proof points">
+              <div class="proof-tile">
+                <div class="proof-label">Decision state</div>
+                <div class="proof-value">Explainable by default</div>
+              </div>
+              <div class="proof-tile">
+                <div class="proof-label">Clinical logic</div>
+                <div class="proof-value">Versioned and testable</div>
+              </div>
+              <div class="proof-tile">
+                <div class="proof-label">AI boundary</div>
+                <div class="proof-value">Advisory only</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-visual" aria-label="Simintero interface preview">
+            <div class="system-frame">
+              <div class="system-titlebar">
+                <div class="window-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+                <div class="case-id">CASE · PA-24-009184 · LIVE EVIDENCE PACKAGE</div>
+              </div>
+              <div class="system-body">
+                <div class="case-summary">
+                  <div class="panel">
+                    <div class="panel-header">
+                      <div class="panel-title">Authorization case</div>
+                      <span class="rule-badge green">FHIR-PAS</span>
+                    </div>
+                    <div class="panel-content">
+                      <div class="data-row"><span class="data-key">Line of business</span><span class="data-value">Medicare Advantage</span></div>
+                      <div class="data-row"><span class="data-key">Intake channel</span><span class="data-value">FHIR Claim.submit</span></div>
+                      <div class="data-row"><span class="data-key">Current state</span><span class="data-value">Clinical review</span></div>
+                    </div>
+                  </div>
+                  <div class="clock-card">
+                    <div class="clock-label">Regulatory clock</div>
+                    <div class="clock-value">38h 12m</div>
+                    <div class="progress-track"><span></span></div>
+                    <p class="clock-note">SLA, RFI pauses, and reviewer routing tracked in one governed workflow.</p>
+                  </div>
+                </div>
+
+                <div class="panel">
+                  <div class="panel-header">
+                    <div class="panel-title">Universal timeline</div>
+                    <span class="rule-badge neutral">IMMUTABLE</span>
+                  </div>
+                  <div class="visual-timeline">
+                    <div class="vt-node done"><span class="vt-dot"></span><span>Intake</span></div>
+                    <div class="vt-node done"><span class="vt-dot"></span><span>Rules</span></div>
+                    <div class="vt-node ai"><span class="vt-dot"></span><span>AI evidence</span></div>
+                    <div class="vt-node"><span class="vt-dot"></span><span>Review</span></div>
+                    <div class="vt-node waiting"><span class="vt-dot"></span><span>Quality</span></div>
+                  </div>
+                </div>
+
+                <div class="stack-grid">
+                  <div class="evidence-card">
+                    <div class="evidence-head"><div class="evidence-title">Rules trace</div><span class="rule-badge">DIG</span></div>
+                    <p class="evidence-copy">Policy version and logic branch resolved for reproducible review.</p>
+                  </div>
+                  <div class="evidence-card">
+                    <div class="evidence-head"><div class="evidence-title">AI advisory</div><span class="rule-badge blue">REV</span></div>
+                    <p class="evidence-copy">Summaries cite the original clinical evidence for verification.</p>
+                  </div>
+                  <div class="evidence-card">
+                    <div class="evidence-head"><div class="evidence-title">Human control</div><span class="rule-badge green">SAFE</span></div>
+                    <p class="evidence-copy">Adverse determinations require qualified reviewer sign-off.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="platform">
+        <div class="container">
+          <div class="section-header">
+            <div>
+              <div class="section-kicker">What the platform does</div>
+              <h2>One operating layer for the work payers and providers keep repeating.</h2>
+            </div>
+            <p class="section-lede">Instead of separate systems for intake, policy, document review, appeals, and quality, Simintero creates a shared evidence fabric where every decision is grounded, governed, and auditable.</p>
+          </div>
+
+          <div class="capability-grid">
+            <article class="capability-card primary">
+              <div class="capability-top"><div class="capability-glyph">E</div><span class="rule-badge">ENS</span></div>
+              <div class="capability-body">
+                <h3>Intake and workflow</h3>
+                <p>Normalize FHIR, X12, portal, and fax submissions into one canonical case with SLA-aware routing.</p>
+              </div>
+            </article>
+
+            <article class="capability-card primary">
+              <div class="capability-top"><div class="capability-glyph">D</div><span class="rule-badge">DIG</span></div>
+              <div class="capability-body">
+                <h3>Policy-as-code</h3>
+                <p>Turn payer rules, licensed criteria, and documentation requirements into versioned, testable logic.</p>
+              </div>
+            </article>
+
+            <article class="capability-card ai">
+              <div class="capability-top"><div class="capability-glyph">R</div><span class="rule-badge blue">REV</span></div>
+              <div class="capability-body">
+                <h3>Governed AI review</h3>
+                <p>Extract and summarize evidence from clinical documents while keeping coverage decisions human controlled.</p>
+              </div>
+            </article>
+
+            <article class="capability-card good">
+              <div class="capability-top"><div class="capability-glyph">Q</div><span class="rule-badge green">QUAL</span></div>
+              <div class="capability-body">
+                <h3>Quality intelligence</h3>
+                <p>Measure care gaps and quality signals directly against the same evidence stream already collected.</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="mini-flow" id="workflow" aria-label="Simintero workflow">
+            <div class="flow-step">
+              <span class="flow-num">1</span>
+              <div class="flow-title">Request enters</div>
+              <p class="flow-copy">Provider submits through FHIR, SMART, portal, X12, or document channel.</p>
+            </div>
+            <div class="flow-step">
+              <span class="flow-num">2</span>
+              <div class="flow-title">Rules resolve</div>
+              <p class="flow-copy">Digicore selects the applicable policy and documentation requirements.</p>
+            </div>
+            <div class="flow-step">
+              <span class="flow-num">3</span>
+              <div class="flow-title">Evidence maps</div>
+              <p class="flow-copy">Revital summarizes and cites clinical evidence for reviewer verification.</p>
+            </div>
+            <div class="flow-step" id="trust">
+              <span class="flow-num">4</span>
+              <div class="flow-title">Human reviews</div>
+              <p class="flow-copy">Reviewer sees rule traces, missing evidence, SLA context, and rationale.</p>
+            </div>
+            <div class="flow-step" id="briefing">
+              <span class="flow-num">5</span>
+              <div class="flow-title">Decision is defensible</div>
+              <p class="flow-copy">The evidence package preserves policy, source data, AI context, and sign-off.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <span>Simintero · Payer Operating System</span>
+        <span>Evidence grounded · Policy governed · Human accountable</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

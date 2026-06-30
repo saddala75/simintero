@@ -6,11 +6,12 @@ interface Props {
   groundedness: GroundednessMetric
   completeness: Array<{ criteria: string; satisfied: boolean; note: string }>
   onSelectCitation?: (citationId: string) => void
+  className?: string
 }
 
-export function AiSummaryPanel({ summary, groundedness, completeness, onSelectCitation }: Props) {
+export function AiSummaryPanel({ summary, groundedness, completeness, onSelectCitation, className }: Props) {
   return (
-    <Card className="h-full flex flex-col p-5 space-y-5 overflow-y-auto">
+    <Card className={className ?? 'h-full flex flex-col p-5 space-y-5 overflow-y-auto'}>
       <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
         <div>
           <h3 className="font-bold text-base text-slate-900">Revital AI Synthesis</h3>

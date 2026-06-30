@@ -131,3 +131,85 @@ export async function lockSubmissionPackage(): Promise<{ success: boolean; packa
   } catch {}
   return { success: true, packageId: `PKG-2026-${Math.floor(Math.random() * 9000 + 1000)}` }
 }
+
+export interface MeasureBenchmarks {
+  p25: number
+  p50: number
+  p75: number
+  p90: number
+  national_avg: number
+}
+
+export interface MeasureCatalogItem {
+  id: string
+  code: string
+  program: 'HEDIS' | 'CMS Stars' | 'QRS' | 'Medicaid'
+  domain: string
+  name: string
+  description: string
+  numerator_desc: string
+  denominator_desc: string
+  reporting_period: string
+  source_version: string
+  benchmarks: MeasureBenchmarks
+  active: boolean
+}
+
+const MOCK_LIBRARY: MeasureCatalogItem[] = [
+  {
+    id: 'hedis-col', code: 'COL', program: 'HEDIS', domain: 'Cancer Screening',
+    name: 'Colorectal Cancer Screening',
+    description: 'Percentage of members 46–75 years who had appropriate colorectal cancer screening.',
+    numerator_desc: 'Members with qualifying screening (FIT, colonoscopy, FIT-DNA, CT colonography)',
+    denominator_desc: 'Members 46–75 continuously enrolled, excluding colorectal cancer history',
+    reporting_period: 'Annual (Jan 1 – Dec 31)', source_version: 'HEDIS 2026',
+    benchmarks: { p25: 68.2, p50: 74.8, p75: 80.1, p90: 84.7, national_avg: 74.1 }, active: true,
+  },
+  {
+    id: 'hedis-cbp', code: 'CBP', program: 'HEDIS', domain: 'Cardiovascular Care',
+    name: 'Controlling High Blood Pressure',
+    description: 'Percentage of members 18–85 years with hypertension whose BP was adequately controlled.',
+    numerator_desc: 'Members with most recent BP < 140/90 mmHg',
+    denominator_desc: 'Members 18–85 with a hypertension diagnosis',
+    reporting_period: 'Annual (Jan 1 – Dec 31)', source_version: 'HEDIS 2026',
+    benchmarks: { p25: 58.4, p50: 65.0, p75: 70.8, p90: 75.2, national_avg: 64.3 }, active: true,
+  },
+  {
+    id: 'stars-d12', code: 'D12', program: 'CMS Stars', domain: 'Diabetes',
+    name: 'Diabetes Care – Blood Sugar Controlled (HbA1c < 9%)',
+    description: 'Percentage of Medicare Advantage members with diabetes with HbA1c under control.',
+    numerator_desc: 'Members whose most recent HbA1c is < 9.0%',
+    denominator_desc: 'Medicare Advantage members 18–75 with diabetes',
+    reporting_period: 'Annual (Jan 1 – Dec 31)', source_version: 'CMS Stars 2026',
+    benchmarks: { p25: 76.2, p50: 80.5, p75: 84.1, p90: 87.3, national_avg: 80.1 }, active: true,
+  },
+  {
+    id: 'qrs-bcs', code: 'BCS-E', program: 'QRS', domain: 'Cancer Screening',
+    name: 'Breast Cancer Screening (Exchange)',
+    description: 'Percentage of commercial exchange women 50–74 who received mammography screening.',
+    numerator_desc: 'Members with mammogram in measurement period or year prior',
+    denominator_desc: 'Female commercial exchange members 50–74',
+    reporting_period: 'Annual (Oct 1 Y-1 – Sep 30 Y)', source_version: 'QRS 2026',
+    benchmarks: { p25: 58.1, p50: 64.7, p75: 70.3, p90: 75.1, national_avg: 64.2 }, active: true,
+  },
+]
+
+export async function getMeasureLibrary(): Promise<MeasureCatalogItem[]> {
+  try {
+    const res = await fetch('/bff/measures/library')
+    if (res.ok) return await res.json()
+  } catch {}
+  return MOCK_LIBRARY
+}
+
+export async function activateMeasure(id: string): Promise<{ id: string; active: boolean }> {
+  const res = await fetch(`/bff/measures/library/${id}/activate`, { method: 'POST' })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
+}
+
+export async function deactivateMeasure(id: string): Promise<{ id: string; active: boolean }> {
+  const res = await fetch(`/bff/measures/library/${id}/deactivate`, { method: 'POST' })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
+}

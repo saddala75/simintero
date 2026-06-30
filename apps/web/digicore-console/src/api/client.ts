@@ -198,6 +198,22 @@ export async function rollbackArtifact(id: string, targetVersion: string): Promi
   return { success: true }
 }
 
+export async function promoteArtifact(id: string): Promise<{ success: boolean }> {
+  try {
+    const res = await fetch(`/vkas/artifacts/${id}/promote`, { method: 'POST' })
+    if (res.ok) return await res.json()
+  } catch { /* fallback */ }
+  return { success: true }
+}
+
+export async function deprecateArtifact(id: string): Promise<{ success: boolean }> {
+  try {
+    const res = await fetch(`/vkas/artifacts/${id}/deprecate`, { method: 'POST' })
+    if (res.ok) return await res.json()
+  } catch { /* fallback */ }
+  return { success: true }
+}
+
 export async function createArtifact(payload: Partial<PolicyArtifact>): Promise<{ id: string }> {
   try {
     const res = await fetch('/vkas/artifacts', {

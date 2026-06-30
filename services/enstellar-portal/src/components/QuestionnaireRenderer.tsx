@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from '@sim/design-system'
 
 interface QItem {
   linkId: string
@@ -12,12 +13,8 @@ interface Questionnaire {
 }
 
 /**
- * Minimal FHIR Questionnaire renderer for the pilot DTR flow (string/boolean items).
- * NOTE: the brainstormed design named LHC-Forms (@lhncbc/lforms), but that package does not
- * exist on npm under that name and the real `lforms` v42 is an Angular web component that does
- * not drop cleanly into React 19 / Vite 8. This minimal renderer meets the DTR DoD
- * (render -> complete -> submit -> QuestionnaireResponse) and can be swapped for the LForms
- * web component later. CQL prepopulation is out of scope for the pilot (served, not executed here).
+ * ponytail: minimal FHIR Questionnaire renderer for the pilot DTR flow.
+ * Supports string and boolean items only. Swap for LForms web component post-pilot.
  */
 export function QuestionnaireRenderer({
   questionnaire,
@@ -50,32 +47,44 @@ export function QuestionnaireRenderer({
   })
 
   return (
-    <div data-testid="dtr-form">
+    <div data-testid="dtr-form" className="space-y-4">
       {items.map((it) => (
-        <div key={it.linkId} style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block' }}>
+        <div key={it.linkId}>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
             {it.text ?? it.linkId}
-            {it.type === 'boolean' ? (
+          </label>
+          {it.type === 'boolean' ? (
+            <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 data-testid={`dtr-item-${it.linkId}`}
                 checked={Boolean(answers[it.linkId])}
                 onChange={(e) => setAnswer(it.linkId, e.target.checked)}
+                className="w-4 h-4 accent-blue-600 rounded"
               />
-            ) : (
-              <input
-                type="text"
-                data-testid={`dtr-item-${it.linkId}`}
-                value={String(answers[it.linkId] ?? '')}
-                onChange={(e) => setAnswer(it.linkId, e.target.value)}
-              />
-            )}
-          </label>
+              <span className="text-sm text-slate-700">Yes</span>
+            </label>
+          ) : (
+            <input
+              type="text"
+              data-testid={`dtr-item-${it.linkId}`}
+              value={String(answers[it.linkId] ?? '')}
+              onChange={(e) => setAnswer(it.linkId, e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+          )}
         </div>
       ))}
-      <button data-testid="dtr-submit" disabled={submitting} onClick={() => onSubmit(buildQr())}>
-        {submitting ? 'Submitting…' : 'Submit documentation'}
-      </button>
+
+      <Button
+        data-testid="dtr-submit"
+        variant="primary"
+        loading={submitting}
+        onClick={() => onSubmit(buildQr())}
+        className="mt-2 w-full justify-center"
+      >
+        {submitting ? 'Submitting…' : 'Submit Documentation'}
+      </Button>
     </div>
   )
 }

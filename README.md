@@ -61,10 +61,10 @@ VSAC_API_KEY=...
 git clone https://github.com/saddala75/simintero.git
 cd simintero
 
-# Start everything (first run pulls images and builds — takes 5-15 min)
-make up
+# First run: pull images, build all services, start (5-15 min — HAPI loads IGs)
+make up-build
 
-# Verify the platform end-to-end
+# Verify the platform end-to-end (~5 min)
 make smoke
 ```
 
@@ -80,16 +80,15 @@ make up     # ~60-90 seconds
 
 1. Checks that Docker is running
 2. Runs `docker compose up -d` for all 46 services
-3. Polls each service's healthcheck until `healthy` (or times out at 450 s)
-4. Waits separately for HAPI to finish loading FHIR Implementation Guides (up to 15 min on first boot; ~60 s after the first time)
-5. Prints the service URLs
+3. Polls each service's healthcheck until `healthy` (or times out at 450 s) — HAPI is included via the `interop` service dependency
+4. Prints the service URLs
 
 **First boot is slow** because:
 - Docker pulls ~10 GB of base images
-- HAPI loads US Core, PAS, DTR, and CRD IGs from the embedded artifact store
+- HAPI loads US Core, PAS, DTR, and CRD IGs from the embedded artifact store (up to 15 min; `start_period: 900s`)
 - Keycloak imports the `simintero` realm
 
-After the first boot the images are cached and volumes are intact, so `make up` is fast.
+After the first boot the images are cached and volumes are intact, so `make up` takes ~60–90 s.
 
 ---
 
@@ -105,8 +104,7 @@ make clean      # stop + delete all volumes → next start rebuilds from scratch
 Advanced options via the scripts directly:
 
 ```bash
-./scripts/platform-up.sh --build        # rebuild all images then start
-./scripts/platform-up.sh --skip-hapi    # skip waiting for HAPI (faster, FHIR won't work)
+./scripts/platform-up.sh --build            # rebuild all images then start
 ./scripts/platform-down.sh --clean --images  # delete volumes AND built images (full wipe)
 ```
 
@@ -118,11 +116,12 @@ After `make up`:
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| **Portal (React UI)** | http://localhost:5173 | log in with Keycloak (see below) |
-| **Portal BFF API** | http://localhost:8001/docs | use a Keycloak token |
+| **Portal (React UI)** | http://localhost:5173 | log in with Keycloak (see Test users below) |
+| **Portal BFF API** | http://localhost:8001/docs | use a Keycloak token (see Manual API testing) |
 | **Interop FHIR** | http://localhost:8080/fhir/metadata | — |
 | **HAPI FHIR (raw)** | http://localhost:8090/fhir/metadata | — |
 | **Keycloak admin** | http://localhost:8081 | `admin` / `admin` |
+| **Mailpit (email)** | http://localhost:8025 | — dev email catcher; all outbound notices land here |
 | **Grafana** | http://localhost:3000 | no login (dev mode) |
 | **Temporal UI** | http://localhost:8088 | — |
 | **MinIO console** | http://localhost:9001 | `minioadmin` / `minioadmin` |
@@ -270,12 +269,12 @@ For the TypeScript services under `modules/` and `platform/services/`, the compi
 
 ## Troubleshooting
 
-**`make up` times out waiting for HAPI**  
-HAPI loads ~500 MB of FHIR IGs on first boot. Wait it out (up to 15 min) or check for OOM:  
+**`make up` times out (HAPI / `interop` still not healthy)**  
+HAPI loads ~500 MB of FHIR IGs on first boot — this can take up to 15 minutes. The `interop` service won't become healthy until HAPI finishes, so `make up` will wait. Check for OOM:
 ```bash
 docker logs simintero-hapi-1 2>&1 | tail -30
-```  
-If it shows exit code 137 (SIGKILL), Docker doesn't have enough memory. Increase to 8 GB in Docker Desktop settings.
+```
+If you see exit code 137 (SIGKILL), Docker doesn't have enough memory. Increase to 8 GB in Docker Desktop → Settings → Resources → Memory.
 
 **`interop` is unhealthy after HAPI restart**  
 Interop's JVM caches a negative DNS lookup for `hapi` if HAPI was down when interop started. Fix:
@@ -300,6 +299,9 @@ Another process is using one of the exposed ports. Find and stop it:
 ```bash
 lsof -i :8080    # or whichever port is conflicting
 ```
+
+**Email notices not appearing**  
+All outbound email in dev goes to Mailpit (an in-process catcher, not a real SMTP server). Open http://localhost:8025 to see everything sent. There is no real mail delivery in dev — this is by design.
 
 **Starting fresh after a failed run**  
 ```bash

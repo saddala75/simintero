@@ -81,7 +81,7 @@ export function GapDetailPage() {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/gaps')}>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/qualitron/gaps')}>
               ← Back to Care Gaps
             </Button>
             <div>

@@ -243,11 +243,12 @@ tr:hover .en-go { color: var(--pine); }
 .en-iconbtn:hover { background: var(--panel-2); color: var(--ink); }
 
 /* three-column content */
-.en-content { flex: 1; display: grid; grid-template-columns: 322px 1fr 348px; min-height: 0; overflow: hidden; }
+.en-content { flex: 1; display: grid; grid-template-columns: 280px 1fr 400px; min-height: 0; overflow: hidden; }
 .en-col { overflow-y: auto; padding: 18px; min-height: 0; }
 .en-col.ctx { border-right: 1px solid var(--line); background: var(--panel-2); }
 .en-col.work { padding: 22px 26px; }
 .en-col.ai { border-left: 1px solid var(--line); background: var(--panel-2); }
+.en-col.doc { overflow: hidden; padding: 0; }
 
 /* panels inside columns */
 .en-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--sh); margin-bottom: 14px; overflow: hidden; }

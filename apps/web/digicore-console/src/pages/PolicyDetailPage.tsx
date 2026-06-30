@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import CodeMirror from '@uiw/react-codemirror'
-import { getArtifactById, rollbackArtifact } from '../api/client'
+import { getArtifactById, rollbackArtifact, promoteArtifact, deprecateArtifact } from '../api/client'
 import { Card, Badge, Button, Timeline, type TimelineItem } from '@sim/design-system'
 
 export function PolicyDetailPage() {
@@ -33,6 +33,24 @@ export function PolicyDetailPage() {
     },
   })
 
+  const promoteMut = useMutation({
+    mutationFn: () => promoteArtifact(id || ''),
+    onSuccess: () => {
+      setActionMessage(`Policy ${id} promoted to Active. Pending CMO countersignature in VKAS.`)
+      queryClient.invalidateQueries({ queryKey: ['artifact', id] })
+      queryClient.invalidateQueries({ queryKey: ['artifacts'] })
+    },
+  })
+
+  const deprecateMut = useMutation({
+    mutationFn: () => deprecateArtifact(id || ''),
+    onSuccess: () => {
+      setActionMessage(`Policy ${id} deprecated and archived. No longer evaluated at runtime.`)
+      queryClient.invalidateQueries({ queryKey: ['artifact', id] })
+      queryClient.invalidateQueries({ queryKey: ['artifacts'] })
+    },
+  })
+
   if (isLoading) {
     return <div className="p-8 text-center text-slate-500">Loading policy detail…</div>
   }
@@ -43,7 +61,7 @@ export function PolicyDetailPage() {
         <Card className="max-w-md mx-auto p-8 text-center space-y-4">
           <div className="text-xl font-bold text-slate-900">Policy Artifact Not Found</div>
           <p className="text-xs text-slate-500">No VKAS coverage rule or CQL library exists for ID "{id}".</p>
-          <Button variant="primary" onClick={() => navigate('/')}>
+          <Button variant="primary" onClick={() => navigate('/digicore')}>
             Return to Registry
           </Button>
         </Card>
@@ -92,7 +110,7 @@ export function PolicyDetailPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/digicore')}>
               ← Back to Registry
             </Button>
             <div>
@@ -130,7 +148,30 @@ export function PolicyDetailPage() {
             >
               Rollback to Selected
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/digicore/new?from=${artifact?.id}`)}>
+              Draft New Version
+            </Button>
             <Button variant="ai" size="sm">Simulate Execution</Button>
+            {artifact?.status === 'draft' && (
+              <Button
+                variant="primary"
+                size="sm"
+                loading={promoteMut.isPending}
+                onClick={() => promoteMut.mutate()}
+              >
+                ✓ Promote to Active
+              </Button>
+            )}
+            {artifact?.status === 'active' && (
+              <Button
+                variant="danger"
+                size="sm"
+                loading={deprecateMut.isPending}
+                onClick={() => deprecateMut.mutate()}
+              >
+                Deprecate
+              </Button>
+            )}
           </div>
         </div>
 

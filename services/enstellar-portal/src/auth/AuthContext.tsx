@@ -10,7 +10,7 @@ export interface AuthState {
   sub: string
   tenantId: string
   displayName: string
-  login: () => void
+  login: (redirectUri?: string) => void
   logout: () => void
 }
 
@@ -27,7 +27,7 @@ function mkState(authd: boolean): AuthState {
     return {
       ready: true, authenticated: true, roles: MOCK_ROLES,
       sub: 'mock-sub', tenantId: 'tenant-dev', displayName: 'Mock Reviewer',
-      login: () => {}, logout: () => {},
+      login: () => {}, logout: () => {}, // ponytail: no-op in mock
     }
   }
   const t = keycloak.tokenParsed as Record<string, any> | undefined
@@ -38,7 +38,7 @@ function mkState(authd: boolean): AuthState {
     sub: t?.sub ?? '',
     tenantId: t?.tenant_id ?? '',
     displayName: t?.name ?? t?.preferred_username ?? '',
-    login: () => keycloak.login(),
+    login: (redirectUri?: string) => keycloak.login(redirectUri ? { redirectUri } : undefined),
     logout: () => keycloak.logout({ redirectUri: window.location.origin }),
   }
 }
@@ -64,10 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (authd) refreshTimer = setInterval(() => keycloak.updateToken(60).catch(() => {}), 30_000)
         })
         .catch(() => setState(mkState(false)))
-    } else {
-      // already initialized (StrictMode remount) — just reflect current state
-      setState(mkState(!!keycloak.authenticated))
     }
+    // StrictMode remount: skip — the first init().then() will fire and set state correctly.
+    // Do NOT call setState here: setting ready:true with authenticated:false before init
+    // resolves causes ProtectedRoute to trigger a login redirect loop.
     return () => { if (refreshTimer) clearInterval(refreshTimer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -82,7 +82,8 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (auth.ready && !auth.authenticated && !triedLogin.current) {
       triedLogin.current = true
-      auth.login()
+      // Pass current URL so KC redirects back to the page the user wanted
+      auth.login(window.location.href)
     }
   }, [auth])
   if (!auth.ready || !auth.authenticated) return null

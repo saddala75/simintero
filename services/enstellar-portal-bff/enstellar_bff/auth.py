@@ -81,6 +81,26 @@ async def require_reviewer(
         yield ctx, creds.credentials
 
 
+async def require_medical_director(
+    request: Request,
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> AsyncIterator[tuple[BffContext, str]]:
+    """Validate JWT + enforce medical_director realm role. 403 if absent."""
+    if creds is None:
+        raise AuthError("Missing Authorization header")
+    claims = await validator.validate(creds.credentials)
+    tid = (claims.tenant_id or "").strip()
+    if not tid:
+        raise AuthError("Token missing tenant_id")
+    if "medical_director" not in claims.roles:
+        raise ForbiddenError("medical_director role required")
+    base = tenant_context_from_claims(claims)
+    ctx = BffContext(**base.model_dump(), sub=claims.sub)
+    request.state.bff_context = ctx
+    with tenant_context(ctx):
+        yield ctx, creds.credentials
+
+
 async def require_user(
     request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
@@ -114,6 +134,7 @@ __all__ = [
     "require_reviewer",
     "require_auth",
     "require_user",
+    "require_medical_director",
     "validator",
     "BffContext",
 ]

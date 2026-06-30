@@ -65,7 +65,7 @@ export function AiWorkbenchPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#F7F9FB] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#F7F9FB] overflow-hidden">
       <header className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shadow-md shrink-0">
         <div className="flex items-center gap-4">
           <button

@@ -958,11 +958,26 @@ services:
     networks:
       - sim-net
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI — http://localhost:8025
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8025/livez"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── Enstellar app services (C4a) ───────────────────────────────────────────
 
   hapi:
     image: hapiproject/hapi:v7.4.0
     expose: ["8080"]
+    ports:
+      - "8090:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -1098,8 +1113,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: enstellar-workflow
       # SMTP — required for email notice delivery (SmtpEmailSender)
-      WORKFLOW_SMTP_HOST: "${SMTP_HOST:-localhost}"
-      WORKFLOW_SMTP_PORT: "${SMTP_PORT:-587}"
+      WORKFLOW_SMTP_HOST: "${SMTP_HOST:-mailpit}"
+      WORKFLOW_SMTP_PORT: "${SMTP_PORT:-1025}"
       WORKFLOW_SMTP_USERNAME: "${SMTP_USERNAME:-}"
       WORKFLOW_SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
       WORKFLOW_SMTP_FROM_ADDR: "${SMTP_FROM_ADDR:-noreply@simintero.local}"
@@ -1167,7 +1182,7 @@ services:
       BFF_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs
       BFF_OIDC_ISSUER: http://localhost:8081/realms/simintero
       # OIDC audience — must match Keycloak client ID
-      BFF_OIDC_AUDIENCE: "${BFF_OIDC_AUDIENCE:-enstellar-bff}"
+      BFF_OIDC_AUDIENCE: "${BFF_OIDC_AUDIENCE:-enstellar-api}"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: enstellar-portal-bff
