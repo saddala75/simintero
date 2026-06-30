@@ -9,9 +9,7 @@ import { createApproveRouter } from './routes/approve.js';
 import { createActivateRouter } from './routes/activate.js';
 import type { VkasClient } from './routes/activate.js';
 import { createEnqueueRouter } from './routes/enqueue.js';
-import { InMemoryGovernanceStore } from './store/InMemoryGovernanceStore.js';
 import { PgGovernanceStore } from './store/PgGovernanceStore.js';
-import type { GovernanceStore } from './store/GovernanceStore.js';
 import { requireAuth, createJwksVerifier } from './middleware/requireAuth.js';
 
 // Re-export public types and classes
