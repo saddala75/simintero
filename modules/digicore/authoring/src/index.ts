@@ -95,8 +95,11 @@ const fetchGovernanceClient = {
   },
 };
 
-const runtimeBaseUrl =
-  process.env['RUNTIME_BASE_URL'] ?? 'http://localhost:3020';
+const runtimeBaseUrl = process.env['RUNTIME_BASE_URL'];
+if (!runtimeBaseUrl) {
+  throw new Error('RUNTIME_BASE_URL is required');
+}
+
 const terminologyGwBaseUrl =
   process.env['TERMINOLOGY_GW_BASE_URL'] ?? 'http://localhost:3030';
 const vkasBaseUrl = process.env['VKAS_BASE_URL'] ?? 'http://localhost:3040';
