@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { DraftArtifactCreator } from '../vkas/DraftArtifactCreator.js';
+import { DraftArtifactCreator, DuplicateArtifactError } from '../vkas/DraftArtifactCreator.js';
 import type { DraftArtifactInput } from '../vkas/DraftArtifactCreator.js';
 
 export function createDraftRouter(creator: DraftArtifactCreator): Router {
@@ -37,7 +37,11 @@ export function createDraftRouter(creator: DraftArtifactCreator): Router {
     try {
       const result = await creator.createDraft(input);
       res.status(201).json(result);
-    } catch {
+    } catch (err) {
+      if (err instanceof DuplicateArtifactError) {
+        res.status(409).json({ error: 'artifact already exists' });
+        return;
+      }
       res.status(500).json({ error: 'Failed to create draft artifact' });
     }
   });

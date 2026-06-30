@@ -4,7 +4,7 @@ import express from 'express';
 import type { Express, Request, Response, NextFunction } from 'express';
 import { CqlCompilerClient } from './compiler/CqlCompilerClient.js';
 import { TerminologyBindingValidator } from './terminology/TerminologyBindingValidator.js';
-import { DraftArtifactCreator } from './vkas/DraftArtifactCreator.js';
+import { DraftArtifactCreator, DuplicateArtifactError } from './vkas/DraftArtifactCreator.js';
 import { createCompileRouter } from './routes/compile.js';
 import { createValidateRouter } from './routes/validate.js';
 import { createUnitTestRouter } from './routes/unitTest.js';
@@ -71,6 +71,7 @@ const fetchVkasClient = {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
+      if (res.status === 409) throw new DuplicateArtifactError(`POST ${url} failed (409): ${text.slice(0, 200)}`);
       throw new Error(`POST ${url} failed (${res.status}): ${text.slice(0, 200)}`);
     }
     return res.json() as Promise<{ artifact_id: string; version: string }>;
@@ -119,12 +120,27 @@ const rulesCompiler: RulesCompiler = {
 };
 
 const rulesVkas: RulesVkasClient = {
-  create: (input) => fetchVkasClient.post(`${vkasBaseUrl}/v1/artifacts`, input),
-  submit: (canonical_url, version) =>
-    fetchVkasClient.post(`${vkasBaseUrl}/v1/artifacts/submit`, {
-      canonical_url,
-      version,
-    }),
+  create: async (input) => {
+    try {
+      return await fetchVkasClient.post(`${vkasBaseUrl}/v1/artifacts`, input);
+    } catch (err) {
+      // 409 = artifact already exists — idempotent; caller doesn't use the return value
+      if (err instanceof DuplicateArtifactError) return { artifact_id: '', version: '' };
+      throw err;
+    }
+  },
+  submit: async (canonical_url, version) => {
+    const res = await fetch(`${vkasBaseUrl}/v1/artifacts/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ canonical_url, version }),
+    });
+    // 422 = StatusTransitionError = artifact already in_review — idempotent retry
+    if (!res.ok && res.status !== 422) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`VKAS submit failed (${res.status}): ${text.slice(0, 200)}`);
+    }
+  },
 };
 
 const rulesGovernance: RulesGovernanceClient = {

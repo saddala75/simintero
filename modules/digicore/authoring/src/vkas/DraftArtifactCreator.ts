@@ -1,3 +1,10 @@
+export class DuplicateArtifactError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = 'DuplicateArtifactError';
+  }
+}
+
 export interface VkasHttpClient {
   post(url: string, body: unknown): Promise<{ artifact_id: string; version: string }>;
 }
