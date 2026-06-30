@@ -312,5 +312,22 @@ export function createVkasRouter(): Router {
     }
   });
 
+  // GET /v1/stats — artifact counts by status for the calling tenant
+  router.get('/v1/stats', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const pool = req.app.locals['pool'];
+      const { rows } = await withTenant(pool, tenantOf(req), (client: PoolClient) =>
+        client.query(
+          `SELECT status, COUNT(*)::int AS n FROM vkas.artifact GROUP BY status`
+        )
+      );
+      const by_status: Record<string, number> = {};
+      for (const r of rows) by_status[r.status as string] = r.n as number;
+      res.json({ by_status });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }
