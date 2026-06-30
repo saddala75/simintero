@@ -1148,6 +1148,12 @@ services:
         condition: service_healthy
       revital-pipeline:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
     environment:
       WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@pgbouncer:5432/workflow
       REVITAL_BASE_URL: http://revital-pipeline:3014
@@ -1158,12 +1164,6 @@ services:
     deploy:
       replicas: 1
     networks: [sim-net]
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/ready')"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
 
   portal-bff:
     build:
