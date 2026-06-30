@@ -28,12 +28,22 @@ Single-repo, polyglot (Python + TypeScript + Java), fully containerized.
 | Tool | Version | Notes |
 |------|---------|-------|
 | **Docker Desktop** | 4.x+ | Includes Compose v2. Linux: install Docker Engine + Compose plugin separately |
+| **Python 3** | 3.8+ | Used by `make smoke` for JSON parsing — must be on `PATH` as `python3` |
 | **Git** | any | For cloning |
 | **8 GB RAM** (free) | — | HAPI alone uses ~1.5 GB; full stack ~6 GB |
 | **15 GB disk** | — | ~10 GB images + data volumes |
 
 **macOS:** Docker Desktop → Settings → Resources → set Memory ≥ 8 GB.  
-**Linux:** No special config needed if your machine has 8+ GB free.
+**Linux/WSL2:** No special config needed if your machine has 8+ GB free.
+
+**WSL2 (Windows):** If you see `docker-credential-desktop.exe: exec format error`, remove the
+credential store entry from Docker's config inside WSL2:
+```bash
+# run this inside your WSL2 Ubuntu shell, not in PowerShell
+cat > ~/.docker/config.json <<'EOF'
+{"auths": {}}
+EOF
+```
 
 ### Optional API keys
 
