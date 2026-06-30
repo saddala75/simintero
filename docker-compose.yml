@@ -1183,6 +1183,7 @@ services:
         condition: service_healthy
     environment:
       BFF_WORKFLOW_ENGINE_URL: http://workflow-engine:8000
+      BFF_VKAS_BASE_URL: http://vkas:3040
       BFF_FHIR_API_URL: http://interop:8080/fhir
       BFF_CRD_API_URL: http://interop:8080/cds-services
       BFF_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/simintero/protocol/openid-connect/certs

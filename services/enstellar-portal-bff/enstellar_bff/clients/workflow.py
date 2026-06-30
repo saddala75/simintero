@@ -313,6 +313,15 @@ class WorkflowClient:
         r.raise_for_status()
         return r.json()
 
+    async def dashboard_stats(self, bearer_token: str) -> dict:
+        """GET /internal/dashboard — all workflow aggregates in one call."""
+        r = await self._request(
+            "GET",
+            "/internal/dashboard",
+            bearer_token=bearer_token,
+        )
+        return r.json()
+
     async def get_grievance(self, grievance_id: str, bearer_token: str) -> dict:
         r = await self._http.get(
             f"/grievances/{grievance_id}",

@@ -12,6 +12,7 @@ class BffSettings(BaseSettings):
     oidc_audience: str | None = None
     fhir_api_url: str = "http://interop:8080/fhir"
     crd_api_url: str = "http://interop:8080/cds-services"
+    vkas_base_url: str = "http://vkas:3040"
 
 
 settings = BffSettings()
