@@ -71,4 +71,52 @@ class CoverageDiscoveryControllerTest {
            .andExpect(jsonPath("$.governing_rules").isArray())
            .andExpect(jsonPath("$.pins").isArray());
     }
+
+    @Test
+    void conflictingProcedureCodesReturn409() throws Exception {
+        when(ruleResolver.resolveByProcedure(eq("27447"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("27447"), true, List.of(), "urn:sim:dtr:knee-arthroscopy:1.0.0",
+                List.of(), null, "1.0.0", null)));
+        when(ruleResolver.resolveByProcedure(eq("72148"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("72148"), true, List.of(), "urn:sim:dtr:lumbar-spine-mri:1.0.0",
+                List.of(), null, "1.0.0", null)));
+
+        mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
+                .content("{\"procedure_codes\":[\"27447\",\"72148\"]}"))
+           .andExpect(status().isConflict())
+           .andExpect(jsonPath("$.error").value("SIM-DIG-CONFLICT"))
+           .andExpect(jsonPath("$.conflicting_codes").isArray())
+           .andExpect(jsonPath("$.conflicting_codes.length()").value(2));
+    }
+
+    @Test
+    void oneConflictingOneNotReturnsNormalResponse() throws Exception {
+        when(ruleResolver.resolveByProcedure(eq("27447"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("27447"), true, List.of("urn:sim:policy:knee-arthroscopy:1.0.0"),
+                "urn:sim:dtr:knee-arthroscopy:1.0.0", List.of(), null, "1.0.0", null)));
+        when(ruleResolver.resolveByProcedure(eq("99213"), any(RuleContext.class)))
+            .thenReturn(Optional.empty());
+
+        mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
+                .content("{\"procedure_codes\":[\"27447\",\"99213\"]}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.pa_required").value(true))
+           .andExpect(jsonPath("$.pins[0]").value("urn:sim:policy:knee-arthroscopy:1.0.0"));
+    }
+
+    @Test
+    void singleEntryProcedureCodesListBehavesLikeSingleCode() throws Exception {
+        when(ruleResolver.resolveByProcedure(eq("27447"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("27447"), true, List.of("urn:sim:policy:knee-arthroscopy:1.0.0"),
+                "urn:sim:dtr:knee-arthroscopy:1.0.0", List.of(), null, "1.0.0", null)));
+
+        mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
+                .content("{\"procedure_codes\":[\"27447\"]}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.pa_required").value(true));
+    }
 }
