@@ -42,7 +42,7 @@ SELECT
   'urn:sim:dtr:knee-arthroscopy:1.0.0',
   '1.0.0',
   'shared',
-  'questionnaire',
+  'dtr_package',
   'active',
   content,
   md5(content::text),
