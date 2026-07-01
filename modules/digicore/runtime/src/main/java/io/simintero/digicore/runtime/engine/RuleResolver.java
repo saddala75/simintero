@@ -31,6 +31,7 @@ public class RuleResolver {
         List<Map<String, Object>> reqs = new ArrayList<>();
         c.path("evidence_requirements").forEach(r -> reqs.add(mapper.convertValue(r, Map.class)));
         JsonNode dtr = c.path("dtr_package_ref");
+        JsonNode sourceType = c.path("source_type");
         return new CoverageRule(
             list(c.path("procedure_codes")),
             c.path("pa_required").asBoolean(false),
@@ -38,7 +39,8 @@ public class RuleResolver {
             (dtr.isMissingNode() || dtr.isNull()) ? null : dtr.asText(),
             reqs,
             c.path("elm_ref").isMissingNode() ? null : c.path("elm_ref").asText(),
-            c.path("elm_version").isMissingNode() ? null : c.path("elm_version").asText());
+            c.path("elm_version").isMissingNode() ? null : c.path("elm_version").asText(),
+            (sourceType.isMissingNode() || sourceType.isNull()) ? null : sourceType.asText());
     }
 
     private static List<String> list(JsonNode arr) {
