@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from pathlib import Path
 from src.metrics.extraction_pr import compute_extraction_pr
@@ -7,12 +8,12 @@ from src.metrics.groundedness import compute_groundedness_score
 from src.metrics.calibration_ece import compute_calibration_ece
 
 # HUMAN_REVIEW: these thresholds must be approved by a clinical safety reviewer
-# before being set as VKAS eval gate values. Use 0.0 as placeholder until reviewed.
+# before being set. Defaults are vacuously permissive until sign-off.
 THRESHOLDS = {
-    "extraction_min_f1": 0.0,          # HUMAN_REVIEW
-    "citation_min_pct": 0.0,           # HUMAN_REVIEW
-    "groundedness_min_score": 0.0,     # HUMAN_REVIEW
-    "calibration_max_ece": 1.0,        # HUMAN_REVIEW
+    "extraction_min_f1":      float(os.environ.get("REVITAL_MIN_F1",          "0.0")),
+    "citation_min_pct":       float(os.environ.get("REVITAL_MIN_CITATION_PCT", "0.0")),
+    "groundedness_min_score": float(os.environ.get("REVITAL_MIN_GROUNDEDNESS", "0.0")),
+    "calibration_max_ece":    float(os.environ.get("REVITAL_MAX_ECE",          "1.0")),
 }
 
 
