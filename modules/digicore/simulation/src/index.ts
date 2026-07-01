@@ -10,6 +10,7 @@ import { ctx } from '@sim/tenant-context-ts';
 import type { TenantDb } from '@sim/outbox-ts';
 import { ScenarioRunner } from './runner/ScenarioRunner.js';
 import type { RuntimeClient } from './runner/ScenarioRunner.js';
+import { HistoricalReplayer } from './runner/HistoricalReplayer.js';
 import { SimulationReport } from './report/SimulationReport.js';
 import type { TestCase } from './schema/SimulationRun.js';
 
@@ -140,6 +141,53 @@ app.post(
       });
 
       // Phase 1: no prior run — regressions are always empty
+      const regressions = reportBuilder.detect_regressions(report.results, []);
+      res.status(201).json({ ...report, regressions });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  },
+);
+
+app.post(
+  '/v1/simulation/historical-runs',
+  requireDb,
+  async (req: Request, res: Response): Promise<void> => {
+    const tenantCtx = ctx();
+
+    const body = req.body as {
+      artifact_version_pins?: unknown;
+      triggered_by?: unknown;
+    };
+
+    if (body.artifact_version_pins !== undefined && !Array.isArray(body.artifact_version_pins)) {
+      res.status(400).json({ error: 'artifact_version_pins must be an array' });
+      return;
+    }
+
+    const artifact_version_pins = Array.isArray(body.artifact_version_pins)
+      ? (body.artifact_version_pins as string[])
+      : [];
+
+    const triggered_by =
+      typeof body.triggered_by === 'string' ? body.triggered_by : tenantCtx.tenant_id;
+
+    const replayer = new HistoricalReplayer(TEST_CASES_DIR);
+    const test_cases = await replayer.replay();
+
+    const runner = new ScenarioRunner(httpRuntimeClient, tenantDb!);
+    const reportBuilder = new SimulationReport();
+
+    const run_id = randomUUID();
+
+    try {
+      const report = await runner.run({
+        run_id,
+        artifact_version_pins,
+        triggered_by,
+        test_cases,
+      });
+
       const regressions = reportBuilder.detect_regressions(report.results, []);
       res.status(201).json({ ...report, regressions });
     } catch (err) {
