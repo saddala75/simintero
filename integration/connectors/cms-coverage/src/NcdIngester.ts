@@ -36,14 +36,45 @@ export async function ingestNcds(ncds: NcdRecord[], vkasBaseUrl: string): Promis
   return Promise.all(ncds.map(async (ncd) => {
     const result: NcdSyncResult = { ncdId: ncd.ncdId, synced: 0, failed: 0, errors: [] };
     for (const code of ncd.procedureCodes) {
+      const canonicalUrl = `urn:cms:ncd:procedure:${code}`;
       try {
-        const res = await fetch(`${vkasBaseUrl}/v1/artifacts`, {
+        const createRes = await fetch(`${vkasBaseUrl}/v1/artifacts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(buildArtifact(ncd, code)),
         });
-        if (res.ok) { result.synced++; }
-        else { result.failed++; result.errors.push(`VKAS ${res.status} for ${code}`); }
+        if (createRes.status === 409) {
+          // Already exists from a prior sync — skip activation, count as synced
+          result.synced++;
+          continue;
+        }
+        if (!createRes.ok) {
+          result.failed++;
+          result.errors.push(`VKAS ${createRes.status} for ${code}`);
+          continue;
+        }
+        // New artifact created as draft — drive through lifecycle to active
+        const submitRes = await fetch(`${vkasBaseUrl}/v1/artifacts/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ canonical_url: canonicalUrl, version: ncd.effectiveDate }),
+        });
+        if (!submitRes.ok) {
+          result.failed++;
+          result.errors.push(`submit failed ${submitRes.status} for ${code}`);
+          continue;
+        }
+        const activateRes = await fetch(`${vkasBaseUrl}/v1/artifacts/activate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ canonical_url: canonicalUrl, version: ncd.effectiveDate }),
+        });
+        if (!activateRes.ok) {
+          result.failed++;
+          result.errors.push(`activate failed ${activateRes.status} for ${code}`);
+          continue;
+        }
+        result.synced++;
       } catch (err) {
         result.failed++;
         result.errors.push(`${code}: ${err instanceof Error ? err.message : String(err)}`);

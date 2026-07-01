@@ -11,22 +11,40 @@ const knee: NcdRecord = {
 afterEach(() => vi.restoreAllMocks());
 
 describe('ingestNcds', () => {
-  it('posts one VKAS artifact per procedure code', async () => {
-    const posts: unknown[] = [];
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_u: string, o: RequestInit) => {
-      posts.push(JSON.parse(o.body as string));
+  it('posts one VKAS artifact per procedure code — create+submit+activate', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (u: string) => {
+      urls.push(u);
       return { ok: true, status: 201 };
     }));
     const results = await ingestNcds([knee], 'http://vkas:3040');
     expect(results[0].synced).toBe(2);
     expect(results[0].failed).toBe(0);
-    expect(posts).toHaveLength(2);
+    // 2 codes × 3 calls (create + submit + activate) = 6 fetch calls
+    expect(urls).toHaveLength(6);
+    expect(urls.filter(u => u.endsWith('/v1/artifacts') && !u.includes('submit') && !u.includes('activate'))).toHaveLength(2);
+    expect(urls.filter(u => u.endsWith('/v1/artifacts/submit'))).toHaveLength(2);
+    expect(urls.filter(u => u.endsWith('/v1/artifacts/activate'))).toHaveLength(2);
+  });
+
+  it('409 on create is idempotent — counts as synced, no submit/activate', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (u: string) => {
+      urls.push(u);
+      return { ok: false, status: 409 };
+    }));
+    const results = await ingestNcds([{ ...knee, procedureCodes: ['27447'] }], 'http://vkas:3040');
+    expect(results[0].synced).toBe(1);
+    expect(results[0].failed).toBe(0);
+    expect(urls).toHaveLength(1);  // only create, no submit/activate
   });
 
   it('artifact shape is correct for covered_with_limitations', async () => {
     let body: unknown;
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_u: string, o: RequestInit) => {
-      body = JSON.parse(o.body as string);
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (u: string, o: RequestInit) => {
+      if (!u.includes('/submit') && !u.includes('/activate')) {
+        body = JSON.parse(o.body as string);
+      }
       return { ok: true, status: 201 };
     }));
     await ingestNcds([{ ...knee, procedureCodes: ['27447'] }], 'http://vkas:3040');
@@ -53,8 +71,11 @@ describe('ingestNcds', () => {
 
   it('pa_required is false for covered', async () => {
     let body: unknown;
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_u: string, o: RequestInit) => {
-      body = JSON.parse(o.body as string); return { ok: true, status: 201 };
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (u: string, o: RequestInit) => {
+      if (!u.includes('/submit') && !u.includes('/activate')) {
+        body = JSON.parse(o.body as string);
+      }
+      return { ok: true, status: 201 };
     }));
     await ingestNcds([{ ...knee, coverageIndicator: 'covered', procedureCodes: ['99213'] }], 'http://vkas:3040');
     expect((body as { content: { pa_required: boolean } }).content.pa_required).toBe(false);
@@ -62,8 +83,11 @@ describe('ingestNcds', () => {
 
   it('pa_required is false for non_covered', async () => {
     let body: unknown;
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_u: string, o: RequestInit) => {
-      body = JSON.parse(o.body as string); return { ok: true, status: 201 };
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (u: string, o: RequestInit) => {
+      if (!u.includes('/submit') && !u.includes('/activate')) {
+        body = JSON.parse(o.body as string);
+      }
+      return { ok: true, status: 201 };
     }));
     await ingestNcds([{ ...knee, coverageIndicator: 'non_covered', procedureCodes: ['22857'] }], 'http://vkas:3040');
     expect((body as { content: { pa_required: boolean } }).content.pa_required).toBe(false);
@@ -73,12 +97,17 @@ describe('ingestNcds', () => {
     let calls = 0;
     vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => {
       calls++;
-      return calls === 1 ? { ok: false, status: 500 } : { ok: true, status: 201 };
+      // First call is create for code 1 → 500 (failed, no submit/activate)
+      // Second call is create for code 2 → 201
+      // Third call is submit for code 2 → 200
+      // Fourth call is activate for code 2 → 200
+      if (calls === 1) return { ok: false, status: 500 };
+      return { ok: true, status: calls === 2 ? 201 : 200 };
     }));
     const results = await ingestNcds([knee], 'http://vkas:3040');
     expect(results[0].synced).toBe(1);
     expect(results[0].failed).toBe(1);
-    expect(calls).toBe(2);
+    expect(calls).toBe(4);  // create(fail) + create + submit + activate
   });
 
   it('NCD with no procedure codes returns synced=0 failed=0', async () => {
