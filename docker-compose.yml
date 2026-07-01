@@ -807,6 +807,27 @@ services:
     networks:
       - sim-net
 
+  cms-coverage-proxy:
+    build:
+      context: .
+      dockerfile: integration/connectors/cms-coverage/Dockerfile
+    environment:
+      CMS_COVERAGE_BASE_URL: "${CMS_COVERAGE_BASE_URL:-}"
+      VKAS_BASE_URL: http://vkas:3040
+      PORT: "3055"
+    ports:
+      - "3055:3055"
+    depends_on:
+      vkas: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3055/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - sim-net
+
   cds-hooks:
     build:
       context: .
