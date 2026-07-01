@@ -119,4 +119,67 @@ class CoverageDiscoveryControllerTest {
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.pa_required").value(true));
     }
+
+    @Test
+    void ncdNonCoveredReturnsPaFalseWithCoverageIndicator() throws Exception {
+        when(ruleResolver.resolveByProcedure(eq("22857"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("22857"), false, List.of(), null, List.of(),
+                null, null, "ncd", "non_covered", List.of())));
+        mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
+                .content("{\"service_code\":\"22857\"}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.pa_required").value(false))
+           .andExpect(jsonPath("$.coverage_indicator").value("non_covered"))
+           .andExpect(jsonPath("$.governing_rules[0].source_type").value("ncd"));
+    }
+
+    @Test
+    void ncdCoveredWithLimitationsReturnsPaTrue() throws Exception {
+        when(ruleResolver.resolveByProcedure(eq("27447"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("27447"), true, List.of(), null, List.of(),
+                null, null, "ncd", "covered_with_limitations", List.of())));
+        mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
+                .content("{\"service_code\":\"27447\"}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.pa_required").value(true))
+           .andExpect(jsonPath("$.coverage_indicator").value("covered_with_limitations"))
+           .andExpect(jsonPath("$.governing_rules[0].source_type").value("ncd"));
+    }
+
+    @Test
+    void ncdCoveredReturnsPaFalseWithNcdInGoverningRules() throws Exception {
+        when(ruleResolver.resolveByProcedure(eq("99213"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("99213"), false, List.of(), null, List.of(),
+                null, null, "ncd", "covered", List.of())));
+        mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
+                .content("{\"service_code\":\"99213\"}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.pa_required").value(false))
+           .andExpect(jsonPath("$.coverage_indicator").value("covered"))
+           .andExpect(jsonPath("$.governing_rules[0].source_type").value("ncd"));
+    }
+
+    @Test
+    void payerRuleWithNcdRelationIncludesNcdInGoverningRules() throws Exception {
+        List<Map<String, Object>> relations = List.of(
+            Map.of("rel", "supplements", "target", "urn:cms:ncd:procedure:27447", "source_type", "ncd"));
+        when(ruleResolver.resolveByProcedure(eq("27447"), any(RuleContext.class)))
+            .thenReturn(Optional.of(new CoverageRule(
+                List.of("27447"), true,
+                List.of("urn:sim:policy:knee-arthroscopy:1.0.0"),
+                "urn:sim:dtr:knee-arthroscopy:1.0.0", List.of(),
+                "https://artifacts.simintero.io/shared/cql_library/knee-arthroscopy", "1.0.0",
+                "internal_supplement", null, relations)));
+        mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
+                .content("{\"service_code\":\"27447\"}"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.pa_required").value(true))
+           .andExpect(jsonPath("$.governing_rules.length()").value(2))
+           .andExpect(jsonPath("$.governing_rules[0].source_type").value("internal_supplement"))
+           .andExpect(jsonPath("$.governing_rules[1].source_type").value("ncd"))
+           .andExpect(jsonPath("$.governing_rules[1].rule_id").value("urn:cms:ncd:procedure:27447"));
+    }
 }

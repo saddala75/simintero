@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RuleResolver {
     static final String COVERAGE_RULE_BASE = "https://artifacts.simintero.io/shared/coverage_rule/";
-    static final String NCD_PROCEDURE_BASE = "urn:cms:ncd:procedure:";
+    public static final String NCD_PROCEDURE_BASE = "urn:cms:ncd:procedure:";
 
     private final VkasClient vkas;
     private final CqlCompilerService compiler;

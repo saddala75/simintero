@@ -6,21 +6,8 @@ import io.simintero.digicore.runtime.engine.RuleResolver;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
-/**
- * C-1 operation: POST /v1/runtime/coverage-discovery
- *
- * Returns {pa_required, governing_rules[], pins[], dtr_package_ref}.
- * Resolves the governing coverage_rule from VKAS (via RuleResolver) keyed by
- * procedure_code (falling back to service_code). No hardcoded policy logic.
- *
- * Phase 3.4: If multiple codes in procedure_codes each independently require PA,
- * returns 409 SIM-DIG-CONFLICT — the engine cannot auto-resolve the ambiguity.
- */
 @RestController
 @RequestMapping("/v1/runtime")
 public class CoverageDiscoveryController {
@@ -36,7 +23,6 @@ public class CoverageDiscoveryController {
         String serviceCode = getString(request, "service_code");
         String procedureCode = getString(request, "procedure_code");
 
-        @SuppressWarnings("unchecked")
         List<String> codes;
         Object raw = request.get("procedure_codes");
         if (raw instanceof List<?> list && !list.isEmpty()) {
@@ -46,45 +32,82 @@ public class CoverageDiscoveryController {
             codes = code != null ? List.of(code) : List.of();
         }
 
-        // Resolve rules for all codes and collect those that require PA
+        // Single pass: collect PA rules and the first non-PA resolved rule
         List<String> conflictingCodes = new ArrayList<>();
         Optional<CoverageRule> paRule = Optional.empty();
         String paCode = null;
+        Optional<CoverageRule> nonPaRule = Optional.empty();
+        String nonPaCode = null;
 
         for (String code : codes) {
             Optional<CoverageRule> rule = ruleResolver.resolveByProcedure(code, RuleContext.empty());
-            if (rule.isPresent() && rule.get().paRequired()) {
-                conflictingCodes.add(code);
-                paRule = rule;
-                paCode = code;
+            if (rule.isPresent()) {
+                if (rule.get().paRequired()) {
+                    conflictingCodes.add(code);
+                    paRule = rule;
+                    paCode = code;
+                } else if (nonPaRule.isEmpty()) {
+                    nonPaRule = rule;
+                    nonPaCode = code;
+                }
             }
         }
 
-        // Conflict: more than one code independently requires PA
+        // Conflict: multiple codes independently require PA
         if (conflictingCodes.size() > 1) {
-            Map<String, Object> conflict = new java.util.LinkedHashMap<>();
+            Map<String, Object> conflict = new LinkedHashMap<>();
             conflict.put("error", "SIM-DIG-CONFLICT");
             conflict.put("message", "Multiple procedure codes require prior authorization and cannot be auto-resolved");
             conflict.put("conflicting_codes", conflictingCodes);
             return ResponseEntity.status(409).body(conflict);
         }
 
-        Map<String, Object> resp = new java.util.LinkedHashMap<>();
         if (paRule.isPresent()) {
-            CoverageRule r = paRule.get();
-            resp.put("pa_required", true);
-            resp.put("governing_rules", List.of(Map.of(
-                    "rule_id", "coverage_rule/" + paCode,
-                    "version", r.elmVersion() == null ? "1.0.0" : r.elmVersion())));
-            resp.put("pins", r.pins());
-            resp.put("dtr_package_ref", r.dtrPackageRef());   // may be null -> LinkedHashMap allows it
+            return ResponseEntity.ok(buildResponse(paRule.get(), paCode, true));
+        } else if (nonPaRule.isPresent()) {
+            return ResponseEntity.ok(buildResponse(nonPaRule.get(), nonPaCode, false));
         } else {
+            Map<String, Object> resp = new LinkedHashMap<>();
             resp.put("pa_required", false);
             resp.put("governing_rules", List.of());
             resp.put("pins", List.of());
             resp.put("dtr_package_ref", null);
+            return ResponseEntity.ok(resp);
         }
-        return ResponseEntity.ok(resp);
+    }
+
+    private Map<String, Object> buildResponse(CoverageRule r, String code, boolean paRequired) {
+        List<Map<String, Object>> governingRules = new ArrayList<>();
+
+        // Primary rule entry
+        Map<String, Object> primary = new LinkedHashMap<>();
+        String ruleId = "ncd".equals(r.sourceType())
+            ? RuleResolver.NCD_PROCEDURE_BASE + code
+            : "coverage_rule/" + code;
+        primary.put("rule_id", ruleId);
+        primary.put("version", r.elmVersion() == null ? "1.0.0" : r.elmVersion());
+        if (r.sourceType() != null) primary.put("source_type", r.sourceType());
+        governingRules.add(primary);
+
+        // NCD provenance from payer supplement relations
+        if (r.relations() != null) {
+            for (Map<String, Object> rel : r.relations()) {
+                if ("ncd".equals(rel.get("source_type"))) {
+                    Map<String, Object> ncdEntry = new LinkedHashMap<>();
+                    ncdEntry.put("rule_id", rel.get("target"));
+                    ncdEntry.put("source_type", "ncd");
+                    governingRules.add(ncdEntry);
+                }
+            }
+        }
+
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("pa_required", paRequired);
+        resp.put("governing_rules", governingRules);
+        resp.put("pins", r.pins() != null ? r.pins() : List.of());
+        resp.put("dtr_package_ref", r.dtrPackageRef());
+        if (r.coverageIndicator() != null) resp.put("coverage_indicator", r.coverageIndicator());
+        return resp;
     }
 
     private String getString(Map<String, Object> map, String key) {
