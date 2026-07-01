@@ -60,3 +60,64 @@ export async function triggerTestEvent(caseId: string, eventType: string): Promi
   } catch {}
   return { success: true }
 }
+
+// ── DLQ Admin ─────────────────────────────────────────────────────────────
+
+export interface OutboxDlqEvent {
+  event_id: string
+  topic: string
+  tenant_id: string
+  dlq_at: string | null
+  dlq_reason: string | null
+  retry_count: number
+}
+
+export interface ConsumerDlqEvent {
+  event_id: string
+  consumer_group: string
+  topic: string
+  error: string | null
+  failed_at: string | null
+  replayed_at: string | null
+}
+
+const MOCK_OUTBOX_DLQ: OutboxDlqEvent[] = [
+  { event_id: 'evt-mock-001', topic: 'prior_auth.submitted', tenant_id: 'demo-tenant', dlq_at: '2026-06-30T10:00:00Z', dlq_reason: 'Kafka timeout after 3 retries', retry_count: 3 },
+  { event_id: 'evt-mock-002', topic: 'decision.recorded', tenant_id: 'tenant-beta', dlq_at: '2026-06-30T09:15:00Z', dlq_reason: 'Serialization error', retry_count: 1 },
+]
+
+const MOCK_CONSUMER_DLQ: ConsumerDlqEvent[] = [
+  { event_id: 'evt-mock-003', consumer_group: 'intake-consumer', topic: 'prior_auth.submitted', error: 'DB connection refused', failed_at: '2026-06-30T08:30:00Z', replayed_at: null },
+]
+
+export async function getOutboxDlq(token: string): Promise<OutboxDlqEvent[]> {
+  try {
+    const res = await fetch('/bff/admin/dlq/outbox', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) return (await res.json()).events
+  } catch {}
+  return MOCK_OUTBOX_DLQ
+}
+
+export async function getConsumerDlq(token: string): Promise<ConsumerDlqEvent[]> {
+  try {
+    const res = await fetch('/bff/admin/dlq/consumers', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) return (await res.json()).events
+  } catch {}
+  return MOCK_CONSUMER_DLQ
+}
+
+export async function reprocessOutboxEvent(
+  eventId: string,
+  token: string,
+): Promise<{ requeued: boolean }> {
+  const res = await fetch(`/bff/admin/dlq/outbox/${eventId}/reprocess`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Reprocess failed: ${res.status}`)
+  return res.json()
+}
