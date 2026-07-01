@@ -43,7 +43,7 @@ export async function fetchEvidenceRequirementsImpl(
   }
 }
 
-const DIGICORE_URL = process.env['DIGICORE_URL'] ?? 'http://localhost:3040';
+const DIGICORE_URL = process.env['DIGICORE_URL'] ?? 'http://digicore-runtime:8083';
 
 export async function fetchEvidenceRequirements(serviceCode: string): Promise<RequirementsResult | null> {
   return fetchEvidenceRequirementsImpl(serviceCode, DIGICORE_URL);

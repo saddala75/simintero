@@ -53,7 +53,7 @@ export function CitedDocumentPanel({ caseId, documentUrl, citations, selectedCit
                   <span className="font-mono text-[10px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-bold">
                     CIT-{idx + 1}
                   </span>
-                  <span className="font-mono text-[10px] text-slate-400">{c.bbox}</span>
+                  {c.bbox && <span className="font-mono text-[10px] text-slate-400">{c.bbox}</span>}
                 </div>
                 <p>{c.text}</p>
               </div>
@@ -75,7 +75,7 @@ export function CitedDocumentPanel({ caseId, documentUrl, citations, selectedCit
                 }`}
               >
                 <div>CIT-{idx + 1}</div>
-                <div className="font-mono text-[10px] opacity-75">{c.bbox}</div>
+                {c.bbox && <div className="font-mono text-[10px] opacity-75">{c.bbox}</div>}
               </button>
             ))}
           </div>
