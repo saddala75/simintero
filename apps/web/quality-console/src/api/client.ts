@@ -57,14 +57,14 @@ export async function getCareGaps(program?: string, status?: string): Promise<Ca
   return res.json()
 }
 
-export async function getGapMembers(gapId: string): Promise<CareGapMember[]> {
-  const res = await fetch(`/qualitron/gaps/summary/${gapId}/members`)
+export async function getGapMembers(measureRef: string): Promise<CareGapMember[]> {
+  const res = await fetch(`/qualitron/gaps/summary/${measureRef}/members`)
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
   return res.json()
 }
 
-export async function closeGapMember(gapId: string, memberId: string): Promise<{ success: boolean }> {
-  const res = await fetch(`/qualitron/gaps/summary/${gapId}/members/${memberId}/close`, {
+export async function closeGapMember(measureRef: string, memberId: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`/qualitron/gaps/summary/${measureRef}/members/${memberId}/close`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   })
