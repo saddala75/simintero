@@ -12,6 +12,7 @@
     { "schema": "market",     "table": "bundle",             "tenant_column": "tenant_id" },
     { "schema": "market",     "table": "bundle_artifact",    "tenant_column": "tenant_id" },
     { "schema": "qual",       "table": "gap",                "tenant_column": "tenant_id" },
+    { "schema": "qual",       "table": "measure_activation", "tenant_column": "tenant_id" },
     { "schema": "qual",       "table": "measure_definition", "tenant_column": "tenant_id" },
     { "schema": "qual",       "table": "measure_report",     "tenant_column": "tenant_id" },
     { "schema": "qual",       "table": "measure_run",        "tenant_column": "tenant_id" },

@@ -1210,6 +1210,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      qualitron-reporting:
+        condition: service_healthy
     environment:
       BFF_WORKFLOW_ENGINE_URL: http://workflow-engine:8000
       BFF_VKAS_BASE_URL: http://vkas:3040
@@ -1219,6 +1221,7 @@ services:
       BFF_OIDC_ISSUER: "${KEYCLOAK_PUBLIC_URL:-http://localhost:8081}/realms/simintero"
       # OIDC audience — must match Keycloak client ID
       BFF_OIDC_AUDIENCE: "${BFF_OIDC_AUDIENCE:-enstellar-api}"
+      BFF_QUALITRON_REPORTING_URL: http://qualitron-reporting:4080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: enstellar-portal-bff

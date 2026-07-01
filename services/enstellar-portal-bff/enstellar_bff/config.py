@@ -13,6 +13,7 @@ class BffSettings(BaseSettings):
     fhir_api_url: str = "http://interop:8080/fhir"
     crd_api_url: str = "http://interop:8080/cds-services"
     vkas_base_url: str = "http://vkas:3040"
+    qualitron_reporting_url: str = "http://qualitron-reporting:4080"
 
 
 settings = BffSettings()

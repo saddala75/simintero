@@ -1,12 +1,13 @@
 """Qualitron Measure Library — catalog browse + tenant activation."""
 from __future__ import annotations
+import httpx
 from fastapi import APIRouter, Depends
 from enstellar_bff.auth import require_reviewer, require_medical_director
+from enstellar_bff.config import settings
 
 router = APIRouter(prefix="/bff/measures", tags=["measure-library"])
 
-# In-memory activation state (mock; real impl persists per-tenant in DB)
-_ACTIVE: set[str] = {"hedis-col", "hedis-cbp", "hedis-aab", "stars-d12", "qrs-bcs"}
+_FALLBACK_ACTIVE: set[str] = {"hedis-col", "hedis-cbp", "hedis-aab", "stars-d12", "qrs-bcs"}
 
 _LIBRARY = [
     {
@@ -147,28 +148,56 @@ _LIBRARY = [
 ]
 
 
-def _with_active(library: list[dict]) -> list[dict]:
-    return [{**m, "active": m["id"] in _ACTIVE} for m in library]
+def _with_active(library: list[dict], active_set: set[str]) -> list[dict]:
+    return [{**m, "active": m["id"] in active_set} for m in library]
+
+
+async def _fetch_active(tenant_id: str) -> set[str]:
+    try:
+        async with httpx.AsyncClient(base_url=settings.qualitron_reporting_url, timeout=5.0) as c:
+            r = await c.get(
+                "/v1/quality/measures/activation",
+                headers={"x-sim-tenant-id": tenant_id},
+            )
+        r.raise_for_status()
+        data = r.json()
+        return set(data.get("active", []))
+    except Exception:
+        return set(_FALLBACK_ACTIVE)
 
 
 @router.get("/library")
-async def get_measure_library(_auth: tuple = Depends(require_reviewer)):
+async def get_measure_library(auth: tuple = Depends(require_reviewer)):
     """Return the full measure catalog with tenant activation status."""
-    return _with_active(_LIBRARY)
+    ctx, _ = auth
+    active = await _fetch_active(ctx.tenant_id)
+    return _with_active(_LIBRARY, active)
 
 
 @router.post("/library/{measure_id}/activate")
-async def activate_measure(measure_id: str, _auth: tuple = Depends(require_medical_director)):
+async def activate_measure(measure_id: str, auth: tuple = Depends(require_medical_director)):
     """Activate a measure for this tenant. Requires medical_director role."""
     if not any(m["id"] == measure_id for m in _LIBRARY):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Measure {measure_id} not found")
-    _ACTIVE.add(measure_id)
+    ctx, _ = auth
+    async with httpx.AsyncClient(base_url=settings.qualitron_reporting_url, timeout=5.0) as c:
+        r = await c.post(
+            f"/v1/quality/measures/{measure_id}/activate",
+            headers={"x-sim-tenant-id": ctx.tenant_id},
+        )
+        r.raise_for_status()
     return {"id": measure_id, "active": True}
 
 
 @router.post("/library/{measure_id}/deactivate")
-async def deactivate_measure(measure_id: str, _auth: tuple = Depends(require_medical_director)):
+async def deactivate_measure(measure_id: str, auth: tuple = Depends(require_medical_director)):
     """Deactivate a measure for this tenant. Requires medical_director role."""
-    _ACTIVE.discard(measure_id)
+    ctx, _ = auth
+    async with httpx.AsyncClient(base_url=settings.qualitron_reporting_url, timeout=5.0) as c:
+        r = await c.delete(
+            f"/v1/quality/measures/{measure_id}/activate",
+            headers={"x-sim-tenant-id": ctx.tenant_id},
+        )
+        r.raise_for_status()
     return {"id": measure_id, "active": False}
