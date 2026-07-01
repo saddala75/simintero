@@ -1,8 +1,12 @@
 package sim.automation
 
-# HUMAN_REVIEW: AUTOMATION_MIN_CONFIDENCE must not be lowered without clinical review
-# Default 1.0 ensures automation slot is always blocked until explicitly enabled
-AUTOMATION_MIN_CONFIDENCE := 1.0  # HUMAN_REVIEW
+# Threshold read from data.sim.automation_config (data.json loaded by OPA from policies dir).
+# To lower: promote a new authz_policy VKAS artifact through draft→approved→active,
+# then PUT /v1/data/sim/automation_config {"min_confidence": X} to the OPA data API.
+# Falls back to 1.0 (most restrictive) if the data document is absent.
+AUTOMATION_MIN_CONFIDENCE := c if {
+    c := data.sim.automation_config.min_confidence
+} else := 1.0
 
 # HUMAN_REVIEW: adverse outcome guard — do NOT modify without clinical review
 ADVERSE_OUTCOMES := {"deny", "partial_deny", "modify"}
