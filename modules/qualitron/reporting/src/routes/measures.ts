@@ -193,6 +193,32 @@ export function createMeasuresRouter(pool: Pool): Router {
     }
   });
 
+  // POST /v1/quality/submission-lock — lock a submission package for a tenant
+  router.post('/v1/quality/submission-lock', async (req, res, next) => {
+    try {
+      const tenantId = req.headers['x-sim-tenant-id'] as string | undefined;
+
+      if (!tenantId) {
+        res.status(401).json({ code: 'MISSING_TENANT_ID', detail: 'x-sim-tenant-id is required' });
+        return;
+      }
+
+      const lockedBy = (req.headers['x-sim-user-id'] as string | undefined) ?? 'system';
+
+      const { rows } = await pool.query(
+        `INSERT INTO qual.submission_lock (tenant_id, locked_by)
+         VALUES ($1, $2)
+         RETURNING lock_id, package_id, locked_at`,
+        [tenantId, lockedBy],
+      );
+
+      const row = rows[0] as { lock_id: string; package_id: string; locked_at: string };
+      res.status(201).json({ lockId: row.lock_id, packageId: row.package_id, lockedAt: row.locked_at });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }
 
