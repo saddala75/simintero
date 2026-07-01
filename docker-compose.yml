@@ -1311,6 +1311,8 @@ services:
     depends_on:
       qualitron-reporting:
         condition: service_healthy
+      portal-bff:
+        condition: service_healthy
 
   ai-ops-console:
     build:

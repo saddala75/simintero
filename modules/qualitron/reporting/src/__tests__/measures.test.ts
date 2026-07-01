@@ -59,6 +59,92 @@ describe('GET /v1/quality/measures', () => {
   });
 });
 
+// ─── Measures: performance ────────────────────────────────────────────────
+
+describe('GET /v1/quality/measures/performance', () => {
+  it('returns 401 when x-sim-tenant-id header is absent', async () => {
+    const app = express();
+    app.use(createMeasuresRouter(makePool()));
+
+    const res = await request(app).get('/v1/quality/measures/performance');
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('MISSING_TENANT_ID');
+  });
+
+  it('returns 200 with an array when qual.measure_run has completed rows', async () => {
+    const row = {
+      id: 'run-uuid',
+      code: 'hedis-col',
+      name: 'hedis-col',
+      period_start: '2024-01-01',
+      period_end: '2024-12-31',
+      status: 'completed',
+      numerator: '864',
+      denominator: '1200',
+      score: '0.72',
+    };
+    const pool = makePool([row]);
+    const app = express();
+    app.use(createMeasuresRouter(pool));
+
+    const res = await request(app)
+      .get('/v1/quality/measures/performance')
+      .set('x-sim-tenant-id', 'tenant_abc');
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      id: 'run-uuid',
+      code: 'hedis-col',
+      program: 'HEDIS',
+      score: 0.72,
+      target: 0,
+      trend: 0,
+      numerator: 864,
+      denominator: 1200,
+    });
+  });
+
+  it('returns 200 with an empty array when there are no completed runs', async () => {
+    const pool = makePool([]);
+    const app = express();
+    app.use(createMeasuresRouter(pool));
+
+    const res = await request(app)
+      .get('/v1/quality/measures/performance')
+      .set('x-sim-tenant-id', 'tenant_abc');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('derives program from the measure_ref prefix correctly', async () => {
+    const row = {
+      id: 'run-stars',
+      code: 'stars-d12',
+      name: 'stars-d12',
+      period_start: '2024-01-01',
+      period_end: '2024-12-31',
+      status: 'completed',
+      numerator: '400',
+      denominator: '500',
+      score: '0.80',
+    };
+    const pool = makePool([row]);
+    const app = express();
+    app.use(createMeasuresRouter(pool));
+
+    const res = await request(app)
+      .get('/v1/quality/measures/performance')
+      .set('x-sim-tenant-id', 'tenant_abc');
+
+    expect(res.status).toBe(200);
+    expect(res.body[0].program).toBe('STARS');
+  });
+});
+
 // ─── Measures: run summary ─────────────────────────────────────────────────
 
 describe('GET /v1/quality/measures/:runId/summary', () => {

@@ -28,6 +28,57 @@ export function createMeasuresRouter(pool: Pool): Router {
     }
   });
 
+  // GET /v1/quality/measures/performance — aggregated performance data for the quality UI
+  router.get('/v1/quality/measures/performance', async (req, res, next) => {
+    try {
+      const tenantId = req.headers['x-sim-tenant-id'] as string | undefined;
+
+      if (!tenantId) {
+        res.status(401).json({ code: 'MISSING_TENANT_ID', detail: 'x-sim-tenant-id is required' });
+        return;
+      }
+
+      const { rows } = await pool.query(
+        `SELECT
+           r.run_id       AS id,
+           r.measure_ref  AS code,
+           r.measure_ref  AS name,
+           r.period_start,
+           r.period_end,
+           r.status,
+           COALESCE(rpt.numerator_count, 0)   AS numerator,
+           COALESCE(rpt.denominator_count, 0) AS denominator,
+           COALESCE(rpt.rate, 0)              AS score
+         FROM qual.measure_run r
+         LEFT JOIN qual.measure_report rpt ON rpt.run_id = r.run_id
+         WHERE r.status = 'completed'
+           AND r.tenant_id = $1
+         ORDER BY r.started_at DESC`,
+        [tenantId],
+      );
+
+      const result = rows.map((row) => {
+        const prefix = String(row.code).split('-')[0]?.toUpperCase() ?? '';
+        return {
+          id: row.id,
+          code: row.code,
+          name: row.name,
+          program: prefix,
+          score: Number(row.score),
+          target: 0,
+          trend: 0,
+          population: Number(row.denominator),
+          numerator: Number(row.numerator),
+          denominator: Number(row.denominator),
+        };
+      });
+
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // GET /v1/quality/measures/:runId/summary — aggregate stats for a run
   router.get('/v1/quality/measures/:runId/summary', async (req, res, next) => {
     try {

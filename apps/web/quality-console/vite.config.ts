@@ -11,6 +11,10 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/qualitron/, '/v1/quality'),
       },
+      '/bff': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
     },
   },
 });
