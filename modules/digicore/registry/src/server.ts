@@ -1,5 +1,5 @@
 import '@sim/otel'
-import * as pg from 'pg'
+import pg from 'pg'
 import { Client as OSClientRaw } from '@opensearch-project/opensearch'
 import { createTenantDb } from '@sim/tenant-context-ts'
 import { setDb, setOsClient } from './index.js'
