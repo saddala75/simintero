@@ -19,7 +19,7 @@ jobs:
         run: |
           docker compose --profile conformance up -d --wait \
             postgres keycloak hapi redpanda minio digicore-runtime interop \
-            inferno-us-core inferno-smart inferno-pas inferno-crd inferno-dtr
+            inferno-us-core inferno-smart inferno-pas inferno-crd inferno-dtr inferno-deqm
       - name: Run Inferno suites
         run: bash scripts/run-inferno-suites.sh
       - name: Tear down

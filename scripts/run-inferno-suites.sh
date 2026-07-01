@@ -52,6 +52,7 @@ run_suite "smart"   "http://localhost:4546" "smart_app_launch"
 run_suite "pas"     "http://localhost:4547" "davinci_pas_v201"
 run_suite "crd"     "http://localhost:4548" "davinci_crd"
 run_suite "dtr"     "http://localhost:4549" "davinci_dtr"
+run_suite "deqm"    "http://localhost:4550" "davinci_deqm"
 
 echo ""
 echo "$FAILURES suite(s) failed."

@@ -1263,6 +1263,18 @@ services:
       portal-bff:
         condition: service_healthy
 
+  quality-console:
+    build:
+      context: .
+      dockerfile: apps/web/quality-console/Dockerfile
+    ports:
+      - "5177:80"
+    networks:
+      - sim-net
+    depends_on:
+      qualitron-reporting:
+        condition: service_healthy
+
   # ── Observability ──────────────────────────────────────────────────────────
 
   otel-collector:
@@ -1457,6 +1469,25 @@ services:
       FHIR_SERVER_URL: http://interop:8080/fhir
     depends_on:
       interop:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4567/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    networks:
+      - sim-net
+
+  inferno-deqm:
+    image: ghcr.io/inferno-framework/davinci-deqm-test-kit:latest
+    profiles: [conformance]
+    ports:
+      - "4550:4567"
+    environment:
+      FHIR_SERVER_URL: http://hapi:8080/fhir
+    depends_on:
+      hapi:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:4567/"]
