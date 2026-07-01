@@ -1,5 +1,7 @@
 import json
 import uuid
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from simintero_outbox import SchemaRef, make_envelope
 
@@ -268,6 +270,122 @@ async def test_adverse_decision_without_reason_still_notifies(pg_pool, kafka_boo
     assert len(notif) == 1, f"expected one NOTIFICATION_SENT, got {len(notif)}"
     body = notif[0]["payload"]["body"]
     assert "Reason:" not in body, body
+
+
+@pytest.mark.asyncio
+async def test_adverse_decision_notifies_claims_service(pg_pool, kafka_bootstrap):
+    """A denied DECISION_RECORDED must call claims-service /v1/internal/pa-denial
+    with the correct payload after render_and_dispatch completes."""
+    from enstellar_workflow.comms.consumers.decision_recorded import DecisionRecordedConsumer
+    from enstellar_workflow.comms.service import NotificationService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+
+    tenant_id = f"tenant-claims-handoff-{uuid.uuid4()}"
+    case_id = str(uuid.uuid4())
+
+    # Seed a denial template so render_and_dispatch succeeds
+    async with pg_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO notification_templates "
+            "(tenant_id, event_type, channel, subject_template, body_template) "
+            "VALUES ($1, 'denied', 'portal', 'Denied', 'Case {{ case_id }} denied')",
+            tenant_id,
+        )
+
+    publisher = OutboxPublisher()
+    service = NotificationService(publisher)
+    consumer = DecisionRecordedConsumer(pg_pool, service)
+
+    event = make_envelope(
+        SchemaRef.DECISION_RECORDED,
+        tenant_id=tenant_id,
+        actor_id="system",
+        actor_type="system",
+        correlation_id=str(uuid.uuid4()),
+        payload={
+            "case_id": case_id,
+            "outcome": "denied",
+            "reason": "conservative therapy not documented",
+        },
+    )
+
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+
+    # Patch httpx.AsyncClient so no real HTTP call is made
+    with patch(
+        "enstellar_workflow.comms.consumers.decision_recorded.httpx.AsyncClient"
+    ) as mock_client_cls:
+        mock_client_instance = AsyncMock()
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+        mock_client_instance.post = AsyncMock(return_value=mock_response)
+        mock_client_cls.return_value = mock_client_instance
+
+        await consumer.handle(event)
+
+    # Assert the claims-service POST was called with the right URL and payload
+    mock_client_instance.post.assert_called_once()
+    call_args = mock_client_instance.post.call_args
+    assert "/v1/internal/pa-denial" in call_args.args[0]
+    posted_body = call_args.kwargs["json"]
+    assert posted_body["case_id"] == case_id
+    assert posted_body["outcome"] == "denied"
+    assert posted_body["reason"] == "conservative therapy not documented"
+    assert posted_body["tenant_id"] == tenant_id
+
+
+@pytest.mark.asyncio
+async def test_claims_service_failure_does_not_block_notification(pg_pool, kafka_bootstrap):
+    """If claims-service is unreachable, handle() must still complete normally
+    (exception swallowed) so the Kafka offset commits and the notification fires."""
+    from enstellar_workflow.comms.consumers.decision_recorded import DecisionRecordedConsumer
+    from enstellar_workflow.comms.service import NotificationService
+    from enstellar_workflow.outbox.publisher import OutboxPublisher
+
+    tenant_id = f"tenant-claims-fail-{uuid.uuid4()}"
+    case_id = str(uuid.uuid4())
+
+    async with pg_pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO notification_templates "
+            "(tenant_id, event_type, channel, subject_template, body_template) "
+            "VALUES ($1, 'denied', 'portal', 'Denied', 'Case {{ case_id }} denied')",
+            tenant_id,
+        )
+
+    publisher = OutboxPublisher()
+    service = NotificationService(publisher)
+    consumer = DecisionRecordedConsumer(pg_pool, service)
+
+    event = make_envelope(
+        SchemaRef.DECISION_RECORDED,
+        tenant_id=tenant_id,
+        actor_id="system",
+        actor_type="system",
+        correlation_id=str(uuid.uuid4()),
+        payload={"case_id": case_id, "outcome": "denied"},
+    )
+
+    with patch(
+        "enstellar_workflow.comms.consumers.decision_recorded.httpx.AsyncClient"
+    ) as mock_client_cls:
+        mock_client_instance = AsyncMock()
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+        mock_client_instance.post = AsyncMock(side_effect=Exception("connection refused"))
+        mock_client_cls.return_value = mock_client_instance
+
+        # Must not raise — exception is caught and logged inside _notify_claims_service
+        await consumer.handle(event)
+
+    # The notification_log row must still exist despite the claims-service failure
+    async with pg_pool.acquire() as conn:
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM notification_log WHERE tenant_id=$1 AND case_id=$2",
+            tenant_id, uuid.UUID(case_id),
+        )
+    assert count == 1, "notification must fire even when claims-service call fails"
 
 
 @pytest.mark.asyncio

@@ -85,5 +85,32 @@ export function buildInternalRouter(pool: Pool): express.Router {
     return res.status(200).json({ ok: true });
   });
 
+  router.post('/pa-denial', async (req, res) => {
+    const { case_id, outcome, reason, tenant_id } = req.body as Record<string, unknown>;
+
+    if (!case_id || !outcome || !tenant_id) {
+      return res.status(400).json({ error: 'Required: case_id, outcome, tenant_id' });
+    }
+
+    // UPDATE must run inside withTenant so the RLS GUC is set for the sim_app role.
+    // Lookup is by case_id (not claim_id) — the claim row carries case_id as a FK.
+    const rows = await withTenant(pool, tenant_id as string, async (client) => {
+      const { rows } = await client.query<{ claim_id: string }>(
+        `UPDATE claims.claim
+            SET pa_decision = $1, pa_denied_at = now(), pa_denial_reason = $2
+          WHERE case_id = $3::uuid AND tenant_id = $4
+          RETURNING claim_id`,
+        [outcome, reason ?? null, case_id, tenant_id],
+      );
+      return rows;
+    });
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No claim found for case' });
+    }
+
+    return res.status(200).json({ ok: true });
+  });
+
   return router;
 }

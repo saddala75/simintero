@@ -1120,6 +1120,8 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_healthy
+      claims-service:
+        condition: service_healthy
     environment:
       WORKFLOW_DB_URL: postgresql+asyncpg://workflow:${WORKFLOW_DB_PASSWORD:-workflow_secret}@pgbouncer:5432/workflow
       # Second pool target for the fabric bridge: the simintero DB as sim_app
@@ -1155,6 +1157,8 @@ services:
       WORKFLOW_SMTP_FROM_ADDR: "${SMTP_FROM_ADDR:-noreply@simintero.local}"
       # OIDC audience — must match Keycloak client ID; enforced in all environments
       WORKFLOW_OIDC_AUDIENCE: "${WORKFLOW_OIDC_AUDIENCE:-enstellar-workflow}"
+      # Claims-service PA denial handoff (Phase 3.2)
+      WORKFLOW_CLAIMS_SERVICE_URL: http://claims-service:3016
     networks: [sim-net]
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]

@@ -5,6 +5,7 @@ import logging
 import uuid
 
 import asyncpg
+import httpx
 
 from canonical_model import EventEnvelope
 from simintero_outbox import SchemaRef, Topics
@@ -14,6 +15,37 @@ from enstellar_workflow.kafka.consumer import IdempotentKafkaConsumer
 
 
 logger = logging.getLogger(__name__)
+
+_ADVERSE_OUTCOMES = {"denied", "partially_denied", "adverse_modification"}
+
+
+async def _notify_claims_service(
+    *, case_id: str, outcome: str, reason: str | None, tenant_id: str
+) -> None:
+    """Fire-and-forget POST to claims-service /v1/internal/pa-denial.
+
+    Exceptions are logged and swallowed so a claims-service outage never
+    prevents the Kafka offset from committing or the denial notice from
+    being delivered.
+    """
+    from enstellar_workflow.config import get_settings  # lazy import avoids circular
+
+    url = f"{get_settings().claims_service_url}/v1/internal/pa-denial"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                url,
+                json={
+                    "case_id": case_id,
+                    "outcome": outcome,
+                    "reason": reason,
+                    "tenant_id": tenant_id,
+                },
+            )
+    except Exception:
+        logger.warning(
+            "claims-service pa-denial call failed for case %s", case_id, exc_info=True
+        )
 
 
 class DecisionRecordedConsumer(IdempotentKafkaConsumer):
@@ -77,4 +109,13 @@ class DecisionRecordedConsumer(IdempotentKafkaConsumer):
                 correlation_id=event.correlation_id,
                 causation_id=event.event_id,
                 lob=lob,
+            )
+        # Notify claims-service AFTER render_and_dispatch so a claims-service
+        # outage cannot block denial-notice delivery.
+        if outcome in _ADVERSE_OUTCOMES:
+            await _notify_claims_service(
+                case_id=str(case_id),
+                outcome=outcome,
+                reason=event.payload.get("reason"),
+                tenant_id=event.tenant.tenant_id,
             )

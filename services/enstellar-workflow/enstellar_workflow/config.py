@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     # in-process guard (engine/guards.py) remains as defense-in-depth.
     opa_url: str = "http://localhost:8181"
 
+    # --- Claims-service handoff (Phase 3.2) ----------------------------------
+    # Internal endpoint that records the PA denial outcome on claims.claim.
+    # The enstellar-workflow compose service name is `claims-service` (port 3016).
+    claims_service_url: str = "http://claims-service:3016"
+
     # --- Notice delivery (Gap 2) — SMTP for email channel ---
     smtp_host: str = "localhost"
     smtp_port: int = 587
