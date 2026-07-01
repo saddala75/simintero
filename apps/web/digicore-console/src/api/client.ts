@@ -18,6 +18,10 @@ export interface PolicyArtifact {
   }>
 }
 
+export interface VkasStats {
+  by_status: Record<string, number>
+}
+
 const MOCK_ARTIFACTS: PolicyArtifact[] = [
   {
     id: 'POL-001',
@@ -226,4 +230,14 @@ export async function createArtifact(payload: Partial<PolicyArtifact>): Promise<
     // Fallback mock seam
   }
   return { id: `POL-00${Math.floor(Math.random() * 900 + 100)}` }
+}
+
+export async function getVkasStats(): Promise<VkasStats> {
+  try {
+    const res = await fetch('/vkas/v1/stats')
+    if (!res.ok) return { by_status: {} }
+    return (await res.json()) as Promise<VkasStats>
+  } catch {
+    return { by_status: {} }
+  }
 }

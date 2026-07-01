@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getArtifacts, type PolicyArtifact } from '../api/client'
+import { getArtifacts, getVkasStats, type PolicyArtifact } from '../api/client'
 import { Card, Badge, Button } from '@sim/design-system'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -27,6 +27,11 @@ export function PolicyListPage() {
   const { data: artifacts = [], isLoading } = useQuery({
     queryKey: ['artifacts', selectedType, selectedStatus, selectedLob],
     queryFn: () => getArtifacts(selectedType, selectedStatus, selectedLob, 'all'),
+  })
+
+  const { data: stats } = useQuery({
+    queryKey: ['vkas-stats'],
+    queryFn: getVkasStats,
   })
 
   const filtered = useMemo(() =>
@@ -65,10 +70,10 @@ export function PolicyListPage() {
         {/* Stats strip */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: 'Active Policies', value: '1,482', sub: '+12 this month', subColor: 'text-emerald-600' },
+            { label: 'Active Policies', value: stats?.by_status['active'] ?? '—', sub: '+12 this month', subColor: 'text-emerald-600' },
             { label: 'ELM Compliance', value: '99.8%', sub: 'Validated', subColor: 'text-emerald-600' },
-            { label: 'Pending Sandbox', value: '24', sub: 'Awaiting simulation', subColor: 'text-amber-600' },
-            { label: 'Impact Simulations', value: '8,102', sub: 'DIG-SIM repository', subColor: 'text-slate-500' },
+            { label: 'Pending Sandbox', value: stats?.by_status['draft'] ?? '—', sub: 'Awaiting simulation', subColor: 'text-amber-600' },
+            { label: 'Impact Simulations', value: '—', sub: 'DIG-SIM repository', subColor: 'text-slate-500' },
           ].map((s) => (
             <Card key={s.label} className="p-5">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{s.label}</div>
