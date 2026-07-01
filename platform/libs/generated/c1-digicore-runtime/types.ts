@@ -124,6 +124,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         pa_required: boolean;
+                        source_type: string | null;
                         governing_rules: {
                             rule_id: string;
                             version: string;

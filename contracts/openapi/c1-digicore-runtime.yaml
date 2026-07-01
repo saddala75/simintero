@@ -65,6 +65,9 @@ paths:
                   dtr_package_ref:
                     type: ["string", "null"]
                     description: "DTR package ref, or null when no DTR package applies"
+                  source_type:
+                    type: ["string", "null"]
+                    description: "Content provenance: cms | internal | fda | licensee | null"
 
   /v1/runtime/evaluate:
     post:

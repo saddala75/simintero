@@ -236,6 +236,10 @@ export function PolicyDetailPage() {
                   <span className="text-slate-500">Effective Window</span>
                   <span className="font-mono font-semibold">{artifact?.effective_date} to Open</span>
                 </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500">Source Type</span>
+                  <span className="font-semibold capitalize">{(artifact as any)?.source_type ?? '—'}</span>
+                </div>
               </div>
             </Card>
 

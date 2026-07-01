@@ -10,5 +10,6 @@ public record CoverageRule(
     String dtrPackageRef,
     List<Map<String, Object>> evidenceRequirements,
     String elmRef,
-    String elmVersion
+    String elmVersion,
+    @com.fasterxml.jackson.annotation.JsonProperty("source_type") String sourceType
 ) {}
