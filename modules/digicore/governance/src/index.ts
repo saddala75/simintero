@@ -8,6 +8,8 @@ import { createQueueRouter } from './routes/queue.js';
 import { createApproveRouter } from './routes/approve.js';
 import { createActivateRouter } from './routes/activate.js';
 import type { VkasClient } from './routes/activate.js';
+import { createRollbackRouter } from './routes/rollback.js';
+import type { VkasRollbackClient } from './routes/rollback.js';
 import { createEnqueueRouter } from './routes/enqueue.js';
 import { PgGovernanceStore } from './store/PgGovernanceStore.js';
 import { requireAuth, createJwksVerifier } from './middleware/requireAuth.js';
@@ -27,6 +29,8 @@ export type { ApproveInput, ApproveSuccess } from './routes/approve.js';
 export { handleApprove, createApproveRouter } from './routes/approve.js';
 export type { ActivateInput, VkasClient } from './routes/activate.js';
 export { handleActivate, createActivateRouter } from './routes/activate.js';
+export type { RollbackInput, VkasRollbackClient } from './routes/rollback.js';
+export { handleRollback, createRollbackRouter } from './routes/rollback.js';
 export type { QueueResult } from './routes/queue.js';
 export { handleQueue, createQueueRouter } from './routes/queue.js';
 export type { EnqueueInput } from './routes/enqueue.js';
@@ -44,6 +48,18 @@ const fetchVkasClient: VkasClient = {
     });
     // 422 = StatusTransitionError (e.g. already active) — treat as idempotent success
     if (!r.ok && r.status !== 422) throw new Error(`VKAS activate failed (${r.status}) for ${canonicalUrl}`);
+  },
+};
+
+const fetchVkasRollbackClient: VkasRollbackClient = {
+  rollback: async (canonicalUrl: string, version: string, reason: string, incidentRef: string | null): Promise<void> => {
+    const encoded = encodeURIComponent(canonicalUrl)
+    const r = await fetch(`${vkasBaseUrl}/v1/artifacts/${encoded}/${version}/rollback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason, incident_ref: incidentRef }),
+    })
+    if (!r.ok) throw new Error(`VKAS rollback failed (${r.status}) for ${canonicalUrl}@${version}`)
   },
 };
 
@@ -95,6 +111,7 @@ if (process.env['NODE_ENV'] !== 'test') {
   app.use(createEnqueueRouter(store));
   app.use(createApproveRouter(store, enforcer));
   app.use(createActivateRouter(store, enforcer, fetchVkasClient));
+  app.use(createRollbackRouter(store, fetchVkasRollbackClient));
 
   app.listen(port, () => {
     console.log(`[digicore-governance] listening on :${port}`);

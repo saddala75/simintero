@@ -18,6 +18,7 @@ export function PolicyDetailPage() {
   const [selectedVersion, setSelectedVersion] = useState<string>('')
   const [showDiff, setShowDiff] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [rollbackReason, setRollbackReason] = useState('')
 
   useEffect(() => {
     if (artifact?.version) {
@@ -26,7 +27,7 @@ export function PolicyDetailPage() {
   }, [artifact])
 
   const rollbackMut = useMutation({
-    mutationFn: () => rollbackArtifact(id || 'POL-001', selectedVersion),
+    mutationFn: () => rollbackArtifact(id || 'POL-001', selectedVersion, rollbackReason),
     onSuccess: () => {
       setActionMessage(`Successfully triggered rollback of ${id} to version ${selectedVersion}!`)
       queryClient.invalidateQueries({ queryKey: ['artifact', id] })
@@ -140,10 +141,18 @@ export function PolicyDetailPage() {
             <Button variant="ghost" size="sm" onClick={() => setShowDiff(!showDiff)}>
               {showDiff ? 'Hide Version Diff' : 'View Version Diff'}
             </Button>
+            <input
+              type="text"
+              value={rollbackReason}
+              onChange={(e) => setRollbackReason(e.target.value)}
+              placeholder="Rollback reason (required)"
+              className="px-2 py-1.5 border border-slate-300 rounded text-xs font-mono w-56"
+            />
             <Button
               variant="danger"
               size="sm"
               loading={rollbackMut.isPending}
+              disabled={!rollbackReason.trim()}
               onClick={() => rollbackMut.mutate()}
             >
               Rollback to Selected

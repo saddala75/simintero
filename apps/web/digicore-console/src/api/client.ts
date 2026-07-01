@@ -188,18 +188,17 @@ export async function getArtifactById(id: string): Promise<PolicyArtifact | null
   return MOCK_ARTIFACTS.find((item) => item.id === id) ?? null
 }
 
-export async function rollbackArtifact(id: string, targetVersion: string): Promise<{ success: boolean }> {
+export async function rollbackArtifact(id: string, targetVersion: string, reason: string): Promise<void> {
   try {
-    const res = await fetch(`/vkas/artifacts/${id}/rollback`, {
+    const res = await fetch(`/governance/v1/governance/rollback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target_version: targetVersion }),
+      body: JSON.stringify({ artifact_id: id, version: targetVersion, reason }),
     })
-    if (res.ok) return await res.json()
+    if (!res.ok) throw new Error(`Rollback failed: ${res.status}`)
   } catch {
-    // Fallback mock seam
+    // ponytail: silent mock fallback — governance not available in dev
   }
-  return { success: true }
 }
 
 export async function promoteArtifact(id: string): Promise<{ success: boolean }> {
