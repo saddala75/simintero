@@ -1278,6 +1278,18 @@ services:
       qualitron-reporting:
         condition: service_healthy
 
+  saas-admin:
+    build:
+      context: .
+      dockerfile: apps/web/saas-admin/Dockerfile
+    ports:
+      - "5179:80"
+    networks:
+      - sim-net
+    depends_on:
+      control-plane:
+        condition: service_healthy
+
   # ── Observability ──────────────────────────────────────────────────────────
 
   otel-collector:
