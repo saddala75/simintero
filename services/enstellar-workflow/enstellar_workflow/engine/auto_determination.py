@@ -224,6 +224,16 @@ class AutoDeterminator:
             decision=decision,
         )
 
+        # 2b. Store artifact-version URNs so appeal replay can pass them back to
+        # Digicore to bypass VKAS and evaluate against the original policy version.
+        await conn.execute(
+            "UPDATE workflow_instances SET artifact_pins = $1"
+            " WHERE case_id = $2 AND tenant_id = $3",
+            resp.structured_trace.governing_artifacts,
+            case.case_id,
+            case.tenant_id,
+        )
+
         # 3. Emit decision.recorded event to the outbox (same transaction).
         event = make_envelope(
             SchemaRef.DECISION_RECORDED,

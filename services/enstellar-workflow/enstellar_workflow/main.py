@@ -26,6 +26,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from simintero_authz import AuthError, ForbiddenError
 from enstellar_connectors.digicore.client import DigiCoreClient
 from enstellar_workflow.api.router import router as cases_router
+from enstellar_workflow.api.replay import router as replay_router
 from enstellar_workflow.api.worklist_router import router as worklist_router
 from enstellar_workflow.appeals.api import router as appeals_router
 from enstellar_workflow.grievances.api import router as grievances_router
@@ -260,6 +261,7 @@ app.middleware("http")(otel_enrich)
 
 app.include_router(normalization_router)
 app.include_router(cases_router)
+app.include_router(replay_router)
 app.include_router(criteria_router)
 app.include_router(suggestions_router)
 app.include_router(worklist_router)

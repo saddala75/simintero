@@ -143,6 +143,61 @@ class DigiCoreClient:
             ev = EvaluationResponse.model_validate(resp.json())
         return self._map_evaluation(ev)
 
+    async def evaluate_raw(self, req: EvaluationRequest) -> EvaluationResponse:
+        """Call POST /v1/runtime/evaluate with an EvaluationRequest directly.
+
+        Used by the appeal replay endpoint to pass stored artifact-version URN
+        pins to Digicore so PinResolver bypasses VKAS and evaluates against the
+        original policy version. Returns the raw EvaluationResponse without
+        mapping to the legacy DecisionResponse shape.
+
+        Raises:
+            CircuitOpenError: if the circuit is open (too many recent failures).
+            httpx.HTTPStatusError: on non-retried HTTP errors (e.g. 400, 500).
+            httpx.ConnectError: if connection fails after all retries.
+            httpx.TimeoutException: if the request times out after all retries.
+        """
+        if self._circuit.is_open():
+            raise CircuitOpenError(
+                f"Digicore circuit breaker is open after {self._circuit.failure_count} "
+                f"consecutive failures"
+            )
+        try:
+            result = await self._call_raw_with_retry(req)
+        except Exception as exc:
+            if _is_transient(exc):
+                self._circuit.record_failure()
+            raise
+        else:
+            self._circuit.record_success()
+            return result
+
+    async def _call_raw_with_retry(self, req: EvaluationRequest) -> EvaluationResponse:
+        """Inner retry loop for the raw evaluate path."""
+        async for attempt in AsyncRetrying(
+            retry=retry_if_exception(_is_transient),
+            stop=stop_after_attempt(self._max_attempts),
+            wait=wait_exponential(multiplier=1, min=1, max=30),
+            reraise=True,
+        ):
+            with attempt:
+                return await self._single_raw_call(req)
+        # unreachable; AsyncRetrying with reraise=True always raises on exhaustion
+        raise RuntimeError("Unreachable: tenacity loop exited without return or raise")
+
+    async def _single_raw_call(self, req: EvaluationRequest) -> EvaluationResponse:
+        """POST EvaluationRequest to /v1/runtime/evaluate, return raw EvaluationResponse."""
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=self._timeout,
+        ) as client:
+            resp = await client.post(
+                "/v1/runtime/evaluate",
+                json=req.model_dump(),
+            )
+            resp.raise_for_status()
+            return EvaluationResponse.model_validate(resp.json())
+
     @staticmethod
     def _map_evaluation(ev: EvaluationResponse) -> DecisionResponse:
         """Map a digicore-runtime EvaluationResponse to the legacy DecisionResponse.
