@@ -33,7 +33,7 @@ class EvidenceRequirementsControllerTest {
                 List.of(
                     Map.of("requirement_id","conservative_therapy_6wk","display","Conservative therapy 6wk","required",true),
                     Map.of("requirement_id","neuro_deficit_or_red_flag","display","Neuro deficit or red flag","required",true)),
-                "https://artifacts.simintero.io/shared/cql_library/lumbar-spine-mri", "1.0.0")));
+                "https://artifacts.simintero.io/shared/cql_library/lumbar-spine-mri", "1.0.0", null)));
         mvc.perform(post("/v1/runtime/evidence-requirements:resolve").contentType("application/json")
                 .content("{\"service_code\":\"72148\"}"))
            .andExpect(status().isOk())

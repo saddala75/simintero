@@ -1,46 +1,52 @@
 package io.simintero.digicore.runtime.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.simintero.digicore.runtime.engine.RuleContext;
+import io.simintero.digicore.runtime.engine.VkasClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.InputStream;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * C-1 operations:
- *   GET  /v1/runtime/dtr-packages/{ref}  — fetch a DTR questionnaire package by ref
- *   POST /v1/runtime/dtr-packages        — create / look up a DTR package (Phase 1: echo back knee package)
+ *   GET  /v1/runtime/dtr-packages/{ref}  — fetch a DTR questionnaire package by VKAS canonical_url ref
+ *   POST /v1/runtime/dtr-packages        — resolve a DTR package by ref from the request body
  *
- * Returns the DTR questionnaire package.
+ * Both endpoints resolve via VKAS. Returns 404 when the ref is not found; VKAS outage degrades
+ * gracefully to 404 (HttpVkasClient returns Optional.empty() on exception).
  */
 @RestController
 @RequestMapping("/v1/runtime/dtr-packages")
 public class DtrPackageController {
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final VkasClient vkasClient;
+
+    @Autowired
+    public DtrPackageController(VkasClient vkasClient) {
+        this.vkasClient = vkasClient;
+    }
 
     @GetMapping("/{ref}")
     public ResponseEntity<?> getPackage(@PathVariable String ref) {
-        return loadDtrPackage();
+        Optional<JsonNode> content = vkasClient.resolveContent(ref, null, RuleContext.empty());
+        return content
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElse(ResponseEntity.status(404).body(Map.of("error", "No DTR package for ref: " + ref)));
     }
 
     @PostMapping
     public ResponseEntity<?> resolvePackage(@RequestBody Map<String, Object> request) {
-        return loadDtrPackage();
-    }
-
-    private ResponseEntity<?> loadDtrPackage() {
-        try (InputStream is = getClass().getResourceAsStream("/dtr/knee-arthroscopy-dtr.json")) {
-            if (is == null) {
-                return ResponseEntity.notFound().build();
-            }
-            JsonNode node = mapper.readTree(is);
-            return ResponseEntity.ok(node);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to load DTR package: " + e.getMessage()));
+        Object refObj = request.get("dtr_package_ref");
+        if (refObj == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "dtr_package_ref is required"));
         }
+        String ref = refObj.toString();
+        Optional<JsonNode> content = vkasClient.resolveContent(ref, null, RuleContext.empty());
+        return content
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElse(ResponseEntity.status(404).body(Map.of("error", "No DTR package for ref: " + ref)));
     }
 }
