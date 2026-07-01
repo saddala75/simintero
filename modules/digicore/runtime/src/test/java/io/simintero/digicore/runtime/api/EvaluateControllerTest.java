@@ -38,7 +38,7 @@ class EvaluateControllerTest {
         when(traceBuilder.newTraceRef(anyString())).thenReturn("trace:1");
         when(traceBuilder.buildLogicPath(any())).thenReturn(List.of());
         var rule = new CoverageRule(List.of("72148"), true, List.of("urn:sim:policy:lumbar-spine-mri:1.0.0"),
-            null, List.of(), ELM_REF, "1.0.0", null);
+            null, List.of(), ELM_REF, "1.0.0", null, null, List.of());
         when(ruleResolver.resolveByProcedure(eq("72148"), any(RuleContext.class))).thenReturn(Optional.of(rule));
         when(ruleResolver.resolveCql(eq(ELM_REF), eq("1.0.0"), any())).thenReturn(Optional.of(CQL));
         when(cqfEvaluator.evaluate(any(), any(), any(), any(), any()))

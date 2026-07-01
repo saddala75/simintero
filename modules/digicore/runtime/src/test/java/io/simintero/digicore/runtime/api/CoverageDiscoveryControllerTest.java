@@ -33,7 +33,7 @@ class CoverageDiscoveryControllerTest {
                 List.of("urn:sim:policy:knee-arthroscopy:1.0.0"),
                 "urn:sim:dtr:knee-arthroscopy:1.0.0",
                 List.of(Map.of("requirement_id","diagnosis_documented","required",true)),
-                "https://artifacts.simintero.io/shared/cql_library/knee-arthroscopy", "1.0.0", null)));
+                "https://artifacts.simintero.io/shared/cql_library/knee-arthroscopy", "1.0.0", null, null, List.of())));
         mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
                 .content("{\"service_code\":\"27447\",\"procedure_code\":\"27447\"}"))
            .andExpect(status().isOk())
@@ -51,7 +51,7 @@ class CoverageDiscoveryControllerTest {
                 List.of("urn:sim:policy:lumbar-spine-mri:1.0.0"),
                 "urn:sim:dtr:lumbar-spine-mri:1.0.0",
                 List.of(Map.of("requirement_id","conservative_therapy_6wk","required",true)),
-                "https://artifacts.simintero.io/shared/cql_library/lumbar-spine-mri", "1.0.0", null)));
+                "https://artifacts.simintero.io/shared/cql_library/lumbar-spine-mri", "1.0.0", null, null, List.of())));
         mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
                 .content("{\"service_code\":\"72148\",\"procedure_code\":\"72148\"}"))
            .andExpect(status().isOk())
@@ -77,11 +77,11 @@ class CoverageDiscoveryControllerTest {
         when(ruleResolver.resolveByProcedure(eq("27447"), any(RuleContext.class)))
             .thenReturn(Optional.of(new CoverageRule(
                 List.of("27447"), true, List.of(), "urn:sim:dtr:knee-arthroscopy:1.0.0",
-                List.of(), null, "1.0.0", null)));
+                List.of(), null, "1.0.0", null, null, List.of())));
         when(ruleResolver.resolveByProcedure(eq("72148"), any(RuleContext.class)))
             .thenReturn(Optional.of(new CoverageRule(
                 List.of("72148"), true, List.of(), "urn:sim:dtr:lumbar-spine-mri:1.0.0",
-                List.of(), null, "1.0.0", null)));
+                List.of(), null, "1.0.0", null, null, List.of())));
 
         mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
                 .content("{\"procedure_codes\":[\"27447\",\"72148\"]}"))
@@ -96,7 +96,7 @@ class CoverageDiscoveryControllerTest {
         when(ruleResolver.resolveByProcedure(eq("27447"), any(RuleContext.class)))
             .thenReturn(Optional.of(new CoverageRule(
                 List.of("27447"), true, List.of("urn:sim:policy:knee-arthroscopy:1.0.0"),
-                "urn:sim:dtr:knee-arthroscopy:1.0.0", List.of(), null, "1.0.0", null)));
+                "urn:sim:dtr:knee-arthroscopy:1.0.0", List.of(), null, "1.0.0", null, null, List.of())));
         when(ruleResolver.resolveByProcedure(eq("99213"), any(RuleContext.class)))
             .thenReturn(Optional.empty());
 
@@ -112,7 +112,7 @@ class CoverageDiscoveryControllerTest {
         when(ruleResolver.resolveByProcedure(eq("27447"), any(RuleContext.class)))
             .thenReturn(Optional.of(new CoverageRule(
                 List.of("27447"), true, List.of("urn:sim:policy:knee-arthroscopy:1.0.0"),
-                "urn:sim:dtr:knee-arthroscopy:1.0.0", List.of(), null, "1.0.0", null)));
+                "urn:sim:dtr:knee-arthroscopy:1.0.0", List.of(), null, "1.0.0", null, null, List.of())));
 
         mvc.perform(post("/v1/runtime/coverage-discovery").contentType("application/json")
                 .content("{\"procedure_codes\":[\"27447\"]}"))

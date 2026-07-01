@@ -108,6 +108,48 @@ class RuleResolverTest {
         assertTrue(unresolved.resolveCql("u", "1.0.0", RuleContext.empty()).isEmpty());
     }
 
+    @Test
+    void resolveByProcedureFallsBackToNcdWhenPayerRuleAbsent() {
+        String ncdJson = """
+            {"procedure_codes":["27447"],"pa_required":true,
+             "coverage_indicator":"covered_with_limitations","source_type":"ncd",
+             "pins":[],"dtr_package_ref":null,"evidence_requirements":[],
+             "elm_ref":null,"elm_version":null,"relations":[]}
+            """;
+        VkasClient vkas = new VkasClient() {
+            public java.util.List<String> resolveDefaultPins(String s) { return java.util.List.of(); }
+            public Optional<JsonNode> resolveContent(String url, String v, RuleContext c) {
+                return url.startsWith("urn:cms:ncd:procedure:") ? Optional.of(n(ncdJson)) : Optional.empty();
+            }
+        };
+        RuleResolver rr = new RuleResolver(vkas, new CqlCompilerService());
+        Optional<CoverageRule> rule = rr.resolveByProcedure("27447", RuleContext.empty());
+        assertTrue(rule.isPresent());
+        assertEquals("ncd", rule.get().sourceType());
+        assertEquals("covered_with_limitations", rule.get().coverageIndicator());
+    }
+
+    @Test
+    void resolveByProcedurePayerRuleWinsOverNcd() {
+        AtomicInteger ncdCalls = new AtomicInteger();
+        VkasClient vkas = new VkasClient() {
+            public java.util.List<String> resolveDefaultPins(String s) { return java.util.List.of(); }
+            public Optional<JsonNode> resolveContent(String url, String v, RuleContext c) {
+                if (url.startsWith("urn:cms:ncd:procedure:")) { ncdCalls.incrementAndGet(); return Optional.empty(); }
+                return Optional.of(n(COVERAGE_RULE_JSON));
+            }
+        };
+        RuleResolver rr = new RuleResolver(vkas, new CqlCompilerService());
+        assertTrue(rr.resolveByProcedure("27447", RuleContext.empty()).isPresent());
+        assertEquals(0, ncdCalls.get(), "NCD lookup must not run when payer rule is found");
+    }
+
+    @Test
+    void resolveByProcedureEmptyWhenNeitherPayerNorNcdExists() {
+        assertTrue(new RuleResolver(stubReturning(null), new CqlCompilerService())
+            .resolveByProcedure("99999", RuleContext.empty()).isEmpty());
+    }
+
     private VkasClient stubReturning(String json) {
         return new VkasClient() {
             public java.util.List<String> resolveDefaultPins(String s) { return java.util.List.of(); }

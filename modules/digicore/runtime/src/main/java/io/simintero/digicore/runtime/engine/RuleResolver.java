@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RuleResolver {
     static final String COVERAGE_RULE_BASE = "https://artifacts.simintero.io/shared/coverage_rule/";
+    static final String NCD_PROCEDURE_BASE = "urn:cms:ncd:procedure:";
 
     private final VkasClient vkas;
     private final CqlCompilerService compiler;
@@ -23,15 +24,20 @@ public class RuleResolver {
 
     public Optional<CoverageRule> resolveByProcedure(String procedureCode, RuleContext ctx) {
         if (procedureCode == null || procedureCode.isBlank()) return Optional.empty();
-        return vkas.resolveContent(COVERAGE_RULE_BASE + procedureCode, null, ctx).map(this::parse);
+        Optional<CoverageRule> payer = vkas.resolveContent(COVERAGE_RULE_BASE + procedureCode, null, ctx).map(this::parse);
+        if (payer.isPresent()) return payer;
+        return vkas.resolveContent(NCD_PROCEDURE_BASE + procedureCode, null, ctx).map(this::parse);
     }
 
     @SuppressWarnings("unchecked")
     private CoverageRule parse(JsonNode c) {
         List<Map<String, Object>> reqs = new ArrayList<>();
         c.path("evidence_requirements").forEach(r -> reqs.add(mapper.convertValue(r, Map.class)));
+        List<Map<String, Object>> relations = new ArrayList<>();
+        c.path("relations").forEach(r -> relations.add(mapper.convertValue(r, Map.class)));
         JsonNode dtr = c.path("dtr_package_ref");
-        JsonNode sourceType = c.path("source_type");
+        JsonNode st = c.path("source_type");
+        JsonNode ci = c.path("coverage_indicator");
         return new CoverageRule(
             list(c.path("procedure_codes")),
             c.path("pa_required").asBoolean(false),
@@ -40,7 +46,9 @@ public class RuleResolver {
             reqs,
             c.path("elm_ref").isMissingNode() ? null : c.path("elm_ref").asText(),
             c.path("elm_version").isMissingNode() ? null : c.path("elm_version").asText(),
-            (sourceType.isMissingNode() || sourceType.isNull()) ? null : sourceType.asText());
+            (st.isMissingNode() || st.isNull()) ? null : st.asText(),
+            (ci.isMissingNode() || ci.isNull()) ? null : ci.asText(),
+            relations);
     }
 
     private static List<String> list(JsonNode arr) {
@@ -49,7 +57,6 @@ public class RuleResolver {
         return out;
     }
 
-    /** Resolve a cql_library artifact's ELM: content.elm if present, else compile content.cql. Cached by (elmRef, version). */
     public Optional<JsonNode> resolveElm(String elmRef, String elmVersion, RuleContext ctx) {
         if (elmRef == null) return Optional.empty();
         String key = elmRef + "@" + (elmVersion == null ? "" : elmVersion);
@@ -72,11 +79,6 @@ public class RuleResolver {
         return Optional.of(elm);
     }
 
-    /**
-     * Resolve a cql_library artifact's raw CQL text (content.cql). Returns empty when the artifact
-     * cannot be resolved or carries no non-blank {@code cql} key. The CQF engine compiles the CQL
-     * on demand, so the controller threads the raw text through (see {@link CqfEvaluator}).
-     */
     public Optional<String> resolveCql(String elmRef, String elmVersion, RuleContext ctx) {
         if (elmRef == null) return Optional.empty();
         Optional<JsonNode> content = vkas.resolveContent(elmRef, elmVersion, ctx);
