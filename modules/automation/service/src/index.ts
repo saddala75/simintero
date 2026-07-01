@@ -5,7 +5,6 @@ import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 
 const ADVERSE_OUTCOMES = new Set(['deny', 'partial_deny', 'modify']);
-const AUTOMATION_MIN_CONFIDENCE = 0.85;
 
 const pool = new Pool({
   connectionString: process.env['DATABASE_URL'] ?? 'postgres://sim:sim@localhost:5432/simintero',
@@ -49,7 +48,6 @@ app.post('/v1/automation/disposition', async (req: Request, res: Response) => {
   const analysisId = body.analysis_id ?? 'e2e-test';
 
   const isAdverse = ADVERSE_OUTCOMES.has(proposedOutcome);
-  const meetsConfidence = confidence >= AUTOMATION_MIN_CONFIDENCE;
 
   // All adverse outcomes are blocked regardless of confidence
   if (isAdverse) {
@@ -66,24 +64,6 @@ app.post('/v1/automation/disposition', async (req: Request, res: Response) => {
     res.status(422).json({
       error_code: 'SIM-AUTO-ADVERSE_BLOCKED',
       error: 'Adverse disposition outcomes require human review and cannot be automated',
-    });
-    return;
-  }
-
-  // Non-adverse but below confidence threshold
-  if (!meetsConfidence) {
-    await writeDispositionLog({
-      tenantId,
-      caseRef,
-      analysisId,
-      proposedOutcome,
-      allow: false,
-      denyReasons: ['CONFIDENCE_BELOW_THRESHOLD'],
-      dryRun: true,
-    });
-    res.status(422).json({
-      error_code: 'SIM-AUTO-LOW_CONFIDENCE',
-      error: `Confidence ${confidence} below threshold ${AUTOMATION_MIN_CONFIDENCE}`,
     });
     return;
   }
