@@ -23,6 +23,6 @@ COPY --from=builder /app/deploy/package.json ./package.json
 COPY --from=builder /repo/modules/digicore/simulation/dist ./dist
 COPY artifacts/synthetic/ /artifacts/synthetic/
 ENV NODE_ENV=production
-ENV PORT=3052
-EXPOSE 3052
+ENV PORT=3054
+EXPOSE 3054
 CMD ["node", "dist/index.js"]

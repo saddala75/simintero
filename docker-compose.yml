@@ -336,15 +336,15 @@ services:
       dockerfile: modules/digicore/simulation/Dockerfile
     environment:
       DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
-      PORT: "3052"
+      PORT: "3054"
       RUNTIME_BASE_URL: http://digicore-runtime:3020
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: digicore-simulation
     expose:
-      - "3052"
+      - "3054"
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3052/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3054/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 3
