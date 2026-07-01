@@ -794,6 +794,7 @@ services:
     environment:
       VSAC_BASE_URL: "${VSAC_BASE_URL:-https://vsac.nlm.nih.gov/vsac/svs}"
       VSAC_API_KEY: "${VSAC_API_KEY:-}"
+      VKAS_BASE_URL: http://vkas:3040
       PORT: "3051"
     ports:
       - "3051:3051"
