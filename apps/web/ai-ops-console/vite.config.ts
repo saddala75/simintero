@@ -11,6 +11,11 @@ export default defineConfig({
   server: {
     port: 5175,
     proxy: {
+      '/ai-ops': {
+        target: 'http://localhost:3011',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/ai-ops/, ''),
+      },
       '/api': {
         target: 'http://localhost:4080',
         changeOrigin: true,

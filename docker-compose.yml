@@ -1278,6 +1278,18 @@ services:
       qualitron-reporting:
         condition: service_healthy
 
+  ai-ops-console:
+    build:
+      context: .
+      dockerfile: apps/web/ai-ops-console/Dockerfile
+    ports:
+      - "5181:80"
+    networks:
+      - sim-net
+    depends_on:
+      model-gateway:
+        condition: service_healthy
+
   saas-admin:
     build:
       context: .
@@ -1289,6 +1301,15 @@ services:
     depends_on:
       control-plane:
         condition: service_healthy
+
+  analytics-console:
+    build:
+      context: .
+      dockerfile: apps/web/analytics-console/Dockerfile
+    ports:
+      - "5180:80"
+    networks:
+      - sim-net
 
   # ── Observability ──────────────────────────────────────────────────────────
 
