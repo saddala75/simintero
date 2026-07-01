@@ -236,7 +236,7 @@ export async function getVkasStats(): Promise<VkasStats> {
   try {
     const res = await fetch('/vkas/v1/stats')
     if (!res.ok) return { by_status: {} }
-    return (await res.json()) as Promise<VkasStats>
+    return (await res.json()) as VkasStats
   } catch {
     return { by_status: {} }
   }
