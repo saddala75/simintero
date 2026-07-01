@@ -48,5 +48,6 @@ async def _fwd_get(path: str, bearer: str) -> dict:
         base_url=settings.workflow_engine_url, timeout=10.0
     ) as client:
         r = await client.get(path, headers={"Authorization": f"Bearer {bearer}"})
-        r.raise_for_status()
-        return r.json()
+    if not r.is_success:
+        raise HTTPException(status_code=r.status_code, detail=r.text)
+    return r.json()
