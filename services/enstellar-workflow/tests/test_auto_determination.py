@@ -26,7 +26,7 @@ from canonical_model.case import Case, Status
 from canonical_model.decision import Decision, Outcome
 from enstellar_connectors import CircuitOpenError, DecisionRequest, DecisionResponse
 from enstellar_connectors.digicore.client import DigiCoreClient
-from enstellar_connectors.digicore.models import Pin, StructuredTrace
+from enstellar_connectors.digicore.models import EvaluationResponse, Pin, StructuredTrace
 from simintero_outbox import SchemaRef
 from simintero_tenant_context import tenant_transaction
 from enstellar_workflow.cases.repository import CaseRepository
@@ -642,3 +642,72 @@ async def test_pending_review_no_gaps_routes_to_clinical_review(pg_pool):
 
     assert result.status == Status.clinical_review
     assert await _fetch_rfi_dispatched(pg_pool, case) is None
+
+
+# ---------------------------------------------------------------------------
+# ══════════════════════════════════════════════════════════════════════════
+# P2.7 — artifact_pins write-path coverage
+# ══════════════════════════════════════════════════════════════════════════
+# Proves the full chain:
+#   EvaluationResponse.pins → DigiCoreClient._map_evaluation()
+#   → StructuredTrace.governing_artifacts
+#   → _approve() UPDATE workflow_instances.artifact_pins
+#
+# Neither test_replay_evaluation.py (seeds artifact_pins directly) nor the
+# unit tests above (mock conn, never assert DB) cover this write path.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_auto_approve_stores_artifact_pins(pg_pool):
+    """Proves the full write chain: EvaluationResponse.pins → _map_evaluation()
+    → governing_artifacts → artifact_pins persisted in workflow_instances.
+
+    Uses a real TransitionEngine + Postgres so the UPDATE is verified against
+    the actual schema. _map_evaluation() is called explicitly to build the
+    DecisionResponse from an EvaluationResponse so the entire pin-storage chain
+    is exercised end-to-end rather than bypassed by a hand-crafted StructuredTrace.
+    """
+    case = await _seed_auto_determination_case(pg_pool, "tenant-p27-pins")
+
+    # Exercise _map_evaluation() to build the DecisionResponse from an
+    # EvaluationResponse carrying a policy-version URN pin — the same path
+    # the real client takes when Digicore returns governing artifact URNs.
+    ev_resp = EvaluationResponse(
+        outcome="meets_all",
+        requirementGaps=[],
+        logicPath=[],
+        autoDetermination={},
+        pins=["urn:sim:policy:knee-arthroscopy:1.0.0"],
+        traceRef="trace-p27-001",
+    )
+    decision_resp = DigiCoreClient._map_evaluation(ev_resp)
+
+    # Pre-condition: _map_evaluation must have propagated ev.pins → governing_artifacts.
+    assert decision_resp.structured_trace.governing_artifacts == [
+        "urn:sim:policy:knee-arthroscopy:1.0.0"
+    ], "_map_evaluation must populate governing_artifacts from EvaluationResponse.pins"
+
+    digicore = AsyncMock(spec=DigiCoreClient)
+    digicore.evaluate_request.return_value = decision_resp
+    auto = AutoDeterminator(engine=TransitionEngine(), digicore=digicore)
+
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        result = await auto.run(conn, case, f"corr-{uuid.uuid4()}")
+
+    assert result.status == Status.approved
+
+    # Primary assertion: _approve() must have written the URN to the DB column
+    # so that appeal replay can retrieve and pass it back to Digicore.
+    async with tenant_transaction(pg_pool, case.tenant_id) as conn:
+        artifact_pins = await conn.fetchval(
+            "SELECT artifact_pins FROM workflow_instances"
+            " WHERE case_id=$1 AND tenant_id=$2",
+            case.case_id,
+            case.tenant_id,
+        )
+
+    assert artifact_pins == ["urn:sim:policy:knee-arthroscopy:1.0.0"], (
+        f"Expected artifact_pins=['urn:sim:policy:knee-arthroscopy:1.0.0'], "
+        f"got {artifact_pins!r}"
+    )
