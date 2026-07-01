@@ -301,6 +301,35 @@ services:
     networks:
       - sim-net
 
+  digicore-registry:
+    build:
+      context: .
+      dockerfile: modules/digicore/registry/Dockerfile
+    environment:
+      DATABASE_URL: postgres://sim_app:devpassword@pgbouncer:5432/simintero
+      PORT: "3010"
+      OPENSEARCH_URL: http://opensearch:9200
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: digicore-registry
+    expose:
+      - "3010"
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3010/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - sim-net
+
   task-service:
     build:
       context: .
